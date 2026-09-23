@@ -1,0 +1,113 @@
+{$ADMIN_DOMAIN} {
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https: data:; connect-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; frame-src 'self' https://{$SUPPORT_PRO_DOMAIN}"
+    }
+
+    encode zstd gzip
+    handle /api/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle /media/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle {
+        reverse_proxy admin:80
+    }
+}
+
+{$APP_DOMAIN} {
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https: data:; connect-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; frame-src 'self' https://{$SUPPORT_PRO_DOMAIN}"
+    }
+
+    encode zstd gzip
+    handle /api/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle /media/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle {
+        reverse_proxy miniapp:80
+    }
+}
+
+{$CABINET_DOMAIN} {
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https: data:; connect-src 'self' https:; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; frame-src 'self' https://{$SUPPORT_PRO_DOMAIN}"
+    }
+
+    encode zstd gzip
+    handle /api/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle /media/* {
+        reverse_proxy backend:8000 {
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+    handle {
+        reverse_proxy cabinet:80
+    }
+}
+
+{$API_DOMAIN} {
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https: data:; connect-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    }
+
+    encode zstd gzip
+    reverse_proxy backend:8000 {
+            header_up X-Forwarded-For {remote_host}
+        }
+}
+
+{$SUPPORT_PRO_DOMAIN} {
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        -X-Frame-Options
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors https://{$ADMIN_DOMAIN}; object-src 'none'; img-src 'self' https: data:; connect-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com"
+    }
+    encode zstd gzip
+    reverse_proxy support_pro:8000 {
+        header_up X-Forwarded-For {remote_host}
+    }
+}

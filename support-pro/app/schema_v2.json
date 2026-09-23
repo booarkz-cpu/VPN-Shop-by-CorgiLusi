@@ -1,0 +1,341 @@
+{
+  "attachments": {
+    "columns": {
+      "id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "ticket_id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "message_id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": true
+      },
+      "filename": {
+        "type": "String",
+        "length": 255,
+        "nullable": false
+      },
+      "path": {
+        "type": "String",
+        "length": 1000,
+        "nullable": false
+      },
+      "content_type": {
+        "type": "String",
+        "length": 255,
+        "nullable": true
+      },
+      "size": {
+        "type": "Integer",
+        "length": null,
+        "nullable": true
+      },
+      "telegram_file_id": {
+        "type": "String",
+        "length": 255,
+        "nullable": true
+      }
+    },
+    "pk": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "columns": [
+          "message_id"
+        ],
+        "table": "messages",
+        "references": [
+          "id"
+        ]
+      },
+      {
+        "columns": [
+          "ticket_id"
+        ],
+        "table": "tickets",
+        "references": [
+          "id"
+        ]
+      }
+    ],
+    "unique": []
+  },
+  "audit_logs": {
+    "columns": {
+      "id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "operator_id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": true
+      },
+      "action": {
+        "type": "String",
+        "length": 255,
+        "nullable": false
+      },
+      "created_at": {
+        "type": "DateTime",
+        "length": null,
+        "nullable": true
+      }
+    },
+    "pk": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "columns": [
+          "operator_id"
+        ],
+        "table": "operators",
+        "references": [
+          "id"
+        ]
+      }
+    ],
+    "unique": []
+  },
+  "categories": {
+    "columns": {
+      "id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "name": {
+        "type": "String",
+        "length": 120,
+        "nullable": false
+      }
+    },
+    "pk": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "unique": [
+      [
+        "name"
+      ]
+    ]
+  },
+  "macros": {
+    "columns": {
+      "id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "title": {
+        "type": "String",
+        "length": 160,
+        "nullable": false
+      },
+      "body": {
+        "type": "String",
+        "length": null,
+        "nullable": false
+      },
+      "active": {
+        "type": "Boolean",
+        "length": null,
+        "nullable": false
+      }
+    },
+    "pk": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "unique": []
+  },
+  "messages": {
+    "columns": {
+      "id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "ticket_id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "sender": {
+        "type": "String",
+        "length": 30,
+        "nullable": false
+      },
+      "text": {
+        "type": "String",
+        "length": null,
+        "nullable": true
+      },
+      "created_at": {
+        "type": "DateTime",
+        "length": null,
+        "nullable": true
+      }
+    },
+    "pk": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "columns": [
+          "ticket_id"
+        ],
+        "table": "tickets",
+        "references": [
+          "id"
+        ]
+      }
+    ],
+    "unique": []
+  },
+  "operators": {
+    "columns": {
+      "id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "login": {
+        "type": "String",
+        "length": 120,
+        "nullable": false
+      },
+      "password_hash": {
+        "type": "String",
+        "length": 255,
+        "nullable": false
+      },
+      "role": {
+        "type": "String",
+        "length": 30,
+        "nullable": false
+      },
+      "active": {
+        "type": "Boolean",
+        "length": null,
+        "nullable": false
+      },
+      "totp_secret": {
+        "type": "String",
+        "length": 64,
+        "nullable": true
+      },
+      "created_at": {
+        "type": "DateTime",
+        "length": null,
+        "nullable": true
+      }
+    },
+    "pk": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "unique": [
+      [
+        "login"
+      ]
+    ]
+  },
+  "tickets": {
+    "columns": {
+      "id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "telegram_user_id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": false
+      },
+      "username": {
+        "type": "String",
+        "length": 255,
+        "nullable": true
+      },
+      "full_name": {
+        "type": "String",
+        "length": 255,
+        "nullable": true
+      },
+      "subject": {
+        "type": "String",
+        "length": 255,
+        "nullable": true
+      },
+      "status": {
+        "type": "String",
+        "length": 30,
+        "nullable": true
+      },
+      "priority": {
+        "type": "String",
+        "length": 30,
+        "nullable": true
+      },
+      "category_id": {
+        "type": "Integer",
+        "length": null,
+        "nullable": true
+      },
+      "assigned_to": {
+        "type": "Integer",
+        "length": null,
+        "nullable": true
+      },
+      "sla_deadline": {
+        "type": "DateTime",
+        "length": null,
+        "nullable": true
+      },
+      "created_at": {
+        "type": "DateTime",
+        "length": null,
+        "nullable": true
+      },
+      "updated_at": {
+        "type": "DateTime",
+        "length": null,
+        "nullable": true
+      }
+    },
+    "pk": [
+      "id"
+    ],
+    "foreign_keys": [
+      {
+        "columns": [
+          "assigned_to"
+        ],
+        "table": "operators",
+        "references": [
+          "id"
+        ]
+      },
+      {
+        "columns": [
+          "category_id"
+        ],
+        "table": "categories",
+        "references": [
+          "id"
+        ]
+      }
+    ],
+    "unique": []
+  }
+}

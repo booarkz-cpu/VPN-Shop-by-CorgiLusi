@@ -1,0 +1,14 @@
+.env
+.venv
+.git
+__pycache__
+*.pyc
+.pytest_cache
+backups
+nginx/certs
+nginx/certbot
+uploads
+tests
+screenshots
+*.zip
+*.db

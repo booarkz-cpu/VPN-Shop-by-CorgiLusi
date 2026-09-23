@@ -1,0 +1,1 @@
+{"manifest_version":3,"name":"Corgi Lusi","version":"15.0.0","description":"Corgi Lusi secure connection control","permissions":["storage"],"action":{"default_title":"Corgi Lusi"},"background":{"service_worker":"service-worker.js"}}
