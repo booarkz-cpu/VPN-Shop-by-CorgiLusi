@@ -19,7 +19,7 @@ jobs:
     environment: production
     steps:
       - name: Deploy
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.5
         env:
           IMAGE_TAG: ${{ inputs.image_tag }}
           GHCR_USER: ${{ github.actor }}
