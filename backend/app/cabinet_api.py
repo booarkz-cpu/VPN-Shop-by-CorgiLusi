@@ -185,7 +185,8 @@ async def public_cabinet_menu(db: AsyncSession = Depends(get_db)):
 async def sandbox_complete(payload: dict, request: Request, db: AsyncSession = Depends(get_db)):
     from .main import user_from_token, fulfill
 
-    if not settings.payments_sandbox:
+    from .sandbox_mode import payments_sandbox_allowed
+    if not payments_sandbox_allowed():
         raise HTTPException(404, "Not found")
     user = await user_from_token(request, db)
     payment_id = str(payload.get("payment_id") or "")
