@@ -3,9 +3,10 @@ on:
   push:
     paths:
       - ".github/workflows/restore-main-py.yml"
-  workflow_dispatch:
+      - ".github/restore_main.py"
 permissions:
   contents: write
+  statuses: write
 jobs:
   restore:
     runs-on: ubuntu-latest
@@ -16,44 +17,12 @@ jobs:
       - name: Restore backend/app/main.py
         run: |
           set +e
-          {
-            python3 - << 'PY'
-            import hashlib
-            from pathlib import Path
-            root = Path(".publish-restore")
-            print("parts", sorted(p.name for p in root.glob("*")))
-            chunks = []
-            for i in range(11):
-                raw = root / f"part-{i:02d}"
-                if not raw.is_file():
-                    raise SystemExit("missing part %02d" % i)
-                chunks.append(raw.read_bytes())
-            data = b"".join(chunks)
-            data = data.replace(b"{{ARROW}}", "\u2192".encode().decode("unicode_escape").encode())
-            data = data.replace(b"{{EMDASH}}", "\u2014".encode().decode("unicode_escape").encode())
-            digest = hashlib.sha256(data).hexdigest()
-            print(len(data), digest)
-            if len(data) != 381229 or digest != "32b6f12649d21819844afb7b9fa4f8d7618560ff57bb7f00046a827e75eb7471":
-                raise SystemExit("restored main.py hash mismatch")
-            Path("backend/app/main.py").write_bytes(data)
-            print("wrote main.py")
-            PY
-            echo "python_exit:$?"
-            git config user.name "booarkz-cpu"
-            git config user.email "boo.ar.kz@gmail.com"
-            git add backend/app/main.py
-            echo "add_exit:$?"
-            git rm -r .publish-restore
-            echo "rm_exit:$?"
-            git commit -m "Restore backend/app/main.py from the audited source."
-            echo "commit_exit:$?"
-            git push origin HEAD:main
-            echo "push_exit:$?"
-          } > /tmp/restore-log.txt 2>&1
-          python3 - << 'PY'
-          from pathlib import Path
-          text = Path("/tmp/restore-log.txt").read_text()[-3000:]
-          text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-          print("::error::" + text)
-          PY
-          exit 1
+          python3 .github/restore_main.py > /tmp/restore-log.txt 2>&1
+          code=$?
+          line=$(tail -n 1 /tmp/restore-log.txt | tr '\n' ' ' | cut -c1-110)
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/booarkz-cpu/VPN-Shop-by-CorgiLusi/statuses/${{ github.sha }} \
+            -d "{\"state\":\"failure\",\"context\":\"restore-debug\",\"description\":\"exit ${code}: ${line}\"}"
+          exit ${code}
