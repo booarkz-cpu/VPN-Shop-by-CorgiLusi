@@ -9,7 +9,7 @@ aiogram==3.22.0
 
 paramiko==5.0.0
 
-PyJWT==2.13.0
+PyJWT==2.14.0
 cryptography==50.0.1
 python-multipart==0.0.31
 
