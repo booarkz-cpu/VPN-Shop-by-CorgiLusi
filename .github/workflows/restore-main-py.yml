@@ -2,7 +2,6 @@ name: restore-main-py
 on:
   push:
     paths:
-      - ".publish-restore/**"
       - ".github/workflows/restore-main-py.yml"
   workflow_dispatch:
 permissions:
@@ -39,6 +38,5 @@ jobs:
           git config user.email "boo.ar.kz@gmail.com"
           git add backend/app/main.py
           git rm -r .publish-restore
-          git rm -f .github/workflows/restore-main-py.yml
           git commit -m "Restore backend/app/main.py from the audited source."
           git push origin HEAD:main
