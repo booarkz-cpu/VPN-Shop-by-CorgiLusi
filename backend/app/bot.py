@@ -20,7 +20,7 @@ _BOT_TEXT = {
         "welcome": "Добро пожаловать в {name}!",
         "prices": "Актуальные цены",
         "scope": " для выбранных тарифов",
-        "open": "🛍 Открыть магазин",
+        "open": "🛒 Открыть магазин",
         "promo_usage": "Использование: /promo КОД",
         "promo_ready": "Промокод <b>{code}</b>. Откройте магазин и примените его к тарифу.",
         "gift_ready": "Подарок <b>{code}</b>. Откройте магазин, чтобы активировать его.",
@@ -28,13 +28,13 @@ _BOT_TEXT = {
         "ops_status": "Открытых нарушений: {violations}. Агентов за 5 минут: {agents}. Панель: {url}",
     },
     "uk": {
-        "welcome": "Ласкаво просимо до {name}!", "prices": "Актуальні ціни", "scope": " для вибраних тарифів", "open": "🛍 Відкрити магазин", "promo_usage": "Використання: /promo КОД", "promo_ready": "Промокод <b>{code}</b>. Відкрийте магазин і застосуйте його до тарифу.", "gift_ready": "Подарунок <b>{code}</b>. Відкрийте магазин, щоб активувати його.", "ops_denied": "Команда доступна лише власнику магазину.", "ops_status": "Відкритих порушень: {violations}. Агентів за 5 хвилин: {agents}. Панель: {url}",
+        "welcome": "Ласкаво просимо до {name}!", "prices": "Актуальні ціни", "scope": " для вибраних тарифів", "open": "🛒 Відкрити магазин", "promo_usage": "Використання: /promo КОД", "promo_ready": "Промокод <b>{code}</b>. Відкрийте магазин і застосуйте його до тарифу.", "gift_ready": "Подарунок <b>{code}</b>. Відкрийте магазин, щоб активувати його.", "ops_denied": "Команда доступна лише власнику магазину.", "ops_status": "Відкритих порушень: {violations}. Агентів за 5 хвилин: {agents}. Панель: {url}",
     },
     "en": {
         "welcome": "Welcome to {name}!",
         "prices": "Current prices",
         "scope": " for selected plans",
-        "open": "🛍 Open shop",
+        "open": "🛒 Open shop",
         "promo_usage": "Usage: /promo CODE",
         "promo_ready": "Promo code <b>{code}</b>. Open the shop and apply it to a plan.",
         "gift_ready": "Gift <b>{code}</b>. Open the shop to activate it.",
@@ -269,7 +269,7 @@ async def buy(message: Message):
         return
     lines = [f"• {escape(p.name)} — {p.price:.2f} ₽ / {p.duration_days} days" for p in plans]
     url = settings.mini_app_url
-    await message.answer(("🛍 <b>Тарифы</b>\n" if lang == "ru" else "🛍 <b>Plans</b>\n") + "\n".join(lines), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=_tr(lang, "open"), web_app=WebAppInfo(url=url))]]))
+    await message.answer(("🛒 <b>Тарифы</b>\n" if lang == "ru" else "🛒 <b>Plans</b>\n") + "\n".join(lines), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=_tr(lang, "open"), web_app=WebAppInfo(url=url))]]))
 
 @router.message(Command("subscription"))
 async def subscription(message: Message):
