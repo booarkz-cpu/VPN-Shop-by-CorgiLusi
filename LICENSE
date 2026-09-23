@@ -2,15 +2,35 @@ SPDX-License-Identifier: LicenseRef-Proprietary
 
 Remnawave VPN Shop Proprietary License 1.0
 Проприетарная лицензия Remnawave VPN Shop 1.0
+Пропрієтарна ліцензія Remnawave VPN Shop 1.0
 
-Copyright (c) 2026 booarkz-cpu. All rights reserved. / Все права защищены.
+Copyright (c) 2026 booarkz-cpu. All rights reserved.
+Все права защищены.
+Усі права захищені.
 
-Владелец репозитория booarkz-cpu/remnawave-vpn-shop сохраняет за собой исключительные права на этот исходный код, документацию, схемы сборки, приложения Android и iOS для покупателей и администраторов и сопутствующие материалы.
+Владелец репозитория сохраняет исключительные права на исходный код, документацию, схемы сборки, приложения Android и iOS для покупателей и администраторов и сопутствующие материалы этого магазина.
+
+The owner of the repository retains the exclusive rights in the source code, documentation, build files, the Android and iOS applications for buyers and administrators, and the accompanying materials of this shop.
+
+Власник репозиторію зберігає виключні права на вихідний код, документацію, схеми збирання, застосунки Android і iOS для покупців та адміністраторів і супутні матеріали цього магазину.
 
 ## Разрешено
 
 - Читать код и документацию в репозитории.
 - Запускать собранный экземпляр для собственного магазина, если владелец репозитория отдельно разрешил это письменно, включая сообщение в репозитории от учётной записи владельца.
+- Подключать собственные ключи платёжных систем и собственную панель Remnawave к разрешённому экземпляру.
+
+## Дозволено
+
+- Читати код і документацію в репозиторії.
+- Запускати зібраний екземпляр для власного магазину, якщо власник репозиторію окремо дозволив це письмово, включно з повідомленням у репозиторії від облікового запису власника.
+- Підключати власні ключі платіжних систем і власну панель Remnawave до дозволеного екземпляра.
+
+## Allowed
+
+- Reading the code and documentation in the repository.
+- Running a built instance for your own shop when the repository owner has granted that use in writing, including a message in the repository from the owner's account.
+- Connecting your own payment-gateway keys and your own Remnawave panel to a permitted instance.
 
 ## Требует письменного разрешения владельца
 
@@ -18,21 +38,15 @@ Copyright (c) 2026 booarkz-cpu. All rights reserved. / Все права защ�
 - Распространение исходного кода, архивов релиза и контейнеров.
 - Предоставление этого программного обеспечения как услуги третьим лицам.
 - Удаление уведомления об авторском праве и этой лицензии.
+- Снятие отметки об авторстве с приложений Android и iOS.
 
-## Гарантии
+## Потребує письмового дозволу власника
 
-Программа поставляется «как есть», без гарантий пригодности, безошибочности и соответствия конкретной задаче. Владелец не отвечает за убытки, потерю данных и простой, возникшие из использования программы.
-
-Письменное разрешение может сузить или расширить эти условия для конкретного получателя. Если такого разрешения нет, действуют только пункты «Разрешено».
-
----
-
-The owner of the repository booarkz-cpu/remnawave-vpn-shop retains all exclusive rights in this source code, documentation, build files, the Android and iOS applications for buyers and administrators, and accompanying materials.
-
-## Allowed
-
-- Reading the code and documentation in the repository.
-- Running a built instance for your own shop when the repository owner has granted that use in writing, including a message in the repository from the owner's account.
+- Копіювання, зміна і створення похідних творів.
+- Поширення вихідного коду, архівів релізу і контейнерів.
+- Надання цього програмного забезпечення як послуги третім особам.
+- Видалення повідомлення про авторське право і цієї ліцензії.
+- Зняття позначки про авторство із застосунків Android і iOS.
 
 ## Requires the owner's written permission
 
@@ -40,6 +54,19 @@ The owner of the repository booarkz-cpu/remnawave-vpn-shop retains all exclusive
 - Distributing the source, release archives and container images.
 - Offering this software as a service to third parties.
 - Removing the copyright notice and this license.
+- Stripping the authorship notice from the Android and iOS applications.
+
+## Гарантии
+
+Программа поставляется «как есть», без гарантий пригодности, безошибочности и соответствия конкретной задаче. Владелец не отвечает за убытки, потерю данных и простой, возникшие из использования программы.
+
+Письменное разрешение может сузить или расширить эти условия для конкретного получателя. Если такого разрешения нет, действуют только пункты «Разрешено».
+
+## Гарантії
+
+Програма постачається «як є», без гарантій придатності, безпомилковості і відповідності конкретній задачі. Власник не відповідає за збитки, втрату даних і простій, що виникли з використання програми.
+
+Письмовий дозвіл може звузити або розширити ці умови для конкретного отримувача. Якщо такого дозволу немає, діють лише пункти «Дозволено».
 
 ## Warranty
 
