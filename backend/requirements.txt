@@ -5,7 +5,7 @@ sqlalchemy==2.0.43
 asyncpg==0.30.0
 pydantic-settings==2.10.1
 httpx==0.28.1
-aiogram==3.22.0
+aiogram==3.31.0
 
 paramiko==5.0.0
 
