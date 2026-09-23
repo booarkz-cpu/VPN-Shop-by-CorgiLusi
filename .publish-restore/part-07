@@ -35,7 +35,7 @@ def _public_audit_details(details):
     return json.dumps(_redact_audit_value(parsed), ensure_ascii=False)
 
 def _public_refund_reason(reason):
-        if not isinstance(reason, str) or not reason:
+    if not isinstance(reason, str) or not reason:
         return reason
     cut = len(reason)
     for marker in _REFUND_EXCEPTION_TAILS:
