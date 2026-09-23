@@ -1,0 +1,121 @@
+# Local shop without payment gateways, Telegram, Remnawave or Support Pro.
+# Start: bash scripts/test-up.sh
+# Do not publish these ports on a public server.
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - test_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vpnshop
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.test}
+      POSTGRES_DB: vpnshop
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vpnshop -d vpnshop"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env.test
+    environment:
+      WORKER_ROLE: api
+      MEDIA_DIR: /data/media
+      BACKUPS_DIR: /data/backups
+      PROJECT_DIR: /project
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "18080:8000"
+    volumes:
+      - test_media_data:/data/media
+      - .:/project:ro
+      - test_backup_data:/data/backups
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\", timeout=3)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "worker.py"]
+    env_file: .env.test
+    environment:
+      WORKER_ROLE: worker
+      MEDIA_DIR: /data/media
+      BACKUPS_DIR: /data/backups
+      PROJECT_DIR: /project
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - test_media_data:/data/media
+      - .:/project:ro
+      - test_backup_data:/data/backups
+
+  admin:
+    build:
+      context: ./admin
+      args:
+        VITE_API_URL: ""
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "18081:80"
+    volumes:
+      - ./deploy/nginx/test-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+
+  cabinet:
+    build:
+      context: ./cabinet
+      args:
+        VITE_API_URL: ""
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "18082:80"
+    volumes:
+      - ./deploy/nginx/test-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+
+  miniapp:
+    build:
+      context: ./miniapp
+      args:
+        VITE_API_URL: ""
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "18083:80"
+    volumes:
+      - ./deploy/nginx/test-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  test_redis_data:
+  test_postgres_data:
+  test_media_data:
+  test_backup_data:
