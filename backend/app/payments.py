@@ -259,8 +259,10 @@ class YooKassaProvider(BasePaymentProvider):
         except json.JSONDecodeError as e:
             raise PaymentError(f"Невалидный JSON в вебхуке: {e}")
 
-        # 3. Идемпотентность
-        event_id = data.get("event") or data.get("object", {}).get("id")
+        # 3. Идемпотентность. Тип события ("payment.succeeded") одинаков у всех
+        # уведомлений, поэтому ключом служит уникальный id уведомления или платежа.
+        obj = data.get("object") or {}
+        event_id = data.get("id") or obj.get("id")
         if event_id:
             self._cleanup_old_events()
             if event_id in self._processed_events:
@@ -613,23 +615,24 @@ class RollyPayProvider(BasePaymentProvider):
                 "Неверная подпись RollyPay"
             )
 
-        # Проверка timestamp (защита от replay)
+        # Проверка timestamp (защита от replay). Без метки времени подпись можно повторить.
         ts_header = (
             headers.get("X-RollyPay-Timestamp")
             or headers.get("x-rollypay-timestamp")
         )
-        if ts_header:
-            try:
-                ts = int(ts_header)
-            except ValueError:
-                raise SignatureVerificationError(
-                    "Неверный формат timestamp"
-                )
-            now = int(time.time())
-            if abs(now - ts) > 300:
-                raise WebhookReplayError(
-                    "Подпись RollyPay устарела"
-                )
+        if not ts_header:
+            raise SignatureVerificationError("Missing RollyPay timestamp")
+        try:
+            ts = int(ts_header)
+        except ValueError:
+            raise SignatureVerificationError(
+                "Неверный формат timestamp"
+            )
+        now = int(time.time())
+        if abs(now - ts) > 300:
+            raise WebhookReplayError(
+                "Подпись RollyPay устарела"
+            )
 
         try:
             return json.loads(body)
@@ -640,15 +643,20 @@ class RollyPayProvider(BasePaymentProvider):
 class SandboxProvider:
     """Local payment provider for tests without live gateways."""
 
+    async def close(self) -> None:
+        return None
+
     async def create(self, amount, order_id: str, description: str, return_url: str):
-        if not settings.payments_sandbox:
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
             raise PaymentError("Sandbox payments are disabled")
         payment_id = f"sandbox-{order_id}"
         url = f"{(settings.cabinet_url or settings.mini_app_url or return_url).rstrip('/')}/?sandbox_payment={payment_id}"
         return {"id": payment_id, "url": url, "status": "succeeded"}
 
     async def verify_succeeded(self, payment_id: str, expected_amount: Decimal, currency: str, expected_order_id: str | None = None):
-        if not settings.payments_sandbox:
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
             return False
         if not str(payment_id).startswith("sandbox-"):
             return False
@@ -657,12 +665,19 @@ class SandboxProvider:
         return True
 
     async def get_payment_status(self, payment_id: str) -> str:
-        return "succeeded" if settings.payments_sandbox and str(payment_id).startswith("sandbox-") else "canceled"
+        from .sandbox_mode import payments_sandbox_allowed
+        return "succeeded" if payments_sandbox_allowed() and str(payment_id).startswith("sandbox-") else "canceled"
 
     async def refund(self, payment_id: str, amount: Decimal, currency: str = "RUB"):
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
+            raise PaymentError("Sandbox payments are disabled")
         return {"id": f"refund-{payment_id}", "status": "succeeded"}
 
     async def get_refund_status(self, refund_id: str) -> str:
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
+            raise PaymentError("Sandbox payments are disabled")
         return "succeeded"
 
     async def charge_recurring(self, *args, **kwargs):
