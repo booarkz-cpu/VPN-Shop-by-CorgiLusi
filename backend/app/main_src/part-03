@@ -1,0 +1,445 @@
+    provider_payment_id=str(provider_payment_id)
+    if payment.provider_payment_id and payment.provider_payment_id != provider_payment_id:
+        raise HTTPException(409,"Payment provider identifier mismatch")
+    payment.provider_payment_id=provider_payment_id
+    if payment.status in {"creating","creation_unknown"}:
+        payment.status="pending"
+        payment.fulfillment_terminal=False
+
+def _ip_allowed(value: str, allowlist: str) -> bool:
+    try: ip=ipaddress.ip_address(value)
+    except ValueError: return False
+    for item in allowlist.split(","):
+        try:
+            net=ipaddress.ip_network(item.strip(), strict=False)
+            if ip in net: return True
+        except ValueError: continue
+    return False
+
+async def register_provider_event(db:AsyncSession, provider:str, event_id:str, payment_id:int|None):
+    """Atomically claim a verified event. Failed/retry events may be reclaimed; processed events are immutable."""
+    if not event_id: return True
+    stmt=sql_text("""INSERT INTO payment_provider_events (provider,event_id,payment_id,status,attempts)
+        VALUES (:p,:e,:pid,'processing',1)
+        ON CONFLICT (provider,event_id) DO UPDATE SET payment_id=COALESCE(payment_provider_events.payment_id,EXCLUDED.payment_id),
+        status='processing', attempts=payment_provider_events.attempts+1, last_error=NULL, received_at=NOW()
+        WHERE payment_provider_events.provider = EXCLUDED.provider
+          AND (payment_provider_events.status IN ('failed','retry')
+           OR (payment_provider_events.status='processing' AND payment_provider_events.received_at < NOW() - INTERVAL '10 minutes'))
+        RETURNING id""")
+    result=await db.execute(stmt,{"p":provider,"e":event_id,"pid":payment_id})
+    return result.first() is not None
+
+async def finish_provider_event(db:AsyncSession, provider:str, event_id:str, *, ok:bool, error:str|None=None):
+    await db.execute(sql_text("UPDATE payment_provider_events SET status=:status,last_error=:error,processed_at=:processed WHERE provider=:p AND event_id=:e"),
+                     {"status":"processed" if ok else "retry","error":None if ok else (error or "")[:2000],"processed":datetime.utcnow() if ok else None,"p":provider,"e":event_id})
+
+@app.post("/api/webhooks/yookassa")
+async def yookassa_webhook(request:Request, db:AsyncSession=Depends(get_db)):
+    client_ip=_client_ip(request)
+    # Fail closed: an empty allowlist must not accept unsigned YooKassa notifications.
+    if not settings.yookassa_webhook_ip_allowlist or not _ip_allowed(client_ip,settings.yookassa_webhook_ip_allowlist): raise HTTPException(403,"Webhook IP not allowed")
+    raw=await request.body()
+    try: d=json.loads(raw)
+    except Exception: raise HTTPException(400,"Invalid JSON")
+    obj=d.get("object",{}) or {}
+    pid=obj.get("id"); event_id=str(d.get("id") or hashlib.sha256(raw).hexdigest())
+    order_id=(obj.get("metadata") or {}).get("order_id")
+    if d.get("event")!="payment.succeeded" or not pid: return {"ok":True}
+    p=await payment_by_provider_or_order(db,"yookassa",pid,order_id)
+    if not p: return {"ok":True}
+    if order_id and order_id != p.order_id: raise HTTPException(403,"Order mismatch")
+    # Verify the provider object itself, including immutable order metadata, before
+    # binding a previously-unknown provider payment ID to a durable local intent.
+    if not await YooKassaProvider().verify_succeeded(pid,Decimal(str(p.amount)),p.currency,p.order_id): raise HTTPException(503,"Payment status verification unavailable")
+    if not p.provider_payment_id:
+        await bind_provider_payment_id(db,p,pid)
+    if not await register_provider_event(db,"yookassa",event_id,p.id): await db.rollback(); return {"ok":True,"duplicate":True}
+    await db.commit()
+    try:
+        # Late-success guard: p.status in {"refunded", "refunded_pending_revoke"} is re-checked atomically inside _confirm_and_fulfill_payment.
+        result=await _confirm_and_fulfill_payment(p.id,db)
+        if result.get("ignored"):
+            async with AsyncSession(engine,expire_on_commit=False) as edb:
+                await finish_provider_event(edb,"yookassa",event_id,ok=True); await edb.commit()
+            return {"ok":True,"ignored":True,"reason":"payment_already_refunded"}
+        async with AsyncSession(engine,expire_on_commit=False) as edb: await finish_provider_event(edb,"yookassa",event_id,ok=True); await edb.commit()
+    except Exception as exc:
+        async with AsyncSession(engine,expire_on_commit=False) as edb: await finish_provider_event(edb,"yookassa",event_id,ok=False,error=str(exc)); await edb.commit()
+        raise
+    return {"ok":True}
+
+@app.post("/api/webhooks/platega")
+async def platega_webhook(request:Request, db:AsyncSession=Depends(get_db)):
+    if not verify_platega_headers(request.headers.get("X-MerchantId"),request.headers.get("X-Secret")): raise HTTPException(403,"Invalid webhook credentials")
+    raw=await request.body()
+    try: d=json.loads(raw)
+    except Exception: raise HTTPException(400,"Invalid JSON")
+    pid=d.get("id") or d.get("Id") or d.get("transactionId"); event_id=str(d.get("eventId") or d.get("id") or hashlib.sha256(raw).hexdigest())
+    if str(d.get("status") or d.get("Status")).upper() not in {"CONFIRMED","SUCCESS","SUCCEEDED"} or not pid: return {"ok":True}
+    payload_order=str(d.get("payload") or d.get("Payload") or "")
+    p=await payment_by_provider_or_order(db,"platega",pid,payload_order or None)
+    if p:
+        if payload_order and payload_order != p.order_id: raise HTTPException(403,"Order mismatch")
+        if not await PlategaProvider().verify_succeeded(pid,Decimal(str(p.amount)),p.currency,p.order_id): raise HTTPException(503,"Payment verification unavailable")
+        if not p.provider_payment_id:
+            await bind_provider_payment_id(db,p,pid)
+        if not await register_provider_event(db,"platega",event_id,p.id): await db.rollback(); return {"ok":True,"duplicate":True}
+        await db.commit()
+        try:
+            # Late-success guard: p.status in {"refunded", "refunded_pending_revoke"} is re-checked atomically inside _confirm_and_fulfill_payment.
+            result=await _confirm_and_fulfill_payment(p.id,db)
+            if result.get("ignored"):
+                async with AsyncSession(engine,expire_on_commit=False) as edb:
+                    await finish_provider_event(edb,"platega",event_id,ok=True); await edb.commit()
+                return {"ok":True,"ignored":True,"reason":"payment_already_refunded"}
+            async with AsyncSession(engine,expire_on_commit=False) as edb: await finish_provider_event(edb,"platega",event_id,ok=True); await edb.commit()
+        except Exception as exc:
+            async with AsyncSession(engine,expire_on_commit=False) as edb: await finish_provider_event(edb,"platega",event_id,ok=False,error=str(exc)); await edb.commit()
+            raise
+    return {"ok":True}
+
+@app.post("/api/webhooks/rollypay")
+async def rollypay_webhook(request:Request,db:AsyncSession=Depends(get_db)):
+    raw=await request.body()
+    if not verify_rollypay(raw,request.headers.get("X-Timestamp",""),request.headers.get("X-Signature","")): raise HTTPException(403,"Invalid signature")
+    try: d=json.loads(raw)
+    except Exception: raise HTTPException(400,"Invalid JSON")
+    pid=d.get("payment_id"); event_id=str(d.get("event_id") or d.get("id") or hashlib.sha256(raw).hexdigest())
+    if str(d.get("status")).lower() not in {"paid","success","succeeded"} or not pid: return {"ok":True}
+    order_id=str(d.get("order_id") or "")
+    p=await payment_by_provider_or_order(db,"rollypay",pid,order_id or None)
+    if p:
+        if order_id and order_id != p.order_id: raise HTTPException(403,"Order mismatch")
+        if not await RollyPayProvider().verify_succeeded(pid,Decimal(str(p.amount)),p.currency,p.order_id): raise HTTPException(503,"Payment verification unavailable")
+        if not p.provider_payment_id:
+            await bind_provider_payment_id(db,p,pid)
+        if not await register_provider_event(db,"rollypay",event_id,p.id): await db.rollback(); return {"ok":True,"duplicate":True}
+        await db.commit()
+        try:
+            # Late-success guard: p.status in {"refunded", "refunded_pending_revoke"} is re-checked atomically inside _confirm_and_fulfill_payment.
+            result=await _confirm_and_fulfill_payment(p.id,db)
+            if result.get("ignored"):
+                async with AsyncSession(engine,expire_on_commit=False) as edb:
+                    await finish_provider_event(edb,"rollypay",event_id,ok=True); await edb.commit()
+                return {"ok":True,"ignored":True,"reason":"payment_already_refunded"}
+            async with AsyncSession(engine,expire_on_commit=False) as edb: await finish_provider_event(edb,"rollypay",event_id,ok=True); await edb.commit()
+        except Exception as exc:
+            async with AsyncSession(engine,expire_on_commit=False) as edb: await finish_provider_event(edb,"rollypay",event_id,ok=False,error=str(exc)); await edb.commit()
+            raise
+    return {"ok":True}
+
+# ---------- Reliability, sessions, analytics, referrals ----------
+async def fulfillment_retry_scheduler():
+    while True:
+        try:
+            async with AsyncSession(engine,expire_on_commit=False) as db:
+                rows=(await db.execute(select(Payment).where(Payment.fulfillment_status=="failed",Payment.next_retry_at<=datetime.utcnow()).order_by(Payment.next_retry_at).limit(10))).scalars().all()
+                for p in rows:
+                    try: await fulfill(p.id,db)
+                    except Exception as exc:
+                        logger.warning("Non-critical operation failed: %s", exc)
+            await asyncio.sleep(15)
+        except Exception: await asyncio.sleep(15)
+
+async def refund_revoke_scheduler():
+    while True:
+        try:
+            async with AsyncSession(engine,expire_on_commit=False) as db:
+                providers={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform()}
+                pending=(await db.execute(select(RefundRequest).where(RefundRequest.status=="processing",RefundRequest.provider_refund_id.is_not(None)).order_by(RefundRequest.updated_at).limit(50))).scalars().all()
+                for r in pending:
+                    p=await db.get(Payment,r.payment_id); provider=providers.get(p.provider) if p else None
+                    if not p or not provider or not hasattr(provider,"get_refund_status"): continue
+                    try:
+                        status=await provider.get_refund_status(r.provider_refund_id)
+                        if status in {"succeeded","paid","completed","refunded"}:
+                            # Reconciliation is another refund side-effect entry point. It must
+                            # serialize with fulfillment just like manual refund execution;
+                            # otherwise a background poll can mark a payment refunded while
+                            # an already-running fulfillment is still provisioning it.
+                            user_lock, user_token = await _acquire_user_fulfillment_lock(p.user_id,ttl=300)
+                            payment_lock = payment_token = None
+                            try:
+                                payment_lock, payment_token = await _acquire_payment_side_effect_lock(p.id)
+                                p=(await db.execute(select(Payment).where(Payment.id==p.id).with_for_update())).scalar_one()
+                                r=(await db.execute(select(RefundRequest).where(RefundRequest.id==r.id).with_for_update())).scalar_one()
+                                if p.status == "refunded" and r.status == "refunded":
+                                    continue
+                                r.status="refunded"; p.status="refunded"; p.fulfillment_terminal=True; r.updated_at=datetime.utcnow()
+                                try:
+                                    revoke_result=await _safe_revoke_for_refunded_payment(db,p,"system","subscription.revoked.refund.reconciled")
+                                except Exception as exc:
+                                    r.status="refunded_pending_revoke"; r.reason=(r.reason or "")+"\nRevoke pending: "+str(exc)[:500]; revoke_result={"revoked":False,"reason":"revoke_failed"}
+                                reversal_result=await _reverse_referral_reward_for_refund(db,p,"system") if r.status == "refunded" else {"reversed":False}
+                                await audit(db,"payment.refund.reconciled","system",str(p.id),{"provider_status":status,**revoke_result,**reversal_result})
+                            finally:
+                                if payment_lock and payment_token:
+                                    await _release_payment_side_effect_lock(payment_lock, payment_token)
+                                await _release_payment_side_effect_lock(user_lock,user_token)
+                        elif status in {"canceled","cancelled","failed","rejected"}:
+                            r.status="failed"; r.reason=(r.reason or "")+f"\nProvider refund status: {status}"; r.updated_at=datetime.utcnow()
+                    except Exception as exc:
+                        r.reason=(r.reason or "")+"\nRefund reconciliation pending: "+str(exc)[:300]
+                rows=(await db.execute(select(RefundRequest).where(RefundRequest.status=="refunded_pending_revoke").order_by(RefundRequest.updated_at).limit(20))).scalars().all()
+                for r in rows:
+                    p=await db.get(Payment,r.payment_id); sub=(await db.execute(select(Subscription).where(Subscription.user_id==r.user_id))).scalar_one_or_none()
+                    if not p: continue
+                    payment_lock=payment_token=None
+                    user_lock=user_token=None
+                    try:
+                        user_lock,user_token=await _acquire_user_fulfillment_lock(p.user_id,ttl=300)
+                        payment_lock,payment_token=await _acquire_payment_side_effect_lock(p.id)
+                        # Re-check terminal state after acquiring the shared lock. This is the
+                        # same critical section used by fulfillment and manual refund execution.
+                        p=(await db.execute(select(Payment).where(Payment.id==p.id).with_for_update())).scalar_one()
+                        r=(await db.execute(select(RefundRequest).where(RefundRequest.id==r.id).with_for_update())).scalar_one()
+                        if r.status != "refunded_pending_revoke": continue
+                        sub=(await db.execute(select(Subscription).where(Subscription.user_id==r.user_id).with_for_update())).scalar_one_or_none()
+                        if not sub or not sub.remnawave_uuid:
+                            r.status="refunded"; r.updated_at=datetime.utcnow(); await _reverse_referral_reward_for_refund(db,p,"system"); continue
+                        revoke_result=await _safe_revoke_for_refunded_payment(db,p,"system","subscription.revoked.refund.retry")
+                        r.status="refunded"; r.updated_at=datetime.utcnow()
+                        reversal_result=await _reverse_referral_reward_for_refund(db,p,"system")
+                        await audit(db,"subscription.revoked.refund.retry","system",str(sub.id),{"payment_id":p.id,**revoke_result,**reversal_result})
+                    except Exception as exc:
+                        r.reason=(r.reason or "")+"\nRevoke retry pending: "+str(exc)[:500]
+                    finally:
+                        if payment_lock and payment_token:
+                            await _release_payment_side_effect_lock(payment_lock,payment_token)
+                        if user_lock and user_token:
+                            await _release_payment_side_effect_lock(user_lock,user_token)
+                await db.commit()
+        except Exception as exc:
+            logger.warning("Refund scheduler failure: %s", exc)
+            await send_alert("Refund scheduler failure")
+        await asyncio.sleep(30)
+
+async def auto_renew_scheduler():
+    while True:
+        try:
+            await asyncio.sleep(900)
+            if not settings.auto_renew_enabled: continue
+            async with AsyncSession(engine,expire_on_commit=False) as db:
+                # Auto-renew is a real payment operation and must obey the same
+                # production gate and payments feature flag as interactive checkout.
+                if await maintenance_enabled(db): continue
+                if await feature_enabled(db, "payments", True) is False: continue
+                if await setting_value(db, PRODUCTION_PAYMENTS_GATE_KEY, "0") != "1": continue
+                cutoff=datetime.utcnow()+timedelta(days=max(1,min(int(settings.auto_renew_lead_days or 3),14)))
+                rows=(await db.execute(select(User,Subscription,Plan,AutoRenewMethod).join(Subscription,Subscription.user_id==User.id).join(Plan,Plan.id==Subscription.plan_id).join(AutoRenewMethod,AutoRenewMethod.user_id==User.id).where(User.auto_renew_enabled.is_(True),AutoRenewMethod.enabled.is_(True),AutoRenewMethod.status.in_(["active","past_due"]),Subscription.expires_at.is_not(None),Subscription.expires_at<=cutoff,Subscription.expires_at>datetime.utcnow(),((AutoRenewMethod.next_attempt_at.is_(None))|(AutoRenewMethod.next_attempt_at<=datetime.utcnow()))).limit(25))).all()
+                for user,sub,plan,method in rows:
+                    if method.provider != "yookassa": continue
+                    # Account deletion shares this user-level lock. Re-load the user after
+                    # acquiring it so a row selected by the scheduler cannot become a charge
+                    # after the account has been anonymized.
+                    user_lock=user_token=None
+                    try:
+                        user_lock,user_token=await _acquire_user_fulfillment_lock(user.id,ttl=900)
+                    except Exception:
+                        continue
+                    try:
+                        user=(await db.execute(select(User).where(User.id==user.id).with_for_update())).scalar_one_or_none()
+                        if not user or user.deleted_at is not None or not user.auto_renew_enabled:
+                            continue
+                        method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id).with_for_update())).scalar_one_or_none()
+                        sub=(await db.execute(select(Subscription).where(Subscription.user_id==user.id).with_for_update())).scalar_one_or_none()
+                        plan=await db.get(Plan,sub.plan_id) if sub else None
+                        if not method or not sub or not plan or not method.enabled or method.status not in {"active","past_due"} or method.provider != "yookassa":
+                            continue
+                        if not sub.expires_at or sub.expires_at <= datetime.utcnow() or sub.expires_at > cutoff:
+                            continue
+                        date_key=(sub.expires_at or datetime.utcnow()).strftime("%Y%m%d")
+                        order_id=f"auto-renew-{user.id}-{plan.id}-{date_key}"
+                        renew_lock=renew_token=None
+                        try:
+                            renew_lock,renew_token=await _acquire_redis_lock(f"lock:auto-renew:user:{user.id}:{date_key}",ttl=900,conflict_message="Auto-renew is already in progress")
+                        except RuntimeError:
+                            continue
+                        prefix=f"auto-renew-{user.id}-{plan.id}-{date_key}"
+                        attempts=(await db.execute(select(Payment).where(Payment.user_id==user.id,Payment.order_id.like(prefix+"%"),Payment.provider=="yookassa").order_by(Payment.id.desc()))).scalars().all()
+                        existing=attempts[0] if attempts else None
+                        if existing:
+                            if existing.status=="creating" and existing.provider_payment_id is None:
+                                # YooKassa idempotency is keyed by order_id, so retrying the
+                                # same durable intent is safe even if the previous HTTP response
+                                # was lost after the provider accepted the charge.
+                                token=decrypt_secret(method.external_token_encrypted)
+                                result=await YooKassaProvider().charge_recurring(Decimal(str(existing.amount)),existing.order_id,f"Auto-renew {plan.name}",token)
+                                existing.provider_payment_id=result["id"]; existing.status="pending"; await db.commit()
+                            if existing.status=="pending":
+                                try:
+                                    provider=YooKassaProvider()
+                                    verified=await provider.verify_succeeded(existing.provider_payment_id,Decimal(str(existing.amount)),existing.currency,existing.order_id)
+                                    if verified:
+                                        payment_lock, payment_token = await _acquire_payment_side_effect_lock(existing.id)
+                                        try:
+                                            existing=(await db.execute(select(Payment).where(Payment.id==existing.id).with_for_update())).scalar_one()
+                                            if existing.status in {"refunded", "refunded_pending_revoke"}:
+                                                continue
+                                            existing.status="paid"; existing.paid_at=existing.paid_at or datetime.utcnow(); await db.commit()
+                                        finally:
+                                            await _release_payment_side_effect_lock(payment_lock, payment_token)
+                                        try:
+                                            await fulfill(existing.id,db,existing_user_lock_token=user_token)
+                                            method.last_success_at=datetime.utcnow(); method.failure_count=0; method.status="active"; method.last_error=None; method.next_attempt_at=datetime.utcnow()+timedelta(days=20); sub.lifecycle_status="active"; sub.grace_until=None; sub.last_renewal_failure_at=None; await db.commit()
+                                        except Exception as exc:
+                                            method.last_error=str(exc)[:1000]; await db.commit()
+                                    else:
+                                        provider_status=await provider.get_payment_status(existing.provider_payment_id)
+                                        if provider_status in {"canceled","cancelled","failed","rejected"}:
+                                            existing.status="failed"; existing.fulfillment_terminal=True; method.failure_count=(method.failure_count or 0)+1; method.status="past_due"; method.last_error=f"Recurring payment {provider_status}"; method.next_attempt_at=datetime.utcnow()+timedelta(hours=min(72,2**min(method.failure_count,6))); sub.lifecycle_status="grace"; sub.grace_until=(sub.expires_at or datetime.utcnow())+timedelta(hours=72); sub.last_renewal_failure_at=datetime.utcnow()
+                                            if method.failure_count>=3: method.status="payment_failed"; method.enabled=False; user.auto_renew_enabled=False
+                                            await db.commit()
+                                except Exception as exc:
+                                    logger.warning("Non-critical operation failed: %s", exc)
+                            # Never create a second charge while the newest provider attempt
+                            # is unresolved or already succeeded. Failed/cancelled attempts are
+                            # the only safe state from which a new idempotency key may be used.
+                            if existing.status not in {"failed","canceled","cancelled"}:
+                                continue
+                            failed_count=sum(1 for item in attempts if item.status in {"failed","canceled","cancelled"})
+                            order_id=f"{prefix}-retry-{failed_count+1}"
+                        token=decrypt_secret(method.external_token_encrypted)
+                        # Persist the payment intent BEFORE the external charge. If the
+                        # process dies after YooKassa accepts the charge but before the
+                        # response/DB commit, the next run can safely retry the SAME
+                        # idempotency key instead of issuing a second charge.
+                        payment=(await db.execute(select(Payment).where(Payment.order_id==order_id).with_for_update())).scalar_one_or_none()
+                        if not payment:
+                            payment=Payment(user_id=user.id,plan_id=plan.id,provider="yookassa",provider_payment_id=None,order_id=order_id,amount=Decimal(str(plan.price)),original_amount=Decimal(str(plan.price)),discount_amount=Decimal("0"),duration_days_snapshot=plan.duration_days,traffic_limit_gb_snapshot=plan.traffic_limit_gb,device_limit_snapshot=plan.device_limit,remnawave_profile_id_snapshot=plan.remnawave_profile_id,referrer_id_snapshot=user.referred_by_id,currency=settings.default_currency,status="creating",fulfillment_status="pending",paid_at=None)
+                            db.add(payment); await db.flush()
+                        method.last_attempt_at=datetime.utcnow(); method.next_attempt_at=datetime.utcnow()+timedelta(hours=24); await db.commit()
+                        result=await YooKassaProvider().charge_recurring(Decimal(str(plan.price)),order_id,f"Auto-renew {plan.name}",token)
+                        payment=(await db.execute(select(Payment).where(Payment.order_id==order_id).with_for_update())).scalar_one()
+                        payment.provider_payment_id=result["id"]; payment.status="pending"; payment.fulfillment_status="pending"; await db.commit()
+                        # Never fulfill until YooKassa confirms succeeded + amount/currency.
+                        if await YooKassaProvider().verify_succeeded(result["id"],Decimal(str(plan.price)),settings.default_currency,payment.order_id):
+                            payment_lock, payment_token = await _acquire_payment_side_effect_lock(payment.id)
+                            try:
+                                p=(await db.execute(select(Payment).where(Payment.provider_payment_id==result["id"]).with_for_update())).scalar_one()
+                                if p.status in {"refunded", "refunded_pending_revoke"}:
+                                    continue
+                                p.status="paid"; p.paid_at=p.paid_at or datetime.utcnow(); await db.commit()
+                            finally:
+                                await _release_payment_side_effect_lock(payment_lock, payment_token)
+                            try:
+                                await fulfill(p.id,db,existing_user_lock_token=user_token)
+                                method.last_success_at=datetime.utcnow(); method.failure_count=0; method.status="active"; method.last_error=None; method.next_attempt_at=datetime.utcnow()+timedelta(days=20); sub.lifecycle_status="active"; sub.grace_until=None; sub.last_renewal_failure_at=None; await db.commit()
+                            except Exception as exc:
+                                method.last_error=str(exc)[:1000]; await db.commit()
+                        else:
+                            method.failure_count=(method.failure_count or 0)+1; method.status="past_due"; method.last_error="Recurring payment not confirmed as succeeded"
+                            method.next_attempt_at=datetime.utcnow()+timedelta(hours=min(72,2**min(method.failure_count,6)))
+                            if method.failure_count>=3: method.status="payment_failed"; user.auto_renew_enabled=False; method.enabled=False
+                            await db.commit()
+                    except Exception as exc:
+                        await db.rollback()
+                        method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id))).scalar_one_or_none()
+                        if method:
+                            method.last_attempt_at=datetime.utcnow(); method.failure_count=(method.failure_count or 0)+1; method.status="past_due"; method.last_error=str(exc)[:1000]
+                            method.next_attempt_at=datetime.utcnow()+timedelta(hours=min(72,2**min(method.failure_count,6)))
+                            if method.failure_count>=3: method.status="payment_failed"; method.enabled=False; user.auto_renew_enabled=False
+                            await db.commit()
+                    finally:
+                        if renew_lock and renew_token:
+                            await _release_payment_side_effect_lock(renew_lock,renew_token)
+                        if user_lock and user_token:
+                            await _release_payment_side_effect_lock(user_lock,user_token)
+        except Exception: await asyncio.sleep(60)
+
+async def reconciliation_scheduler():
+    while True:
+        try:
+            await asyncio.sleep(600)
+            async with AsyncSession(engine,expire_on_commit=False) as db:
+                now=datetime.utcnow()
+                stale=(await db.execute(select(PromoReservation).where(PromoReservation.status=="reserved",PromoReservation.expires_at<=now).with_for_update(skip_locked=True).limit(200))).scalars().all()
+                for reservation in stale:
+                    await release_promo_reservation(db,reservation.id)
+                cutoff=now-timedelta(hours=24)
+                rows=(await db.execute(select(Payment).where(Payment.created_at>=cutoff,Payment.status.in_(["pending","creation_unknown"])).order_by(Payment.id).limit(50))).scalars().all()
+                providers={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform()}
+                for p in rows:
+                    provider=providers.get(p.provider)
+                    if not provider or not hasattr(provider,"verify_succeeded"): continue
+                    try:
+                        if p.status=="creation_unknown" and p.provider=="yookassa":
+                            result=await provider.create(Decimal(str(p.amount)),p.order_id,f"VPN plan {p.plan_id}",settings.mini_app_url)
+                            p.provider_payment_id=result["id"]; p.checkout_url=result.get("url"); p.status="pending"; p.fulfillment_terminal=False
+                        if not p.provider_payment_id:
+                            continue
+                        if await provider.verify_succeeded(p.provider_payment_id,Decimal(str(p.amount)),p.currency,p.order_id):
+                            try:
+                                result=await _confirm_and_fulfill_payment(p.id,db)
+                                if not result.get("ignored"):
+                                    _METRICS["payment_fulfillment_total"] += 1
+                            except Exception as exc:
+                                logger.warning("Non-critical operation failed: %s", exc)
+                    except Exception as exc:
+                        logger.warning("Non-critical operation failed: %s", exc)
+                await db.commit()
+        except Exception: await asyncio.sleep(30)
+
+async def subscription_lifecycle_scheduler():
+    while True:
+        try:
+            async with AsyncSession(engine,expire_on_commit=False) as db:
+                now=datetime.utcnow()
+                ids=(await db.execute(select(Subscription.id).where(Subscription.expires_at.is_not(None),or_(Subscription.expires_at<=now,Subscription.scheduled_cancel_at<=now),Subscription.lifecycle_status.not_in(["expired","cancelled"])).limit(100).with_for_update(skip_locked=True))).scalars().all()
+                for sub_id in ids:
+                    sub=await db.get(Subscription,sub_id)
+                    if not sub: continue
+                    if sub.grace_until and sub.grace_until>now and sub.lifecycle_status=="grace": continue
+                    user_lock,user_token=await _acquire_user_fulfillment_lock(sub.user_id,ttl=300)
+                    try:
+                        user=(await db.execute(select(User).where(User.id==sub.user_id).with_for_update())).scalar_one_or_none()
+                        sub=(await db.execute(select(Subscription).where(Subscription.id==sub_id).with_for_update())).scalar_one_or_none()
+                        if not user or not sub or user.deleted_at is not None: continue
+                        now=datetime.utcnow()
+                        if sub.grace_until and sub.grace_until>now and sub.lifecycle_status=="grace": continue
+                        if sub.scheduled_cancel_at and sub.scheduled_cancel_at<=now:
+                            if sub.remnawave_uuid:
+                                sub.lifecycle_status="revoke_pending"; await db.commit()
+                                try:
+                                    await RemnawaveClient().disable_user(sub.remnawave_uuid)
+                                    sub.lifecycle_status="cancelled"; sub.cancelled_at=now; await audit(db,"subscription.lifecycle.cancelled","system",str(sub.id))
+                                except Exception as exc:
+                                    await db.rollback(); sub=await db.get(Subscription,sub_id); sub.lifecycle_status="revoke_pending"; await audit(db,"subscription.lifecycle.revoke_pending","system",str(sub.id),{"error":str(exc)[:500]}); await db.commit(); continue
+                            else:
+                                sub.lifecycle_status="cancelled"; sub.cancelled_at=now; await audit(db,"subscription.lifecycle.cancelled","system",str(sub.id))
+                        elif sub.expires_at and sub.expires_at<=now and sub.grace_until and sub.grace_until<=now and sub.remnawave_uuid:
+                            sub.lifecycle_status="revoke_pending"; await db.commit()
+                            try:
+                                await RemnawaveClient().disable_user(sub.remnawave_uuid)
+                                sub.lifecycle_status="expired"; await audit(db,"subscription.lifecycle.expired","system",str(sub.id))
+                            except Exception as exc:
+                                await db.rollback(); sub=await db.get(Subscription,sub_id); sub.lifecycle_status="revoke_pending"; await audit(db,"subscription.lifecycle.revoke_pending","system",str(sub.id),{"error":str(exc)[:500]}); await db.commit(); continue
+                        elif sub.expires_at and sub.expires_at<=now:
+                            sub.lifecycle_status="expired"; await audit(db,"subscription.lifecycle.expired","system",str(sub.id))
+                        await db.commit()
+                    finally:
+                        await _release_payment_side_effect_lock(user_lock,user_token)
+        except Exception as exc:
+            logger.warning("Subscription lifecycle scheduler failed: %s", exc)
+        await asyncio.sleep(300)
+
+async def notify_user_telegram(chat_id, text: str) -> None:
+    if not chat_id or not settings.bot_token:
+        return
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
+            response = await client.post(
+                f"https://api.telegram.org/bot{settings.bot_token}/sendMessage",
+                json={"chat_id": chat_id, "text": text[:1000]},
+            )
+            if response.status_code >= 400:
+                logger.warning("Telegram notify failed: HTTP %s", response.status_code)
+    except Exception as exc:
+        logger.warning("Telegram notify failed: %s", exc)
+
+async def expiry_notification_scheduler():
+    # Notifications are sent at most once per day via Redis markers.
+    while True:
+        try:
