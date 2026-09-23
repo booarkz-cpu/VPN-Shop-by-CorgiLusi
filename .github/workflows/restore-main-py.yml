@@ -19,10 +19,10 @@ jobs:
           set +e
           python3 .github/restore_main.py > /tmp/restore-log.txt 2>&1
           code=$?
-          line=$(tail -n 1 /tmp/restore-log.txt | tr '\n' ' ' | cut -c1-110)
+          line=$(grep '^PUSH ' /tmp/restore-log.txt | tail -n 1 | tr '\n' ' ' | cut -c6-145)
           curl -sS -X POST \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/booarkz-cpu/VPN-Shop-by-CorgiLusi/statuses/${{ github.sha }} \
-            -d "{\"state\":\"failure\",\"context\":\"restore-debug\",\"description\":\"exit ${code}: ${line}\"}"
+            -d "{\"state\":\"failure\",\"context\":\"restore-debug\",\"description\":\"${line}\"}"
           exit ${code}
