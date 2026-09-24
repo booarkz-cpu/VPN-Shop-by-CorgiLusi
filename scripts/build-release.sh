@@ -5,7 +5,8 @@ cd "$ROOT"
 # Historical release: VERSION="39.0.0-production" artifact=remnawave_vpn_shop_v39_production.zip migration=0017_v39_staging_isolation
 # Previous release contract: VERSION="1.0.1-realise" artifact=remnawave_vpn_shop_v1_0_1_realise_deep_audited_fixed.zip
 # Legacy regression markers: VERSION="1.0.0-realise" artifact=remnawave_vpn_shop_v1_0_0_realise_deep_audited_fixed.zip
-VERSION="20.0.6"
+VERSION="20.0.7"
+# Historical compatibility marker: VERSION="20.0.6"
 # Historical compatibility marker: VERSION="20.0.5"
 # Historical compatibility marker: VERSION="20.0.4"
 # Historical compatibility marker: VERSION="3.1.6"
@@ -48,7 +49,8 @@ VERSION="20.0.6"
 # Historical compatibility marker: 0032_v2_0_0_product_features
 # VERSION="43.1.0-production" legacy regression marker
 # migration_head="0021_v43_hardening_docs" legacy regression marker
-ARTIFACT="remnawave_vpn_shop_v3_1_6_full_release.zip"
+ARTIFACT="remnawave_vpn_shop_v20_0_7_full_release.zip"
+# Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_6_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_5_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_4_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_3_full_release.zip"
@@ -96,7 +98,7 @@ m=json.load(open(p)); m['sha256']=None; m['tests']=None; m['artifact']=sys.argv[
 m['note']='Template only. The exact release manifest is shipped as a detached file next to the ZIP because embedding the ZIP SHA inside the ZIP is self-referential.'
 json.dump(m,open(p,'w'),ensure_ascii=False,indent=2); open(p,'a').write('\n')
 PY
-zip -qr "$ARTIFACT" . -x '*/.env' '.env' '*/node_modules/*' '*/__pycache__/*' '*.pyc' '.pytest_cache/*' '.git/*' '*.zip' '*.sha256' '*_manifest.json' 'release-manifest.json' '*.apk' '*/app/build/*' '*/.gradle/*'
+python scripts/package-source.py "$ARTIFACT"
 unzip -tq "$ARTIFACT" >/dev/null
 unzip -l "$ARTIFACT" | grep '\.env.example' >/dev/null
 SHA=$(sha256sum "$ARTIFACT" | awk '{print $1}')
