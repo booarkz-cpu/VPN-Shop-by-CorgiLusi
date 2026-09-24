@@ -1,0 +1,436 @@
+    if payload.item_type not in {"webapp","url","field"}: raise HTTPException(400,"Недопустимый тип кнопки")
+    if payload.item_type=="url": validate_public_url(payload.action,allow_empty=False)
+    if payload.item_type=="webapp": validate_public_url(payload.action or settings.mini_app_url,allow_empty=False)
+    if payload.item_type=="field":
+        if not payload.action: raise HTTPException(400,"Для кнопки поля требуется ключ поля")
+        exists=await db.execute(select(CustomField.id).where(CustomField.key==payload.action,CustomField.enabled.is_(True)).limit(1))
+        if exists.scalar_one_or_none() is None: raise HTTPException(400,"Кнопка field ссылается на неизвестное или отключённое поле")
+    for k,v in payload.model_dump().items(): setattr(x,k,v)
+    await audit(db,"content.menu.updated",admin.email,str(item_id)); await db.commit(); return {"ok":True}
+
+@app.delete("/api/admin/menu/{item_id}")
+async def admin_menu_delete(item_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    x=await db.get(BotMenuItem,item_id)
+    if not x: raise HTTPException(404,"Menu item not found")
+    await db.delete(x)
+    await audit(db,"content.menu.deleted",admin.email,str(item_id))
+    await db.commit()
+    return {"ok":True}
+
+@app.post("/api/admin/fields")
+async def admin_field(payload:FieldIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    x=CustomField(**payload.model_dump()); db.add(x); await db.commit(); await db.refresh(x); return {"id":x.id}
+
+@app.put("/api/admin/fields/{field_id}")
+async def admin_field_update(field_id:int,payload:FieldIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    x=await db.get(CustomField,field_id);
+    if not x: raise HTTPException(404,"Field not found")
+    for k,v in payload.model_dump().items(): setattr(x,k,v)
+    await db.commit(); return {"ok":True}
+
+@app.delete("/api/admin/fields/{field_id}")
+async def admin_field_delete(field_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    x=await db.get(CustomField,field_id);
+    if not x: raise HTTPException(404,"Field not found")
+    await db.delete(x); await db.commit(); return {"ok":True}
+
+async def _read_upload_limited(file: UploadFile, max_bytes: int) -> bytes:
+    chunks=[]
+    total=0
+    while True:
+        chunk=await file.read(min(1024*1024, max_bytes-total+1))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(413, f"Uploaded file is too large (max {max_bytes} bytes)")
+    return b"".join(chunks)
+
+
+def _valid_image_signature(data:bytes, content_type:str)->bool:
+    if content_type=="image/jpeg": return data.startswith(b"\xff\xd8\xff")
+    if content_type=="image/png": return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type=="image/gif": return data.startswith((b"GIF87a",b"GIF89a"))
+    if content_type=="image/webp": return data.startswith(b"RIFF") and data[8:12]==b"WEBP"
+    return False
+
+@app.post("/api/admin/images")
+async def admin_image(title:str=Form(...),sort_order:int=Form(0),enabled:bool=Form(True),file:UploadFile=File(...),db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    allowed={"image/png","image/jpeg","image/webp","image/gif"}
+    if file.content_type not in allowed: raise HTTPException(400,"Unsupported image type")
+    data=await _read_upload_limited(file,5*1024*1024)
+    if file.content_type not in {"image/jpeg","image/png","image/webp","image/gif"}: raise HTTPException(400,"Only JPG, PNG, WEBP and GIF are allowed")
+    if not _valid_image_signature(data,file.content_type): raise HTTPException(400,"Invalid image signature")
+    ext={"image/jpeg":".jpg","image/png":".png","image/webp":".webp","image/gif":".gif"}[file.content_type]
+    name=secrets.token_hex(16)+ext; pathlib.Path(settings.media_dir,name).write_bytes(data)
+    x=MenuImage(title=title,filename=name,sort_order=sort_order,enabled=enabled); db.add(x); await db.commit(); await db.refresh(x); return {"id":x.id,"url":"/media/"+name}
+
+@app.delete("/api/admin/images/{image_id}")
+async def admin_image_delete(image_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    x=await db.get(MenuImage,image_id);
+    if not x: raise HTTPException(404,"Image not found")
+    try: pathlib.Path(settings.media_dir,x.filename).unlink(missing_ok=True)
+    except Exception as exc:
+        logger.warning("Non-critical operation failed: %s", exc)
+    await db.delete(x); await db.commit(); return {"ok":True}
+
+
+# ---------- Marketing / promotions / broadcasts ----------
+class PromotionIn(BaseModel):
+    name:str=Field(min_length=1,max_length=255); kind:str="percent"; value:Decimal=Field(gt=0,le=1000000,decimal_places=2,max_digits=12); plan_ids:list[int]|None=None; starts_at:datetime|None=None; ends_at:datetime|None=None; enabled:bool=True; description:str=""; priority:int=Field(default=0,ge=-100000,le=100000); exclusive:bool=True
+class PromoCodeIn(BaseModel):
+    code:str=Field(min_length=2,max_length=64); kind:str="percent"; value:Decimal=Field(gt=0,le=1000000,decimal_places=2,max_digits=12); plan_ids:list[int]|None=None; starts_at:datetime|None=None; ends_at:datetime|None=None; usage_limit:int|None=Field(default=None,ge=1); enabled:bool=True; first_purchase_only:bool=False; max_uses_per_user:int|None=Field(default=None,ge=1); min_amount:Decimal|None=Field(default=None,ge=0,decimal_places=2,max_digits=12); referral_only:bool=False
+class AdIn(BaseModel):
+    title:str=Field(min_length=1,max_length=255); text:str=""; image_url:str|None=None; button_text:str|None=None; button_url:str|None=None; starts_at:datetime|None=None; ends_at:datetime|None=None; enabled:bool=True; sort_order:int=0
+class BroadcastIn(BaseModel):
+    text:str=Field(min_length=1,max_length=4000); image_url:str|None=None; button_text:str|None=Field(default=None,max_length=100); button_url:str|None=None; target:str="all"
+
+@app.get("/api/admin/marketing")
+async def admin_marketing(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
+    ps=(await db.execute(select(Promotion).order_by(Promotion.id.desc()))).scalars().all(); cs=(await db.execute(select(PromoCode).order_by(PromoCode.id.desc()))).scalars().all(); ads=(await db.execute(select(Advertisement).order_by(Advertisement.sort_order,Advertisement.id))).scalars().all(); bs=(await db.execute(select(Broadcast).order_by(Broadcast.id.desc()).limit(100))).scalars().all()
+    return {"promotions":[{"id":x.id,"name":x.name,"kind":x.kind,"value":float(x.value),"plan_ids":x.plan_ids,"starts_at":x.starts_at,"ends_at":x.ends_at,"enabled":x.enabled,"description":x.description,"priority":x.priority,"exclusive":x.exclusive} for x in ps],"promo_codes":[{"id":x.id,"code":x.code,"kind":x.kind,"value":float(x.value),"plan_ids":x.plan_ids,"starts_at":x.starts_at,"ends_at":x.ends_at,"usage_limit":x.usage_limit,"used_count":x.used_count,"enabled":x.enabled} for x in cs],"advertisements":[{"id":x.id,"title":x.title,"text":x.text,"image_url":x.image_url,"button_text":x.button_text,"button_url":x.button_url,"starts_at":x.starts_at,"ends_at":x.ends_at,"enabled":x.enabled,"sort_order":x.sort_order} for x in ads],"broadcasts":[{"id":x.id,"text":x.text,"status":x.status,"target":x.target,"sent_count":x.sent_count,"failed_count":x.failed_count,"created_at":x.created_at,"finished_at":x.finished_at} for x in bs]}
+
+@app.post("/api/admin/promotions")
+async def create_promotion(payload:PromotionIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    if payload.kind not in {"percent","fixed"}: raise HTTPException(400,"kind must be percent or fixed")
+    if payload.kind=="percent" and payload.value>100: raise HTTPException(400,"Percent discount cannot exceed 100")
+    if payload.kind=="fixed" and payload.value<=0: raise HTTPException(400,"Invalid discount")
+    x=Promotion(**payload.model_dump()); db.add(x); await audit(db,"marketing.promotion.created",admin.email); await db.commit(); return {"ok":True}
+@app.put("/api/admin/promotions/{item_id}")
+async def update_promotion(item_id:int,payload:PromotionIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=await db.get(Promotion,item_id)
+    if not x: raise HTTPException(404,"Promotion not found")
+    for k,v in payload.model_dump().items(): setattr(x,k,v)
+    await db.commit(); return {"ok":True}
+@app.delete("/api/admin/promotions/{item_id}")
+async def delete_promotion(item_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=await db.get(Promotion,item_id);
+    if not x: raise HTTPException(404,"Promotion not found")
+    await db.delete(x); await db.commit(); return {"ok":True}
+
+@app.post("/api/admin/promo-codes")
+async def create_promo_code(payload:PromoCodeIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    if payload.kind not in {"percent","fixed"}: raise HTTPException(400,"kind must be percent or fixed")
+    if payload.kind=="percent" and payload.value>100: raise HTTPException(400,"Percent discount cannot exceed 100")
+    data=payload.model_dump(); data["code"]=payload.code.strip().upper(); x=PromoCode(**data); db.add(x)
+    try: await db.commit()
+    except IntegrityError: await db.rollback(); raise HTTPException(409,"Promo code already exists")
+    return {"ok":True}
+@app.put("/api/admin/promo-codes/{item_id}")
+async def update_promo_code(item_id:int,payload:PromoCodeIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=await db.get(PromoCode,item_id);
+    if not x: raise HTTPException(404,"Promo code not found")
+    data=payload.model_dump(); data["code"]=data["code"].strip().upper()
+    for k,v in data.items(): setattr(x,k,v)
+    await db.commit(); return {"ok":True}
+@app.delete("/api/admin/promo-codes/{item_id}")
+async def delete_promo_code(item_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=await db.get(PromoCode,item_id);
+    if not x: raise HTTPException(404,"Promo code not found")
+    await db.delete(x); await db.commit(); return {"ok":True}
+
+@app.post("/api/admin/advertisements")
+async def create_ad(payload:AdIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    validate_public_url(payload.button_url)
+    validate_public_url(payload.image_url)
+    x=Advertisement(**payload.model_dump()); db.add(x); await db.commit(); return {"ok":True}
+@app.put("/api/admin/advertisements/{item_id}")
+async def update_ad(item_id:int,payload:AdIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=await db.get(Advertisement,item_id);
+    if not x: raise HTTPException(404,"Advertisement not found")
+    validate_public_url(payload.button_url); validate_public_url(payload.image_url)
+    for k,v in payload.model_dump().items(): setattr(x,k,v)
+    await db.commit(); return {"ok":True}
+@app.delete("/api/admin/advertisements/{item_id}")
+async def delete_ad(item_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=await db.get(Advertisement,item_id);
+    if not x: raise HTTPException(404,"Advertisement not found")
+    await db.delete(x); await db.commit(); return {"ok":True}
+
+@app.post("/api/admin/broadcasts")
+async def create_broadcast(payload:BroadcastIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_broadcasts"))):
+    if not settings.bot_token: raise HTTPException(503,"BOT_TOKEN is not configured")
+    if payload.target not in {"all","active","inactive"}: raise HTTPException(400,"Unsupported target")
+    data=payload.model_dump()
+    for key in ("image_url","button_text","button_url"):
+        if data.get(key)=="": data[key]=None
+    if bool(data.get("button_text")) != bool(data.get("button_url")): raise HTTPException(400,"Button text and URL are set together")
+    if data.get("image_url") and len(payload.text)>1024: raise HTTPException(400,"Caption is longer than 1024 characters")
+    validate_public_url(data.get("button_url")); validate_public_url(data.get("image_url"))
+    x=Broadcast(**data); db.add(x); await audit(db,"marketing.broadcast.queued",admin.email,str(payload.target)); await db.commit(); await db.refresh(x); return {"id":x.id,"status":"queued"}
+
+@app.post("/api/admin/broadcasts/{broadcast_id}/retry")
+async def retry_broadcast(broadcast_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_broadcasts"))):
+    if not settings.bot_token: raise HTTPException(503,"BOT_TOKEN is not configured")
+    x=await db.get(Broadcast,broadcast_id)
+    if not x: raise HTTPException(404,"Broadcast not found")
+    if x.status not in {"sending","failed"}: raise HTTPException(409,"Broadcast is not waiting for a retry")
+    x.status="queued"; x.finished_at=None
+    await audit(db,"marketing.broadcast.retried",admin.email,str(x.id),{"sent_count":x.sent_count,"failed_count":x.failed_count})
+    await db.commit(); return {"id":x.id,"status":"queued","sent_count":x.sent_count,"failed_count":x.failed_count}
+
+async def monitor_checks_scheduler():
+    while True:
+        try:
+            async with AsyncSession(engine, expire_on_commit=False) as db:
+                now=datetime.utcnow(); rows=(await db.execute(select(MonitoringCheck).where(MonitoringCheck.enabled.is_(True)))).scalars().all()
+                for x in rows:
+                    if x.last_checked_at and (now-x.last_checked_at).total_seconds() < x.interval_seconds: continue
+                    started=asyncio.get_running_loop().time()
+                    try:
+                        validate_public_url(x.url, allow_empty=False)
+                        async with _pinned_public_http_client(x.timeout_seconds) as c:
+                            r=await c.request(x.method,x.url)
+                        x.last_status="ok" if 200<=r.status_code<400 else "degraded"; x.last_error=None if x.last_status=="ok" else f"HTTP {r.status_code}"
+                        x.last_latency_ms=round((asyncio.get_running_loop().time()-started)*1000); x.failure_streak=0 if x.last_status=="ok" else x.failure_streak+1
+                    except Exception as exc:
+                        x.last_status="down"; x.last_error=str(exc)[:500]; x.last_latency_ms=round((asyncio.get_running_loop().time()-started)*1000); x.failure_streak+=1
+                    x.last_checked_at=datetime.utcnow()
+                    if x.failure_streak in {1,3,5}: await audit(db,"monitoring.alert","system",str(x.id),{"name":x.name,"status":x.last_status,"error":x.last_error})
+                await db.commit()
+        except Exception: logger.exception("monitoring scheduler failure")
+        await asyncio.sleep(15)
+
+# ---------- Enterprise suite V44 ----------
+@app.get("/api/admin/enterprise/monitoring")
+async def enterprise_monitoring(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
+    rows=(await db.execute(select(MonitoringCheck).order_by(MonitoringCheck.id))).scalars().all()
+    return [{"id":x.id,"name":x.name,"url":x.url,"method":x.method,"interval_seconds":x.interval_seconds,"timeout_seconds":x.timeout_seconds,"enabled":x.enabled,"last_status":x.last_status,"last_latency_ms":x.last_latency_ms,"last_error":"unavailable" if x.last_error else None,"last_checked_at":x.last_checked_at,"failure_streak":x.failure_streak} for x in rows]
+
+@app.post("/api/admin/enterprise/monitoring")
+async def enterprise_monitoring_create(payload:MonitoringCheckIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.diagnostics"))):
+    validate_public_url(payload.url)
+    x=MonitoringCheck(**payload.model_dump()); db.add(x); await db.commit(); await audit(db,"monitoring.check.created",admin.email,str(x.id)); await db.commit(); return {"id":x.id}
+
+@app.delete("/api/admin/enterprise/monitoring/{check_id}")
+async def enterprise_monitoring_delete(check_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.diagnostics"))):
+    x=await db.get(MonitoringCheck,check_id)
+    if not x: raise HTTPException(404,"Проверка не найдена")
+    await db.delete(x); await audit(db,"monitoring.check.deleted",admin.email,str(check_id)); await db.commit(); return {"ok":True}
+
+@app.get("/api/admin/enterprise/campaigns")
+async def enterprise_campaigns(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("marketing.read"))):
+    rows=(await db.execute(select(Campaign).order_by(Campaign.id.desc()))).scalars().all(); return [{"id":x.id,"name":x.name,"kind":x.kind,"status":x.status,"audience":x.audience,"content":x.content,"starts_at":x.starts_at,"ends_at":x.ends_at,"sent_count":x.sent_count,"failed_count":x.failed_count} for x in rows]
+
+@app.post("/api/admin/enterprise/campaigns")
+async def enterprise_campaign_create(payload:CampaignIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=Campaign(**payload.model_dump()); db.add(x); await db.commit(); await audit(db,"campaign.created",admin.email,str(x.id)); await db.commit(); return {"id":x.id,"status":x.status}
+
+@app.put("/api/admin/enterprise/campaigns/{campaign_id}")
+async def enterprise_campaign_update(campaign_id:int,payload:CampaignIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
+    x=await db.get(Campaign,campaign_id)
+    if not x: raise HTTPException(404,"Кампания не найдена")
+    for k,v in payload.model_dump().items(): setattr(x,k,v)
+    x.updated_at=datetime.utcnow(); await db.commit(); return {"ok":True}
+
+@app.get("/api/admin/enterprise/rules")
+async def enterprise_rules(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
+    rows=(await db.execute(select(AutomationRule).order_by(AutomationRule.priority,AutomationRule.id))).scalars().all(); return [{"id":x.id,"name":x.name,"event":x.event,"conditions":x.conditions,"actions":x.actions,"enabled":x.enabled,"priority":x.priority,"run_count":x.run_count,"last_run_at":x.last_run_at} for x in rows]
+
+@app.post("/api/admin/enterprise/rules")
+async def enterprise_rule_create(payload:RuleIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("feature_flags.manage"))):
+    x=AutomationRule(**payload.model_dump()); db.add(x); await db.commit(); await audit(db,"automation.rule.created",admin.email,str(x.id)); await db.commit(); return {"id":x.id}
+
+@app.put("/api/admin/enterprise/rules/{rule_id}")
+async def enterprise_rule_update(rule_id:int,payload:RuleIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("feature_flags.manage"))):
+    x=await db.get(AutomationRule,rule_id)
+    if not x: raise HTTPException(404,"Правило не найдено")
+    for k,v in payload.model_dump().items(): setattr(x,k,v)
+    x.updated_at=datetime.utcnow(); await db.commit(); return {"ok":True}
+
+@app.get("/api/admin/enterprise/summary")
+async def enterprise_summary(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
+    now=datetime.utcnow(); active=(await db.execute(select(func.count()).select_from(Subscription).where(Subscription.expires_at.is_not(None),Subscription.expires_at>now))).scalar() or 0
+    return {"monitoring":await db.scalar(select(func.count()).select_from(MonitoringCheck).where(MonitoringCheck.enabled.is_(True))),"campaigns":await db.scalar(select(func.count()).select_from(Campaign).where(Campaign.status.in_(["scheduled","running"]))),"rules":await db.scalar(select(func.count()).select_from(AutomationRule).where(AutomationRule.enabled.is_(True))),"devices":await db.scalar(select(func.count()).select_from(UserDevice).where(UserDevice.status=="active")),"active_subscriptions":active,"features":["24/7 мониторинг","маршрутизация платежей","антифрод","личный кабинет","мультиустройства","автопродление","конструктор бота","конструктор Mini App","тарифы 2.0","trial","campaign manager","аналитика","node manager","rules engine","support center","disaster recovery"]}
+
+# ---------- V41 Enterprise Operations ----------
+V41_FEATURE_DEFAULTS = {
+    "passkeys": (False, "Вход администратора по Passkey/WebAuthn"),
+    "payment_failover": (True, "Автоматический fallback платёжного провайдера"),
+    "incident_center": (True, "Центр инцидентов"),
+    "diagnostics_center": (True, "Центр диагностики"),
+    "backup_test_restore": (True, "Проверка backup и безопасный test-restore"),
+    "advanced_analytics": (True, "Расширенная бизнес-аналитика"),
+    "advanced_promos": (True, "Расширенные промокампании"),
+    "referral_v2": (True, "Реферальная система второго уровня"),
+    "payments": (True, "Создание реальных платежей"),
+}
+
+async def _ensure_v41_defaults(db):
+    for key,(enabled,desc) in V41_FEATURE_DEFAULTS.items():
+        row=await _feature_flag(db,key)
+        if not row: db.add(FeatureFlag(key=key,enabled=enabled,description=desc))
+    for i,p in enumerate(("yookassa","platega","rollypay"),1):
+        row=(await db.execute(select(PaymentProviderHealth).where(PaymentProviderHealth.provider==p))).scalar_one_or_none()
+        if not row: db.add(PaymentProviderHealth(provider=p,priority=i*10,enabled=True))
+    await db.commit()
+
+@app.get("/api/admin/v41/features")
+async def v41_features(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
+    await _ensure_v41_defaults(db)
+    rows=(await db.execute(select(FeatureFlag).order_by(FeatureFlag.key))).scalars().all()
+    return [{"key":x.key,"enabled":x.enabled,"description":x.description,"updated_at":str(x.updated_at)} for x in rows]
+
+class FeatureFlagIn(BaseModel):
+    enabled: bool
+
+@app.put("/api/admin/v41/features/{key}")
+async def v41_feature_update(key:str,payload:FeatureFlagIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("feature_flags.manage"))):
+    if key not in V41_FEATURE_DEFAULTS: raise HTTPException(404,"Функция не найдена")
+    row=await _feature_flag(db,key)
+    if not row: row=FeatureFlag(key=key,description=V41_FEATURE_DEFAULTS[key][1]); db.add(row)
+    row.enabled=payload.enabled; row.updated_at=datetime.utcnow()
+    await audit(db,"feature_flag.updated",admin.email,key,{"enabled":payload.enabled}); await db.commit()
+    return {"key":key,"enabled":payload.enabled}
+
+@app.get("/api/admin/v41/analytics")
+async def v41_analytics(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("analytics.read"))):
+    now=datetime.utcnow(); since=now-timedelta(days=30)
+    users_total=int((await db.execute(select(func.count()).select_from(User))).scalar_one())
+    users_new=int((await db.execute(select(func.count()).select_from(User).where(User.created_at>=since))).scalar_one())
+    payments_total=int((await db.execute(select(func.count()).select_from(Payment))).scalar_one())
+    paid=int((await db.execute(select(func.count()).select_from(Payment).where(Payment.status.in_(["paid","succeeded"])))).scalar_one())
+    revenue=(await db.execute(select(func.coalesce(func.sum(Payment.amount),0)).where(Payment.status.in_(["paid","succeeded"])))).scalar_one()
+    revenue30=(await db.execute(select(func.coalesce(func.sum(Payment.amount),0)).where(Payment.status.in_(["paid","succeeded"]),Payment.paid_at>=since))).scalar_one()
+    refunds=int((await db.execute(select(func.count()).select_from(RefundRequest).where(RefundRequest.status=="refunded"))).scalar_one())
+    avg=(Decimal(str(revenue))/Decimal(paid)).quantize(Decimal("0.01")) if paid else Decimal("0")
+    return {"users":{"total":users_total,"new_30d":users_new},"payments":{"total":payments_total,"paid":paid,"conversion_percent":round(paid/payments_total*100,2) if payments_total else 0},"revenue":{"all_time":float(revenue),"last_30d":float(revenue30),"average_paid_check":float(avg),"currency":settings.default_currency},"refunds":refunds}
+
+@app.get("/api/admin/v41/crm/users")
+async def v41_crm_users(q:str="",page:int=1,page_size:int=50,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("users.read"))):
+    page=max(1,page); page_size=min(100,max(1,page_size)); stmt=select(User).order_by(User.id.desc())
+    q=q.strip()
+    if q:
+        if q.isdigit(): stmt=stmt.where(User.telegram_id==int(q))
+        else: stmt=stmt.where(User.username.ilike(f"%{q}%"))
+    rows=(await db.execute(stmt.offset((page-1)*page_size).limit(page_size))).scalars().all()
+    return [{"id":u.id,"telegram_id":u.telegram_id,"username":u.username,"referral_code":u.referral_code,"auto_renew":u.auto_renew_enabled,"created_at":str(u.created_at)} for u in rows]
+
+@app.get("/api/admin/v41/providers")
+async def v41_providers(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.providers"))):
+    await _ensure_v41_defaults(db)
+    rows=(await db.execute(select(PaymentProviderHealth).order_by(PaymentProviderHealth.priority,PaymentProviderHealth.provider))).scalars().all()
+    return [{"provider":x.provider,"enabled":x.enabled,"priority":x.priority,"success_count":x.success_count,"failure_count":x.failure_count,"last_latency_ms":x.last_latency_ms,"last_error":"unavailable" if x.last_error else None,"circuit_open_until":str(x.circuit_open_until) if x.circuit_open_until else None} for x in rows]
+
+class ProviderHealthIn(BaseModel):
+    enabled: bool
+    priority: int = Field(ge=1,le=1000)
+
+@app.put("/api/admin/v41/providers/{provider}")
+async def v41_provider_update(provider:str,payload:ProviderHealthIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.providers"))):
+    if provider not in {"yookassa","platega","rollypay"}: raise HTTPException(404,"Провайдер не найден")
+    row=(await db.execute(select(PaymentProviderHealth).where(PaymentProviderHealth.provider==provider))).scalar_one_or_none()
+    if not row: row=PaymentProviderHealth(provider=provider); db.add(row)
+    row.enabled=payload.enabled; row.priority=payload.priority; row.updated_at=datetime.utcnow()
+    await audit(db,"payment_provider.updated",admin.email,provider,payload.model_dump()); await db.commit(); return {"ok":True}
+
+@app.get("/api/admin/v41/diagnostics")
+async def v41_diagnostics(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.diagnostics"))):
+    checks=[]
+    start=asyncio.get_running_loop().time()
+    try: await db.execute(sql_text("SELECT 1")); checks.append({"name":"PostgreSQL","status":"ok","latency_ms":round((asyncio.get_running_loop().time()-start)*1000)})
+    except Exception as exc:
+        logger.warning("Diagnostics PostgreSQL check failed: %s", exc)
+        checks.append({"name":"PostgreSQL","status":"error","error":"unavailable"})
+    start=asyncio.get_running_loop().time()
+    if redis_client:
+        try: await redis_client.ping(); checks.append({"name":"Redis","status":"ok","latency_ms":round((asyncio.get_running_loop().time()-start)*1000)})
+        except Exception as exc:
+            logger.warning("Diagnostics Redis check failed: %s", exc)
+            checks.append({"name":"Redis","status":"error","error":"unavailable"})
+    else: checks.append({"name":"Redis","status":"error","error":"Не подключён"})
+    try:
+        rw=RemnawaveClient(); await rw.list_nodes(start=0,size=1); checks.append({"name":"Remnawave","status":"ok"})
+    except Exception as exc:
+        logger.warning("Diagnostics Remnawave check failed: %s", exc)
+        checks.append({"name":"Remnawave","status":"error","error":"unavailable"})
+    return {"status":"ok" if all(x["status"]=="ok" for x in checks) else "degraded","checks":checks,"checked_at":datetime.utcnow().isoformat()}
+
+class IncidentCreateIn(BaseModel):
+    severity:str=Field(pattern="^(low|medium|high|critical)$")
+    category:str=Field(min_length=1,max_length=64)
+    title:str=Field(min_length=1,max_length=255)
+    details:str=Field(default="",max_length=10000)
+
+@app.get("/api/admin/v41/incidents")
+async def v41_incidents(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.incidents"))):
+    rows=(await db.execute(select(SecurityIncidentEvent).order_by(SecurityIncidentEvent.id.desc()).limit(100))).scalars().all()
+    return [{"id":x.id,"severity":x.severity,"category":x.category,"title":x.title,"details":x.details,"status":x.status,"created_at":str(x.created_at),"resolved_at":str(x.resolved_at) if x.resolved_at else None} for x in rows]
+
+@app.post("/api/admin/v41/incidents")
+async def v41_incident_create(payload:IncidentCreateIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.incidents"))):
+    x=SecurityIncidentEvent(**payload.model_dump()); db.add(x); await audit(db,"incident.created",admin.email,None,payload.model_dump()); await db.commit(); await db.refresh(x); return {"id":x.id,"status":x.status}
+
+@app.post("/api/admin/v41/incidents/{incident_id}/resolve")
+async def v41_incident_resolve(incident_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.incidents"))):
+    x=await db.get(SecurityIncidentEvent,incident_id)
+    if not x: raise HTTPException(404,"Инцидент не найден")
+    x.status="resolved"; x.resolved_at=datetime.utcnow(); await audit(db,"incident.resolved",admin.email,str(incident_id)); await db.commit(); return {"ok":True}
+
+@app.get("/api/admin/v41/backups/verification")
+async def v41_backup_verification_list(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.backups.verify"))):
+    rows=(await db.execute(select(BackupVerification).order_by(BackupVerification.id.desc()).limit(100))).scalars().all()
+    return [{"id":x.id,"backup_id":x.backup_id,"status":x.status,"checksum_ok":x.checksum_ok,"archive_safe":x.archive_safe,"restore_tested":x.restore_tested,"error":"unavailable" if x.error else None,"created_at":str(x.created_at),"finished_at":str(x.finished_at) if x.finished_at else None} for x in rows]
+
+@app.post("/api/admin/v41/backups/{backup_id}/test-restore")
+async def v41_backup_test_restore(backup_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.backups.verify"))):
+    backup=await db.get(BackupJob,backup_id)
+    if not backup or not backup.filename: raise HTTPException(404,"Backup не найден")
+    path=_backup_path(backup.filename)
+    record=BackupVerification(backup_id=backup_id,status="running",checksum_ok=None,archive_safe=None,restore_tested=False)
+    db.add(record); await db.commit(); await db.refresh(record)
+    temp_db=f"vpnshop_restore_test_{secrets.token_hex(6)}"
+    work=pathlib.Path("/tmp")/f"backup-test-{secrets.token_hex(8)}"; work.mkdir()
+    try:
+        if not path.is_file(): raise FileNotFoundError("Файл backup не найден")
+        h=hashlib.sha256()
+        with path.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(1024*1024),b""): h.update(chunk)
+        record.checksum_ok=(not backup.sha256 or h.hexdigest()==backup.sha256)
+        if not record.checksum_ok: raise ValueError("Checksum backup не совпадает")
+        source=path
+        if backup.encrypted:
+            password_enc=await setting_value(db,"backup_password","")
+            if not password_enc: raise ValueError("Пароль backup не настроен")
+            from .security import decrypt_secret
+            dec=work/"backup.tar.gz"
+            proc=await asyncio.create_subprocess_exec("openssl","enc","-d","-aes-256-cbc","-pbkdf2","-in",str(source),"-out",str(dec),"-pass","stdin",stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+            _,err=await proc.communicate((decrypt_secret(password_enc)+"\n").encode())
+            if proc.returncode!=0: raise ValueError("Не удалось расшифровать backup")
+            source=dec
+        with tarfile.open(source,"r:gz") as tf:
+            _validate_tar_safety(tf); member=next((m for m in tf.getmembers() if m.name=="database.sql"),None)
+            if not member: raise ValueError("database.sql отсутствует в backup")
+            _safe_extract_members(tf,{"database.sql"},work)
+        record.archive_safe=True; await db.commit()
+        # Restore into a disposable PostgreSQL database, never into production.
+        dbcli=_database_cli_config()
+        env={**os.environ,"PGPASSWORD":dbcli["password"]}
+        create=await asyncio.create_subprocess_exec("psql","-h",dbcli["host"],"-p",dbcli["port"],"-U",dbcli["user"],"-d",dbcli["database"],"-v","ON_ERROR_STOP=1","-c",f'CREATE DATABASE "{temp_db}"',env=env,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+        _,cerr=await create.communicate()
+        if create.returncode!=0: raise RuntimeError("Не удалось создать изолированную БД для test-restore: "+cerr.decode(errors="ignore")[-500:])
+        sql_file=work/"database.sql"
+        restore=await asyncio.create_subprocess_exec("psql","-h",dbcli["host"],"-p",dbcli["port"],"-U",dbcli["user"],"-d",temp_db,"-v","ON_ERROR_STOP=1","-f",str(sql_file),env=env,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+        _,rerr=await restore.communicate()
+        if restore.returncode!=0: raise RuntimeError("Изолированный restore завершился ошибкой: "+rerr.decode(errors="ignore")[-1000:])
+        check=await asyncio.create_subprocess_exec("psql","-h",dbcli["host"],"-p",dbcli["port"],"-U",dbcli["user"],"-d",temp_db,"-v","ON_ERROR_STOP=1","-tAc","SELECT 1",env=env,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+        # Fallback because subprocess args above intentionally avoid shell; execute correct check if needed.
+        if check.returncode is None: pass
+        out,err=await check.communicate()
+        if check.returncode!=0 or out.decode().strip()!="1": raise RuntimeError("Проверка восстановленной БД не пройдена")
+        record.restore_tested=True; record.status="passed"; record.finished_at=datetime.utcnow(); await audit(db,"backup.test_restore",admin.email,str(backup_id),{"status":"passed","restore_tested":True}); await db.commit()
+        return {"status":"passed","checksum_ok":True,"archive_safe":True,"restore_tested":True,"isolated_database":True}
+    except Exception as exc:
+        logger.warning("Backup test-restore failed for %s: %s", backup_id, exc)
+        record.status="failed"; record.error="unavailable"; record.finished_at=datetime.utcnow(); await audit(db,"backup.test_restore",admin.email,str(backup_id),{"status":"failed"}); await db.commit()
+        return {"status":"failed","checksum_ok":record.checksum_ok,"archive_safe":record.archive_safe,"restore_tested":False,"error":"unavailable"}
+    finally:
+        try:
+            drop=await asyncio.create_subprocess_exec("psql","-h",dbcli["host"],"-p",dbcli["port"],"-U",dbcli["user"],"-d",dbcli["database"],"-c",f'DROP DATABASE IF EXISTS "{temp_db}"',env={**os.environ,"PGPASSWORD":dbcli["password"]},stdout=asyncio.subprocess.DEVNULL,stderr=asyncio.subprocess.DEVNULL)
+            await drop.communicate()
+        except Exception: pass
+        shutil.rmtree(work,ignore_errors=True)
+
+@app.get("/api/admin/v41/referrals")
+async def v41_referrals(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("referrals.read"))):
