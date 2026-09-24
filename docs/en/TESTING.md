@@ -4,7 +4,7 @@ This stack runs the API, admin panel, cabinet and Mini App on your computer. Yoo
 
 Sandbox does not pretend to be a production VPN. The subscription link is `sandbox://local/...`. Happ will not import it. The point is to test registration, the storefront, checkout and the subscription row.
 
-`bash scripts/test-up.sh` publishes ports 18080–18083 on every interface and opens them in the host firewall (ufw, firewalld, or iptables). On this machine open `http://127.0.0.1:18081`. From another machine use `http://SERVER-IP:18081`. `COOKIE_SECURE=false` is only for this check. A hoster panel firewall, when present, must allow TCP 18080–18083. A live VDS install is in the root `README.md` and in [DEPLOYMENT.md](DEPLOYMENT.md).
+`bash scripts/test-up.sh` passes `.env.test` to Compose and binds test ports to `127.0.0.1`. For remote access use an SSH tunnel, for example `ssh -L 18081:127.0.0.1:18081 user@server`, then open `http://127.0.0.1:18081`. `COOKIE_SECURE=false` applies only to this local test. Production installation is in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Requirements
 
@@ -23,7 +23,7 @@ bash scripts/test-up.sh
 The script:
 
 1. Creates `.env.test` from `.env.test.example` when it is missing, with random `APP_SECRET`, database password and admin password.
-2. Opens TCP 18080–18083 in the host firewall and starts `docker-compose.test.yml`.
+2. Passes `.env.test` to Compose and starts `docker-compose.test.yml`.
 3. Waits for `http://127.0.0.1:18080/health`.
 4. Runs `scripts/sandbox-e2e.sh`: register, buy the plan "Тестовый месяц" through the `sandbox` provider, and finish fulfillment.
 
@@ -39,7 +39,7 @@ It prints `ADMIN_EMAIL` and, on the first run, `ADMIN_PASSWORD`. The password is
 Stop:
 
 ```bash
-docker compose -f docker-compose.test.yml down
+docker compose --env-file .env.test -f docker-compose.test.yml down
 ```
 
 Database files stay in Compose volumes. Add `-v` to drop them.
@@ -84,7 +84,7 @@ If the cabinet shows a wallet top-up, the amount must be from 50 to 100000. Sand
 ## 7. If startup fails
 
 ```bash
-docker compose -f docker-compose.test.yml logs --tail 80 backend
+docker compose --env-file .env.test -f docker-compose.test.yml logs --tail 80 backend
 ```
 
 If the API never becomes ready, the log usually shows Alembic or `APP_SECRET must be at least 32 characters`. Do not set `APP_ENV=production` in `.env.test`.
