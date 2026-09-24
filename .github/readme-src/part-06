@@ -1,0 +1,42 @@
+- Дивитися платежі, повертати оплачене замовлення і повторювати видачу, якщо Remnawave відповів помилкою. Повтор працює лише для статусу `paid`.
+- Завантажувати APK і IPA. Покупець завантажує файл з кабінету, адміністратор — з панелі.
+- Робити розсилку в Telegram. Повідомлення стає в чергу, доставляє процес бота.
+- Увімкнути технічний режим. Поки він увімкнений, нові платежі відхиляються.
+- Дивитися журнал аудиту. У відповіді панелі немає тексту винятку і секрету провайдера.
+- Реєструвати вузол і запускати failover лише з правом `provision_nodes`.
+
+Перший адміністратор створюється з `ADMIN_EMAIL` і `ADMIN_PASSWORD`, коли таблиця адміністраторів порожня.
+
+Бойова видача ходить у Remnawave за `REMNAWAVE_URL` і `REMNAWAVE_TOKEN`. Магазин створює або подовжує користувача і записує строк, ліміт трафіку і посилання. Повтор тієї самої операції не подовжує строк удруге. Оновлення картки з панелі не копіює пізніший строк в оплачену підписку. Без цих двох змінних пісочниця пише `sandbox://local/...` і `sandbox-user-{id}`: це мітка перевірки, а не робочий VPN.
+
+### Запуск із платіжними системами
+
+Спочатку підніміть магазин за розділом «Встановлення на VDS». `APP_ENV=production`, `PAYMENTS_SANDBOX=false`, `COOKIE_SECURE=true`. Заповніть лише ті ключі, якими будете користуватися. Порожній ключ вимикає провайдера. Потім `docker compose up -d`.
+
+| Провайдер | Змінні | Вебхук |
+| --- | --- |
+| YooKassa | `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `YOOKASSA_WEBHOOK_IP_ALLOWLIST` | `POST https://API_DOMAIN/api/webhooks/yookassa` |
+| Platega | `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET` | `POST https://API_DOMAIN/api/webhooks/platega` |
+| RollyPay | `ROLLYPAY_API_KEY`, `ROLLYPAY_SIGNING_SECRET` | `POST https://API_DOMAIN/api/webhooks/rollypay` |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `POST https://API_DOMAIN/api/payments/webhooks/stripe` |
+| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | `POST https://API_DOMAIN/api/payments/webhooks/paypal` |
+| Криптошлюз | `CRYPTO_GATEWAY_URL`, `CRYPTO_GATEWAY_KEY` | `POST https://API_DOMAIN/api/webhooks/crypto` |
+
+`YOOKASSA_API_URL` за замовчуванням `https://api.yookassa.ru`. `PLATEGA_API_URL` — `https://app.platega.io`. `ROLLYPAY_API_URL` — `https://rollypay.io`. Адреса перевіряється як публічний URL. Повернення Platega і RollyPay потребують `PLATEGA_REFUND_URL`, `PLATEGA_REFUND_STATUS_URL`, `ROLLYPAY_REFUND_URL` і `ROLLYPAY_REFUND_STATUS_URL`. `ROLLYPAY_TEST_MODE=true` — тестовий рахунок каси, а не пісочниця магазину. SEPA redirect-checkout не відкриває.
+
+1. YooKassa. У кабінеті ЮKassa візьміть shop id і секретний ключ і запишіть їх у `.env`. У сповіщеннях вкажіть URL вебхука і подію успішної оплати. У `YOOKASSA_WEBHOOK_IP_ALLOWLIST` перелічіть мережі ЮKassa через кому. Порожній список відхиляє всі сповіщення. Магазин дивиться адресу найближчого проксі: Caddy підставляє `X-Forwarded-For` із реального клієнта.
+2. Platega. Запишіть merchant id і секрет. У кабінеті Platega вкажіть вебхук. Сповіщення має приходити з `X-MerchantId` і `X-Secret`. Перед видачею магазин ще раз читає транзакцію і звіряє суму і номер замовлення.
+3. RollyPay. Запишіть API-ключ і секрет підпису. Сповіщення мусить містити `X-Signature` (HMAC-SHA256 тіла) і `X-Timestamp`. Мітка старша за п'ять хвилин відхиляється.
+4. Stripe. У кабінеті Stripe вкажіть вебхук `POST /api/payments/webhooks/stripe` і секрет підпису в `STRIPE_WEBHOOK_SECRET`. Підписка вмикається лише якщо провайдер відповів `paid` або `succeeded`, а сума, валюта і `order_id` збіглися. Неоплачена сесія checkout підписку не вмикає.
+5. PayPal. Вкажіть вебхук `POST /api/payments/webhooks/paypal` і `PAYPAL_WEBHOOK_ID`. Замовлення проводиться, коли PayPal у статусі `COMPLETED`, сума і валюта збіглися і є завершене захоплення.
+6. Криптошлюз. Вебхук `POST /api/webhooks/crypto` вимагає `X-Timestamp` (unix-секунди, вікно 5 хвилин) і `X-Signature` = hex HMAC-SHA256 від `{timestamp}.{сире тіло}` ключем `CRYPTO_GATEWAY_KEY`. Потім магазин робить `GET {CRYPTO_GATEWAY_URL}/payments/{id}` і приймає статуси `paid`, `succeeded`, `success`, `confirmed` лише коли збіглися сума, валюта і `order_id`.
+7. Apple і Google. `MOBILE_STORE_PRODUCTS` — JSON, де ключ це id продукту, а значення це id тарифу. Приклад: `{"com.shop.month": 1}`. Порожня змінна відхиляє `POST /api/payments/mobile/verify`. Чек Apple без `transactionId` і без ключів App Store Server API відхиляється. Чек Google Play годиться лише при `SUBSCRIPTION_STATE_ACTIVE`, і продукт із відповіді Google має бути в цій карті.
+8. Відкрийте бойові платежі. Ключів недостатньо. Потрібен успішний staging: рахунок, вебхук, видача, повтор того самого вебхука і повернення. Результат має бути не старший за 24 години, зі статусом `FULL_E2E_PASS`. У панелі, з правом `security.manage`, збережіть staging-ключі, які не збігаються з бойовими ключами з `.env`. Потім `POST /api/admin/payments/production-gate` з тілом `{"enabled": true}`. Якщо перевірка застаріла, відповідь `409`. Вимкнення: `{"enabled": false}`. Поки прапор вимкнений, покупець бачить «Реальные платежи временно заблокированы».
+9. Перевірте один платіж. Створіть тариф з маленькою ціною, оплатіть його, переконайтеся, що статус `paid`, видача `completed`, а посилання починається з `https://`. Повторний вебхук строк не подовжує. Повернення з панелі відкликає доступ, і повторний успішний вебхук підписку не повертає.
+
+`AUTO_RENEW_ENABLED=true` зберігає спосіб оплати ЮKassa для наступного періоду. Не вмикайте автопродовження, доки ручне повернення на staging не пройшло. Пісочниця рекурентні списання не виконує. Покупець не може сам поставити `tax_exempt` або `reverse_charge`.
+
+Докладні таблиці змінних — у [docs/uk/PAYMENTS.md](docs/uk/PAYMENTS.md).
+
+### Як пройти staging E2E
+
