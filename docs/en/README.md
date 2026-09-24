@@ -47,7 +47,7 @@ The first administrator is created from `ADMIN_EMAIL` and `ADMIN_PASSWORD` when 
 
 ## Payments
 
-Live providers are YooKassa, Platega, RollyPay, Stripe, PayPal and the crypto gateway, once their keys are set. Apple IAP and Google Play verify a store purchase. They do not open a website checkout. SEPA does not open a redirect checkout in this code.
+Live providers are YooKassa, Platega, RollyPay, Stripe, PayPal and the crypto gateway, once their keys are set. Apple IAP and Google Play verify a store purchase and grant a plan only when the product is listed in `MOBILE_STORE_PRODUCTS`. SEPA does not open a redirect checkout in this code. Stripe and PayPal apply an order only when the amount and currency match.
 
 Until the database flag `payments.production_gate` is on, a live charge returns `503`. The flag turns on only after a staging end-to-end run that is less than 24 hours old. Sandbox checkout does not need that flag.
 

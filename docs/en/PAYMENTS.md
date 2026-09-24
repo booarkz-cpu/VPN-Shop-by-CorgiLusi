@@ -76,3 +76,13 @@ While the flag is off, the buyer sees “Реальные платежи вре�
 - Do not set `PAYMENTS_SANDBOX=true` on a host that already has buyers. `APP_ENV=production` refuses to start, and that stop is intentional.
 - Do not paste production keys into the staging form. Saving rejects keys that match `.env`.
 - Do not publish PostgreSQL so you can flip the flag by hand on a public server. Use the panel route.
+
+## 9. Apple, Google, Stripe and PayPal
+
+`MOBILE_STORE_PRODUCTS` is a JSON object. The key is the App Store or Google Play product id. The value is the shop plan id. Example: `{"com.shop.month": 1}`. An empty value refuses `POST /api/payments/mobile/verify`. An Apple receipt without a `transactionId`, or without App Store Server API keys, is also refused. A Google Play receipt is accepted only when the state is `SUBSCRIPTION_STATE_ACTIVE` and the product in Google's answer is in this map.
+
+Stripe webhook: `POST /api/payments/webhooks/stripe`. The subscription is granted only when `payment_status` is `paid` and `amount_total` plus currency match the order. A checkout the buyer finished but has not paid yet does not grant access.
+
+PayPal webhook: `POST /api/payments/webhooks/paypal`. The captured amount and currency must match the order. A different amount is not applied.
+
+A gift card credits the wallet only when its currency equals `DEFAULT_CURRENCY`.

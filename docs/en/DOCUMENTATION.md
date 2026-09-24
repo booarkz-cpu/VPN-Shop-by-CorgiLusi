@@ -76,3 +76,7 @@ The backend runs `alembic upgrade head` on start. Do not edit the schema by hand
 | `docs/ru`, `docs/en`, `docs/uk` | This documentation |
 
 Older release notes stay in the repository root. A new install only needs `docs`.
+
+## Audit 20.0.2
+
+An Apple receipt is accepted only after the App Store Server API answers. A Google Play receipt is accepted only for an active subscription. The shop plan and the store product must both match `MOBILE_STORE_PRODUCTS`. An empty product map refuses both purchases. Stripe and PayPal webhooks grant a subscription only when the amount and currency match the order, and Stripe also requires `payment_status=paid`. A gift card credits the wallet only in the shop currency.
