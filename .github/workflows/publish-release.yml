@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - .github/release-v20.0.5.md
+      - .github/release-v20.0.6.md
       - .github/workflows/publish-release.yml
 
 permissions:
@@ -13,20 +13,35 @@ permissions:
 
 jobs:
   release:
-    name: Publish v20.0.5
+    name: Publish v20.0.6
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Assemble the README and security notes
+        run: node .github/assemble-docs.js
+
+      - name: Publish the assembled documents
+        id: docs
+        run: |
+          if ! git diff --quiet -- README.md SECURITY.md; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add README.md SECURITY.md
+            git commit -m "Assemble the published README and security notes."
+            git push origin HEAD:main
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Create or update the release
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const body = fs.readFileSync('.github/release-v20.0.5.md', 'utf8');
-            const tag = 'v20.0.5';
-            const name = 'v20.0.5 — сверка ЮKassa';
+            const body = fs.readFileSync('.github/release-v20.0.6.md', 'utf8');
+            const tag = 'v20.0.6';
+            const name = 'v20.0.6 — staging E2E';
             const common = {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -53,7 +68,7 @@ jobs:
               }
               const created = await github.rest.repos.createRelease({
                 ...common,
-                target_commitish: context.sha,
+                target_commitish: '${{ steps.docs.outputs.sha }}',
               });
               core.info(`Created ${created.data.html_url}`);
             }
