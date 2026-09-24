@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - .github/release-v20.0.4.md
+      - .github/release-v20.0.5.md
       - .github/workflows/publish-release.yml
 
 permissions:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   release:
-    name: Publish v20.0.4
+    name: Publish v20.0.5
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,9 +24,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const body = fs.readFileSync('.github/release-v20.0.4.md', 'utf8');
-            const tag = 'v20.0.4';
-            const name = 'v20.0.4 — версия и аудит';
+            const body = fs.readFileSync('.github/release-v20.0.5.md', 'utf8');
+            const tag = 'v20.0.5';
+            const name = 'v20.0.5 — сверка ЮKassa';
             const common = {
               owner: context.repo.owner,
               repo: context.repo.repo,
