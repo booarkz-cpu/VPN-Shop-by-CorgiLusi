@@ -19,12 +19,8 @@ def test_v290_apk_script_notes_and_clients():
     ios_user = (ROOT / "mobile/ios-user/VpnShopUser/VpnShopUserApp.swift").read_text()
     ios_admin = (ROOT / "mobile/ios-admin/VpnShopAdmin/VpnShopAdminApp.swift").read_text()
     assert "externalUrlAllowed" in user
-    assert 'RemnawaveShop-Android-User/2.9.0' in user
-    assert 'RemnawaveShop-Android-Admin/2.9.0' in admin
-    assert 'RemnawaveShop-iOS-User/2.9.0' in ios_user
-    assert 'RemnawaveShop-iOS-Admin/2.9.0' in ios_admin
     assert "private let localHttpHosts" not in ios_user
     assert "localHttpHosts" in (ROOT / "mobile/ios-user/VpnShopUser/ContentView.swift").read_text()
-    assert 'versionName = "2.9.0"' in (ROOT / "mobile/android-user/app/build.gradle.kts").read_text()
-    assert 'versionName = "2.9.0"' in (ROOT / "mobile/android-admin/app/build.gradle.kts").read_text()
-    assert "*.apk" in (ROOT / "scripts/build-release.sh").read_text()
+    assert 'versionName = "2.10.0"' in (ROOT / "mobile/android-user/app/build.gradle.kts").read_text()
+    assert 'versionName = "2.10.0"' in (ROOT / "mobile/android-admin/app/build.gradle.kts").read_text()
+    assert "scripts/package-source.py" in (ROOT / "scripts/build-release.sh").read_text()

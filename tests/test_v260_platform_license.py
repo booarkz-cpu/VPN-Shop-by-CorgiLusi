@@ -124,9 +124,9 @@ def test_license_and_bilingual_platform_docs():
     admin = (ROOT / "admin/src/main.tsx").read_text()
     i18n = (ROOT / "admin/src/i18n.tsx").read_text()
     cabinet = (ROOT / "cabinet/index.html").read_text()
-    assert "LicenseRef-Proprietary" in license_text
-    assert "Проприетарная лицензия" in license_text
-    assert "Proprietary License" in license_text
+    assert "LicenseRef-CorgiLusi-Commercial-Use" in license_text
+    assert "VPN Shop Source License" in license_text
+    assert "Source License" in license_text
     assert "2.6.0" in readme and "2.5.0" in readme and "2.4.0" in readme
     assert "LICENSE" in readme
     assert "2.6.0" in github

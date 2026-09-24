@@ -25,7 +25,7 @@ def test_mobile_base_and_node_rules():
 def test_mobile_catalogs_are_complete_and_copied():
     for name in ("user", "admin"):
         catalog = json.loads((ROOT / f"mobile/l10n/{name}.json").read_text())
-        assert set(catalog) == {"ru", "en"}
+        assert set(catalog) == {"ru", "en", "uk"}
         assert catalog["ru"].keys() == catalog["en"].keys()
         assert all(catalog["ru"].values()) and all(catalog["en"].values())
     assert (ROOT / "mobile/android-user/app/src/main/assets/l10n.json").read_text() == (ROOT / "mobile/l10n/user.json").read_text()
@@ -62,7 +62,7 @@ def test_native_clients_keep_session_bounds():
     assert "android-user" in auth and "ios-admin" in auth
     assert "session_body" in cabinet and "session_body" in main
     assert 'APP_VERSION = "2.7.0"' in main
-    assert "LicenseRef-Proprietary" in (ROOT / "mobile/LICENSE").read_text()
+    assert "LicenseRef-CorgiLusi-Commercial-Use" in (ROOT / "mobile/LICENSE").read_text()
     assert "Android и iOS" in (ROOT / "LICENSE").read_text()
 
 

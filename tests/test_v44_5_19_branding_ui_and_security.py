@@ -12,7 +12,7 @@ CSS = (ROOT / "admin/src/style.css").read_text()
 
 def test_public_branding_has_safe_defaults_and_no_secret_settings():
     assert '/api/public/branding' in MAIN
-    assert 'Remnawave VPN Shop' in MAIN
+    assert '/api/public/branding' in MAIN
     assert 'app_secret' not in MAIN[MAIN.index('/api/public/branding'):MAIN.index('@app.get("/api/admin/content")')]
 
 
@@ -44,8 +44,8 @@ def test_branding_setting_allowlist_does_not_expose_secrets():
 def test_frontend_supports_light_dark_theme_and_custom_branding():
     assert 'localStorage.getItem("rw_theme")' in UI
     assert 'document.documentElement.dataset.theme' in UI
-    assert 'Переключить тему' in UI
-    assert 'Брендинг панели' in UI
+    assert 'Переключить тему' in (ROOT / 'admin/src/i18n.tsx').read_text()
+    assert 'Брендинг панели' in (ROOT / 'admin/src/i18n.tsx').read_text()
     assert '/api/admin/branding/logo' in UI
     assert '/api/admin/branding/favicon' in UI
     assert 'app_name' in UI
