@@ -257,6 +257,14 @@ curl -fsS https://API_DOMAIN/health
 
 Відповідь містить `"ok": true`. Відкрийте `https://ADMIN_DOMAIN` і увійдіть поштою з `.env`. Ключі кас можна лишити порожніми: живі платежі закриті, доки не пройдено staging E2E. Підключення кас — у [docs/uk/PAYMENTS.md](docs/uk/PAYMENTS.md).
 
+### 20.0.3
+
+Нулевой заказ не проводится. Stripe, PayPal и криптошлюз сверяются с API провайдера. Вебхук криптошлюза: `POST /api/webhooks/crypto`. Заметки: [.github/release-v20.0.3.md](.github/release-v20.0.3.md).
+
+A zero-amount order is not applied. Stripe, PayPal and the crypto gateway are checked against the provider API. Crypto webhook: `POST /api/webhooks/crypto`. Notes: [.github/release-v20.0.3.md](.github/release-v20.0.3.md).
+
+Нульове замовлення не проводиться. Stripe, PayPal і криптошлюз звіряються з API провайдера. Вебхук криптошлюзу: `POST /api/webhooks/crypto`. Нотатки: [.github/release-v20.0.3.md](.github/release-v20.0.3.md).
+
 ### 20.0.2
 
 Поддельный чек Apple больше не выдаёт подписку. Stripe и PayPal проводят заказ только при совпадении суммы и валюты. Карта продуктов: `MOBILE_STORE_PRODUCTS`. Заметки: [.github/release-v20.0.2.md](.github/release-v20.0.2.md).
