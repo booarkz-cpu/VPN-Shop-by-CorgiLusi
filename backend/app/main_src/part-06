@@ -53,7 +53,7 @@ async def revoke_admin_session(session_id:int,db:AsyncSession=Depends(get_db),ad
 async def reconcile_payments(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("payments.reconcile"))):
     cutoff=datetime.utcnow()-timedelta(hours=72)
     rows=(await db.execute(select(Payment).where(Payment.created_at>=cutoff,((Payment.status=="pending") | (Payment.status=="creation_unknown") | ((Payment.status=="paid") & (Payment.fulfillment_status!="completed")))).order_by(Payment.id).limit(500))).scalars().all()
-    providers={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform()}; changed=0; retried=0; recovered=0
+    providers={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform(),"crypto":CryptoGatewayPlatform()}; changed=0; retried=0; recovered=0
     for p in rows:
         provider=providers.get(p.provider)
         if not provider or not hasattr(provider,"verify_succeeded"): continue
@@ -83,13 +83,14 @@ async def retry_payment(payment_id:int,db:AsyncSession=Depends(get_db),admin=Dep
     p=await db.get(Payment,payment_id);
     if not p: raise HTTPException(404,"Payment not found")
     if p.status in {"refunded", "refunded_pending_revoke"}: raise HTTPException(409,"Refunded payment cannot be fulfilled")
+    if p.status!="paid": raise HTTPException(409,"Payment is not confirmed")
     if p.status=="paid" and p.fulfillment_status=="completed": return {"ok":True,"status":"completed"}
     p.next_retry_at=datetime.utcnow(); p.fulfillment_status="pending"; await db.commit()
     try: await fulfill(p.id,db)
     except Exception as exc:
         logger.warning("Payment retry failed for payment %s: %s", payment_id, exc)
         return {"ok":False,"status":"failed","error":"Повтор выдачи не выполнен"}
-    return {"ok":True,"status":"completed"}
+        return {"ok":True,"status":"completed"}
 
 
 # ---------- V32 Operations / Monitoring / Fraud / Privacy ----------
