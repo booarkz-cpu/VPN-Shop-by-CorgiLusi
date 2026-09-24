@@ -86,3 +86,5 @@ Stripe webhook: `POST /api/payments/webhooks/stripe`. The subscription is grante
 PayPal webhook: `POST /api/payments/webhooks/paypal`. The captured amount and currency must match the order. A different amount is not applied.
 
 A gift card credits the wallet only when its currency equals `DEFAULT_CURRENCY`.
+
+A zero order amount is refused before the gateway is called. Stripe and PayPal grant access only after the provider API confirms the same amount, currency and `order_id`. The crypto gateway is confirmed with `GET {CRYPTO_GATEWAY_URL}/payments/{id}` and `POST /api/webhooks/crypto`. The signature is header `X-Timestamp` (unix seconds, five-minute window) and `X-Signature`, the hex HMAC-SHA256 of `{timestamp}.{raw body}` using `CRYPTO_GATEWAY_KEY`. A buyer cannot mark their own invoice tax exempt.
