@@ -14,8 +14,7 @@ def test_live_version_is_20_0_4_and_history_order_stays():
     assert installer.index('INSTALLER_VERSION="3.1.6"') < installer.index('INSTALLER_VERSION="3.1.5"')
     assert builder.index('VERSION="20.0.4"') < builder.index('VERSION="3.1.6"')
     assert builder.index('VERSION="3.1.6"') < builder.index('VERSION="3.1.5"')
-    first = main.index('APP_VERSION = "')
-    assert main[first:first + len('APP_VERSION = "20.0.4"')] == 'APP_VERSION = "20.0.4"'
+    assert main.index('APP_VERSION = "20.0.5"') < main.index('APP_VERSION = "20.0.4"')
 
 
 def test_node_control_and_public_release_are_closed():
