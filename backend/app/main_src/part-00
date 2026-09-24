@@ -19,7 +19,7 @@ from sqlalchemy import text as sql_text
 from .config import settings
 from .db import engine, get_db
 from .models import User, Plan, Payment, Subscription, AuditLog, FinancialLedger, AdminUser, AdminSession, AppSetting, BotMenuItem, CustomField, MenuImage, Promotion, PromoCode, PromoRedemption, Advertisement, Broadcast, Reseller, BackupJob, AuthExchangeCode, ReferralReward, PaymentProviderEvent, ReferralLedger, AutoRenewMethod, ProvisioningOperation, RefundRequest, SupportTicket, WithdrawalRequest, WorkerState, ReleaseRecord, SecurityIncident, Job, FraudSignal, PayoutTransaction, FeatureFlag, PaymentProviderHealth, SecurityIncidentEvent, BackupVerification, WebAuthnCredential, UserDevice, Campaign, AutomationRule, MonitoringCheck, TrialGrant, PromoReservation, GiftCode, GiftRedemption, UserSession, Notification, StatusComponent, Deployment, CabinetMenuItem, TariffConstructor, PaymentTaxProfile, PaymentInvoice, PaymentChargeback, PaymentRiskAssessment, PaymentProviderMetric, GiftCard, CorporateAccount, PaymentPriceExperiment
-from .payments import YooKassaProvider, PlategaProvider, RollyPayProvider, SandboxProvider, verify_rollypay, verify_platega_headers, staging_create_payment
+from .payments import YooKassaProvider, PlategaProvider, RollyPayProvider, SandboxProvider, verify_rollypay, verify_platega_headers, staging_create_payment, staging_read_payment, staging_refund_payment, staging_refund_read
 from .sandbox_mode import payments_sandbox_allowed, sandbox_checkout_requested, sandbox_local_vpn
 from .payment_platform import StripePlatform, PayPalPlatform, CryptoGatewayPlatform, AppleStorePlatform, GooglePlayPlatform, PROVIDER_CAPABILITIES, PlatformProviderError
 from .remnawave import RemnawaveClient, redact_remote
@@ -28,7 +28,8 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "20.0.5"
+APP_VERSION = "20.0.6"
+# Historical compatibility marker: APP_VERSION = "20.0.5"
 # Historical compatibility marker: APP_VERSION = "20.0.4"
 # Historical compatibility marker: APP_VERSION = "20.0.3"
 # Historical compatibility marker: APP_VERSION = "20.0.0"
