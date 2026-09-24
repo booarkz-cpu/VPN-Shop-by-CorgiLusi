@@ -76,3 +76,13 @@
 - Не ставте `PAYMENTS_SANDBOX=true` на домені, де вже є покупці. Процес з `APP_ENV=production` відмовиться стартувати, і це правильна зупинка.
 - Не копіюйте бойові ключі у форму staging. Збереження відхиляє ключі, які збіглися з `.env`.
 - Не відкривайте порт PostgreSQL, щоб «виправити» прапор у базі вручну на публічному сервері. Використовуйте метод панелі.
+
+## 9. Apple, Google, Stripe і PayPal
+
+`MOBILE_STORE_PRODUCTS` — JSON-об’єкт, де ключ це id продукту в App Store або Google Play, а значення це id тарифу магазину. Приклад: `{"com.shop.month": 1}`. Порожня змінна відхиляє `POST /api/payments/mobile/verify`. Чек Apple без `transactionId` і без ключів App Store Server API теж відхиляється. Чек Google Play годиться лише при `SUBSCRIPTION_STATE_ACTIVE`, і продукт із відповіді Google має бути в цій карті.
+
+Вебхук Stripe: `POST /api/payments/webhooks/stripe`. Підписка вмикається, лише якщо `payment_status` дорівнює `paid`, а `amount_total` і валюта збіглися із замовленням. Сесія, яку покупець завершив, але ще не оплатив, підписку не вмикає.
+
+Вебхук PayPal: `POST /api/payments/webhooks/paypal`. Сума захоплення і валюта мають збігтися із замовленням. Чужу суму магазин не проводить.
+
+Подарункова картка зараховується на баланс лише якщо її валюта дорівнює `DEFAULT_CURRENCY`.
