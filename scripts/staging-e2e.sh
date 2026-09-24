@@ -90,7 +90,7 @@ if not d.get('id') or not str(d.get('url') or '').startswith('https://') or not 
 Path(dest).write_text(json.dumps({"id": d["id"], "order_id": d["order_id"], "amount": d.get("amount")}), encoding="utf-8")
 print(f'[PASS] {provider}: платёж создан, id={d["id"]}')
 print(f'[CHECKOUT] {provider} {d["url"]}')
-print('[АCTION] Откройте строку CHECKOUT в журнале панели и завершите sandbox-оплату.')
+print('[ACTION] Откройте строку CHECKOUT в журнале панели и завершите sandbox-оплату.')
 PY
   id=$(python -c 'import json,sys; print(json.load(open(sys.argv[1],encoding="utf-8"))["id"])' "$meta_dir/$provider.json")
   order_id=$(python -c 'import json,sys; print(json.load(open(sys.argv[1],encoding="utf-8"))["order_id"])' "$meta_dir/$provider.json")
