@@ -24,15 +24,47 @@ jobs:
 
       - name: Publish the assembled documents
         id: docs
-        run: |
-          if ! git diff --quiet -- README.md SECURITY.md; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add README.md SECURITY.md
-            git commit -m "Assemble the published README and security notes."
-            git push origin HEAD:main
-          fi
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            async function put(filePath) {
+              const content = Buffer.from(fs.readFileSync(filePath)).toString('base64');
+              let sha;
+              try {
+                const current = await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: filePath,
+                  ref: 'main',
+                });
+                if (!Array.isArray(current.data)) sha = current.data.sha;
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+              try {
+                const result = await github.rest.repos.createOrUpdateFileContents({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: filePath,
+                  message: `Assemble ${filePath} for v20.0.6`,
+                  content,
+                  sha,
+                  branch: 'main',
+                });
+                return result.data.commit.sha;
+              } catch (error) {
+                const message = String(error.message || error);
+                if (error.status === 409 || message.includes('identical')) {
+                  core.info(`${filePath} is already current`);
+                  return context.sha;
+                }
+                throw error;
+              }
+            }
+            await put('README.md');
+            const sha = await put('SECURITY.md');
+            core.setOutput('sha', sha);
 
       - name: Create or update the release
         uses: actions/github-script@v7
