@@ -4,7 +4,7 @@ This stack runs the API, admin panel, cabinet and Mini App on your computer. Yoo
 
 Sandbox does not pretend to be a production VPN. The subscription link is `sandbox://local/...`. Happ will not import it. The point is to test registration, the storefront, checkout and the subscription row.
 
-Do not publish ports `18080`–`18083`. `COOKIE_SECURE=false` is only for `http://127.0.0.1`.
+The stand listens only on `127.0.0.1`. `COOKIE_SECURE=false` is only for that address. If the stand runs on a VDS, open it with a tunnel: `ssh -L 18081:127.0.0.1:18081 -L 18082:127.0.0.1:18082 user@SERVER`. A live VDS install is in the root `README.md` and in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Requirements
 
