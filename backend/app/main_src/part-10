@@ -70,7 +70,7 @@ async def payment_providers(db:AsyncSession=Depends(get_db)):
 async def admin_payment_platform_capabilities(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
     enabled=await _payment_provider_order(db,None)
     rows=(await db.execute(select(PaymentProviderHealth).order_by(PaymentProviderHealth.priority))).scalars().all()
-    return {"version":"20.0.0","providers":[{"provider":x.provider,"enabled":x.enabled,"routable":x.provider in enabled,"priority":x.priority,"failures":x.failure_count,"successes":x.success_count,"circuit_open_until":x.circuit_open_until,"capabilities":PROVIDER_CAPABILITIES.get(x.provider,{})} for x in rows],"features":{"router":True,"failover":True,"auto_renew":True,"tax":True,"invoices":True,"risk":True,"chargebacks":True,"gift_cards":True,"corporate":True,"dynamic_pricing":True}}
+    return {"version":APP_VERSION,"providers":[{"provider":x.provider,"enabled":x.enabled,"routable":x.provider in enabled,"priority":x.priority,"failures":x.failure_count,"successes":x.success_count,"circuit_open_until":x.circuit_open_until,"capabilities":PROVIDER_CAPABILITIES.get(x.provider,{})} for x in rows],"features":{"router":True,"failover":True,"auto_renew":True,"tax":True,"invoices":True,"risk":True,"chargebacks":True,"gift_cards":True,"corporate":True,"dynamic_pricing":True}}
 
 class TaxProfileIn(BaseModel):
     country:str=Field(default="DE",min_length=2,max_length=2)
