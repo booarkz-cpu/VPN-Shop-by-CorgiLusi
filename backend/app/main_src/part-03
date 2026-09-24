@@ -359,7 +359,7 @@ async def reconciliation_scheduler():
                     await release_promo_reservation(db,reservation.id)
                 cutoff=now-timedelta(hours=24)
                 rows=(await db.execute(select(Payment).where(Payment.created_at>=cutoff,Payment.status.in_(["pending","creation_unknown"])).order_by(Payment.id).limit(50))).scalars().all()
-                providers={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform()}
+                providers={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform(),"crypto":CryptoGatewayPlatform()}
                 for p in rows:
                     provider=providers.get(p.provider)
                     if not provider or not hasattr(provider,"verify_succeeded"): continue
