@@ -31,7 +31,7 @@ cd VPN-Shop-by-CorgiLusi
 bash scripts/test-up.sh
 ```
 
-Скрипт создаёт `.env.test` со случайными секретами, собирает `docker-compose.test.yml`, ждёт `http://127.0.0.1:18080/health` и покупает тариф «Тестовый месяц» через песочницу. Пароль администратора печатается один раз: почта `admin@example.test`.
+Скрипт создаёт `.env.test` со случайными секретами, открывает TCP 18080–18083 в файрволе хоста, собирает `docker-compose.test.yml`, ждёт `http://127.0.0.1:18080/health` и покупает тариф «Тестовый месяц» через песочницу. Пароль администратора печатается один раз: почта `admin@example.test`.
 
 | Поверхность | Адрес |
 | --- | --- |
@@ -40,18 +40,13 @@ bash scripts/test-up.sh
 | Кабинет | http://127.0.0.1:18082 |
 | Mini App | http://127.0.0.1:18083 |
 
-Порты слушаются только на `127.0.0.1`. Если стенд стоит на VDS, откройте их туннелем со своего компьютера:
-
-```bash
-ssh -L 18080:127.0.0.1:18080 -L 18081:127.0.0.1:18081 \
-    -L 18082:127.0.0.1:18082 -L 18083:127.0.0.1:18083 user@SERVER
-```
+Порты опубликованы на всех интерфейсах. Скрипт сам открывает TCP 18080–18083 в ufw, firewalld или iptables. С этой машины используйте адреса из таблицы. С другой машины замените `127.0.0.1` на IP сервера, например `http://IP:18081`. `COOKIE_SECURE=false` годится только для этой проверки: стенд не является публичным магазином. Если у хостера есть отдельный файрвол панели, разрешите в нём TCP 18080–18083.
 
 Остановка: `docker compose -f docker-compose.test.yml down`. Флаг `-v` удаляет базу.
 
 ### Установка на VDS
 
-Боевой магазин принимает заказы по HTTPS. Нужны Ubuntu или Debian, root по SSH, домен и пять имён на IP сервера: API, админка, Mini App, кабинет и Support Pro. Ещё нужны панель Remnawave и токен бота от @BotFather. Порты 80 и 443 открыты. PostgreSQL и Redis наружу не публикуются.
+Боевой магазин принимает заказы по HTTPS. Нужны Ubuntu или Debian, root по SSH, домен и пять имён на IP сервера: API, админка, Mini App, кабинет и Support Pro. Ещё нужны панель Remnawave и токен бота от @BotFather. Установщик сам открывает SSH, TCP 80, TCP 443 и UDP 443 в файрволе сервера. PostgreSQL, Redis и порт приложения наружу не публикуются. Если у хостера есть отдельный файрвол панели, разрешите в нём те же порты.
 
 Пароли в `.env` — только буквы и цифры. Символы `@ : / #` ломают `DATABASE_URL`.
 
@@ -116,7 +111,7 @@ cd VPN-Shop-by-CorgiLusi
 bash scripts/test-up.sh
 ```
 
-The script writes `.env.test` with random secrets, builds `docker-compose.test.yml`, waits for `http://127.0.0.1:18080/health`, and buys the plan "Тестовый месяц" through the sandbox. The admin password is printed once. The email is `admin@example.test`.
+The script writes `.env.test` with random secrets, opens TCP 18080–18083 in the host firewall, builds `docker-compose.test.yml`, waits for `http://127.0.0.1:18080/health`, and buys the plan "Тестовый месяц" through the sandbox. The admin password is printed once. The email is `admin@example.test`.
 
 | Surface | URL |
 | --- | --- |
@@ -125,18 +120,13 @@ The script writes `.env.test` with random secrets, builds `docker-compose.test.y
 | Cabinet | http://127.0.0.1:18082 |
 | Mini App | http://127.0.0.1:18083 |
 
-Ports listen on `127.0.0.1` only. If the stand runs on a VDS, open them with a tunnel from your computer:
-
-```bash
-ssh -L 18080:127.0.0.1:18080 -L 18081:127.0.0.1:18081 \
-    -L 18082:127.0.0.1:18082 -L 18083:127.0.0.1:18083 user@SERVER
-```
+The ports are published on every interface. The script opens TCP 18080–18083 in ufw, firewalld, or iptables. On this machine use the table above. From another machine replace `127.0.0.1` with the server IP, for example `http://IP:18081`. `COOKIE_SECURE=false` is only for this check: the stand is not a public shop. If the hoster has a panel firewall, allow TCP 18080–18083 there too.
 
 Stop with `docker compose -f docker-compose.test.yml down`. Add `-v` to drop the database.
 
 ### Install on a VDS
 
-A live shop takes orders over HTTPS. You need Ubuntu or Debian, root SSH, a domain, and five names pointing at the server: API, admin, Mini App, cabinet, and Support Pro. You also need a Remnawave panel and a bot token from @BotFather. Ports 80 and 443 are open. PostgreSQL and Redis are not published.
+A live shop takes orders over HTTPS. You need Ubuntu or Debian, root SSH, a domain, and five names pointing at the server: API, admin, Mini App, cabinet, and Support Pro. You also need a Remnawave panel and a bot token from @BotFather. The installer opens SSH, TCP 80, TCP 443 and UDP 443 in the server firewall. PostgreSQL, Redis and the application port stay unpublished. If the hoster has a panel firewall, allow the same ports there.
 
 Keep `.env` passwords to letters and digits. The characters `@ : / #` break `DATABASE_URL`.
 
@@ -201,7 +191,7 @@ cd VPN-Shop-by-CorgiLusi
 bash scripts/test-up.sh
 ```
 
-Скрипт створює `.env.test` з випадковими секретами, збирає `docker-compose.test.yml`, чекає на `http://127.0.0.1:18080/health` і купує тариф «Тестовый месяц» через пісочницю. Пароль адміністратора друкується один раз. Пошта — `admin@example.test`.
+Скрипт створює `.env.test` з випадковими секретами, відкриває TCP 18080–18083 у файрволі хоста, збирає `docker-compose.test.yml`, чекає на `http://127.0.0.1:18080/health` і купує тариф «Тестовый месяц» через пісочницю. Пароль адміністратора друкується один раз. Пошта — `admin@example.test`.
 
 | Поверхня | Адреса |
 | --- | --- |
@@ -210,18 +200,13 @@ bash scripts/test-up.sh
 | Кабінет | http://127.0.0.1:18082 |
 | Mini App | http://127.0.0.1:18083 |
 
-Порти слухають лише `127.0.0.1`. Якщо стенд стоїть на VDS, відкрийте їх тунелем зі свого комп'ютера:
-
-```bash
-ssh -L 18080:127.0.0.1:18080 -L 18081:127.0.0.1:18081 \
-    -L 18082:127.0.0.1:18082 -L 18083:127.0.0.1:18083 user@SERVER
-```
+Порти опубліковані на всіх інтерфейсах. Скрипт сам відкриває TCP 18080–18083 в ufw, firewalld або iptables. З цієї машини використовуйте адреси з таблиці. З іншої машини замініть `127.0.0.1` на IP сервера, наприклад `http://IP:18081`. `COOKIE_SECURE=false` годиться лише для цієї перевірки: стенд не є публічним магазином. Якщо в хостера є окремий файрвол панелі, дозвольте в ньому TCP 18080–18083.
 
 Зупинка: `docker compose -f docker-compose.test.yml down`. Прапор `-v` видаляє базу.
 
 ### Встановлення на VDS
 
-Бойовий магазин приймає замовлення через HTTPS. Потрібні Ubuntu або Debian, root по SSH, домен і п'ять імен на IP сервера: API, адмінка, Mini App, кабінет і Support Pro. Ще потрібні панель Remnawave і токен бота від @BotFather. Порти 80 і 443 відкриті. PostgreSQL і Redis назовні не публікуються.
+Бойовий магазин приймає замовлення через HTTPS. Потрібні Ubuntu або Debian, root по SSH, домен і п'ять імен на IP сервера: API, адмінка, Mini App, кабінет і Support Pro. Ще потрібні панель Remnawave і токен бота від @BotFather. Встановлювач сам відкриває SSH, TCP 80, TCP 443 і UDP 443 у файрволі сервера. PostgreSQL, Redis і порт застосунку назовні не публікуються. Якщо в хостера є окремий файрвол панелі, дозвольте в ньому ті самі порти.
 
 Паролі в `.env` — лише літери й цифри. Символи `@ : / #` ламають `DATABASE_URL`.
 
