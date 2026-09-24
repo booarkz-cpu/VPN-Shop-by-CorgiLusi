@@ -116,6 +116,7 @@ jobs:
       - name: Validate compose
         run: |
           cp .env.example .env
+          cp support-pro/.env.example support-pro/.env
           docker compose -f docker-compose.yml config --quiet
           cp .env.test.example .env.test
           docker compose --env-file .env.test -f docker-compose.test.yml config --quiet
