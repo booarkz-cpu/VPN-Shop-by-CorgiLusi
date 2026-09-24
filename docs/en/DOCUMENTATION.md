@@ -77,6 +77,10 @@ The backend runs `alembic upgrade head` on start. Do not edit the schema by hand
 
 Older release notes stay in the repository root. A new install only needs `docs`.
 
+## Audit 20.0.6
+
+The application version in code is `20.0.6`. A full staging E2E run no longer finishes when the invoice is created. The `FULL_E2E_PASS` marker is printed on its own line after payment, a second read, a refund, and a staging Remnawave token check. The operator sequence is in the root `README.md`.
+
 ## Audit 20.0.5
 
 The application version in code is `20.0.5`. Reconciliation of a YooKassa `creation_unknown` payment does not call `create()` again. It finds the invoice with `find_by_order_id`. The idempotency key of a new invoice is the order id.
