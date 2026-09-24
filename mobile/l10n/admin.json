@@ -60,7 +60,11 @@
     "sent": "Отправлено",
     "failed": "Ошибок",
     "retry_broadcast": "Повторить",
-    "broadcast_hint": "Очередь доставляет Telegram-бот. Повтор продолжает с сохранённого счётчика."
+    "broadcast_hint": "Очередь доставляет Telegram-бот. Повтор продолжает с сохранённого счётчика.",
+    "ops": "Операционный центр",
+    "critical": "Критические события",
+    "stale_agents": "Агенты без связи",
+    "corgi_admin": "VPN Shop by Corgi Lusi Admin"
   },
   "en": {
     "app_name": "VPN admin",
@@ -123,7 +127,11 @@
     "sent": "Sent",
     "failed": "Failed",
     "retry_broadcast": "Retry",
-    "broadcast_hint": "The Telegram bot delivers the queue. Retry continues from the saved counter."
+    "broadcast_hint": "The Telegram bot delivers the queue. Retry continues from the saved counter.",
+    "ops": "Operations",
+    "critical": "Critical events",
+    "stale_agents": "Stale agents",
+    "corgi_admin": "VPN Shop by Corgi Lusi Admin"
   },
   "uk": {
     "app_name": "VPN Shop by Corgi Lusi Admin",
@@ -186,6 +194,10 @@
     "sent": "Надіслано",
     "failed": "Не вдалося",
     "retry_broadcast": "Повторити розсилку",
-    "broadcast_hint": "Розсилка буде виконана фоновим процесом"
+    "broadcast_hint": "Розсилка буде виконана фоновим процесом",
+    "ops": "Операційний центр",
+    "corgi_admin": "VPN Shop by Corgi Lusi Admin",
+    "critical": "Критичні події",
+    "stale_agents": "Агенти без зв’язку"
   }
 }
