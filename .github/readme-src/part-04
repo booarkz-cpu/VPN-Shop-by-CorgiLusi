@@ -1,0 +1,45 @@
+| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | `POST https://API_DOMAIN/api/payments/webhooks/paypal` |
+| Crypto gateway | `CRYPTO_GATEWAY_URL`, `CRYPTO_GATEWAY_KEY` | `POST https://API_DOMAIN/api/webhooks/crypto` |
+
+`YOOKASSA_API_URL` defaults to `https://api.yookassa.ru`. `PLATEGA_API_URL` defaults to `https://app.platega.io`. `ROLLYPAY_API_URL` defaults to `https://rollypay.io`. The address is checked as a public URL. Platega and RollyPay refunds need `PLATEGA_REFUND_URL`, `PLATEGA_REFUND_STATUS_URL`, `ROLLYPAY_REFUND_URL`, and `ROLLYPAY_REFUND_STATUS_URL`. `ROLLYPAY_TEST_MODE=true` is the gateway test invoice, not the shop sandbox. SEPA does not open a redirect checkout.
+
+1. YooKassa. Copy the shop id and secret key into `.env`. In YooKassa notifications set the webhook URL and the successful-payment event. Put YooKassa networks in `YOOKASSA_WEBHOOK_IP_ALLOWLIST`, comma-separated. An empty list refuses every notice. The shop reads the nearest proxy address: Caddy sets `X-Forwarded-For` from the real client.
+2. Platega. Store the merchant id and secret. Set the webhook in the Platega cabinet. The notice must carry `X-MerchantId` and `X-Secret`. Before fulfillment the shop reads the transaction again and compares the amount and the order id.
+3. RollyPay. Store the API key and the signing secret. The notice must carry `X-Signature` (HMAC-SHA256 of the body) and `X-Timestamp`. A stamp older than five minutes is refused.
+4. Stripe. Point the Stripe webhook at `POST /api/payments/webhooks/stripe` and store the signing secret in `STRIPE_WEBHOOK_SECRET`. A subscription is applied only when the provider reports `paid` or `succeeded` and the amount, currency, and `order_id` match. An unpaid checkout session does not grant a plan.
+5. PayPal. Point the webhook at `POST /api/payments/webhooks/paypal` and set `PAYPAL_WEBHOOK_ID`. The order is applied when PayPal reports `COMPLETED`, the amount and currency match, and a capture is completed.
+6. Crypto gateway. `POST /api/webhooks/crypto` requires `X-Timestamp` (unix seconds, five-minute window) and `X-Signature` equal to the hex HMAC-SHA256 of `{timestamp}.{raw body}` with `CRYPTO_GATEWAY_KEY`. The shop then calls `GET {CRYPTO_GATEWAY_URL}/payments/{id}` and accepts `paid`, `succeeded`, `success`, or `confirmed` only when the amount, currency, and `order_id` match.
+7. Apple and Google. `MOBILE_STORE_PRODUCTS` is JSON: the key is the store product id and the value is the shop plan id. Example: `{"com.shop.month": 1}`. An empty value refuses `POST /api/payments/mobile/verify`. An Apple receipt without `transactionId` and App Store Server API keys is refused. A Google Play receipt is accepted only for `SUBSCRIPTION_STATE_ACTIVE`, and the product in Google's answer must be in that map.
+8. Open live charges. Keys are not enough. A staging run must cover the invoice, the webhook, fulfillment, a repeat of the same webhook, and a refund. The result must be younger than 24 hours and carry `FULL_E2E_PASS`. In the panel, with `security.manage`, save staging keys that differ from the live keys in `.env`. Then call `POST /api/admin/payments/production-gate` with `{"enabled": true}`. A stale check answers `409`. Turn it off with `{"enabled": false}`. While the flag is off, the buyer sees that live payments are temporarily blocked.
+9. Check one payment. Create a small plan, pay it, and confirm status `paid`, fulfillment `completed`, and a link that starts with `https://`. A repeated webhook does not extend the term. A panel refund revokes access, and a later successful webhook does not grant it again.
+
+`AUTO_RENEW_ENABLED=true` stores a YooKassa payment method for the next period. Leave it off until a manual staging refund has passed. The sandbox does not run recurring charges. A buyer cannot set `tax_exempt` or `reverse_charge`.
+
+Variable tables are in [docs/en/PAYMENTS.md](docs/en/PAYMENTS.md).
+
+### How to pass staging E2E
+
+This is the full sequence required before live charges can be opened. Creating an invoice does not open the gate. The line `FULL_E2E_PASS` is printed once, on a line by itself, and only after payment, a second read of the invoice, a refund, and a check of the staging Remnawave token. A mention of those words in help text is not a pass. The status `awaiting_checkout` does not open the gate.
+
+The administrator needs `staging_e2e.manage` (setup and run) and `security.manage` (the live-payments switch). The `admin` role includes both.
+
+1. Install the shop as in “Install on a VDS”. `APP_ENV=production` and `PAYMENTS_SANDBOX=false`. Live gateway keys in `.env` may be filled in, but `payments.production_gate` stays off until this check passes.
+2. Open the admin panel, sign in, and go to “Проверка тестового контура” → “Настройка боевого staging E2E” (Live staging E2E setup).
+3. Public HTTPS URL is the address of this same shop, reachable from the `backend` container as `GET /health`. The body must include `ok`, `database`, and `redis`. Example: `https://api.example.com`. Plain `http://` and private-network addresses are refused.
+4. The staging Remnawave URL and token belong to a separate test panel, not the live values in `REMNAWAVE_URL` and `REMNAWAVE_TOKEN`. The token is not written to the log. A blank field on a later save keeps the secret already stored.
+5. The test plan id is the numeric id of an enabled plan. A staging invoice is always created in RUB, even when `DEFAULT_CURRENCY` is something else. Give that plan a small ruble price the sandbox will accept.
+6. Enable only the gateways you will run. The keys must be sandbox keys and must not match any pair in `.env`. A matching shop id, secret, merchant id, or API key returns 400: “Staging E2E не может использовать production-платёжные credentials”.
+7. YooKassa: the test shop id and the sandbox secret key. No extra refund URL: the refund is `POST {YooKassa API}/v3/refunds`. The default API is `https://api.yookassa.ru`.
+8. Platega: merchant id, secret, a public HTTPS refund URL, and a public HTTPS refund-status URL. Both URLs are required when Platega is enabled.
+9. RollyPay: sandbox API key, signing secret, a public HTTPS refund URL, and a public HTTPS refund-status URL. Both URLs are required when RollyPay is enabled. The invoice is created with `"test": true`.
+10. Check “Подтверждаю sandbox-ключи” (I confirm these are sandbox keys) and press “Сохранить безопасную конфигурацию”. Saving turns live charges off and rotates the internal runner token. A run that already started does not keep the old token.
+11. Press “Запустить staging E2E”. While the status is `running`, the log updates by itself. Wait for a `[CHECKOUT]` line and open the HTTPS address in it. Complete the sandbox payment before the timeout. The default timeout is 1800 seconds. Pay earlier than that: the last two minutes are reserved for the refund.
+12. The runner then, using the stored sandbox keys, reads the invoice again, compares the amount and the order id, refunds it, and reads the refund status. Each selected provider follows the same chain. The runner then calls `GET /api/users` on the staging Remnawave panel with the token saved in this form.
+13. Success is status `passed`, `full_e2e` set, and a final line that is exactly `FULL_E2E_PASS`. The exit code is 0. If the payment is not finished, the refund is not confirmed, or the panel token is refused, the exit code is not 0 and the status is `failed`. The gate stays closed.
+14. Within 24 hours open Security and press “Разрешить реальные платежи” (Allow live payments). That is `POST /api/admin/payments/production-gate` with `{"enabled": true}` and the `security.manage` permission. If the chain did not pass, the answer is 409: “Сначала необходимо успешно завершить полный staging E2E: checkout → webhook → fulfillment → duplicate webhook → refund”. If the result is older than 24 hours, the answer is 409: “Результат staging E2E устарел; запустите проверку заново”.
+15. “Заблокировать” and any new save of the staging form set the gate back to 0. After a new save, the check has to be passed again.
+
+A staging invoice is not inserted into the shop payment table. The production worker does not grant a Remnawave subscription from it. The shop webhook still verifies with the live keys from `.env`, so it cannot confirm a sandbox invoice. The runner itself performs payment, the second read, and the refund through localhost: `POST /api/internal/staging-e2e/payment`, `/verify`, `/refund`, `/refund-status`, and `/remnawave`. Those methods accept only `127.0.0.1` or `::1` plus the `X-Staging-Runner-Token` header. `X-Forwarded-For` does not change the client address.
+
+## Українська
+
