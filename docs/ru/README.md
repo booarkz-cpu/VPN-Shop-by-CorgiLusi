@@ -47,7 +47,7 @@
 
 ## Платежи
 
-Живые провайдеры: YooKassa, Platega, RollyPay, Stripe, PayPal и крипто-шлюз, если заполнены их ключи. Apple IAP и Google Play проверяют покупку в приложении, они не открывают ссылку оплаты на сайте. SEPA в этом коде не открывает redirect-checkout.
+Живые провайдеры: YooKassa, Platega, RollyPay, Stripe, PayPal и крипто-шлюз, если заполнены их ключи. Apple IAP и Google Play проверяют покупку в приложении и выдают тариф только если продукт есть в `MOBILE_STORE_PRODUCTS`. SEPA в этом коде не открывает redirect-checkout. Stripe и PayPal проводят заказ только при совпадении суммы и валюты.
 
 Пока в базе не включён флаг `payments.production_gate`, живая касса отвечает `503`. Флаг включается только после успешного staging E2E не старше 24 часов. Песочница этот флаг не требует.
 
