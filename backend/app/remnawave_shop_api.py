@@ -69,9 +69,8 @@ async def refresh_my_remnawave_subscription(request: Request, db: AsyncSession =
     remote_id = _remote_id(sub.remnawave_uuid)
     remote = await rw.get_user(remote_id)
     subscription = await rw.get_subscription(remote_id)
-    expiry = await rw.get_expiry(remote_id)
-    if expiry:
-        sub.expires_at = expiry
+    # The shop ledger is the paid expiry. Copying expireAt from the panel would
+    # let a longer remote date postpone revocation of a subscription that was not paid for.
     sub.subscription_url = subscription.get("subscriptionUrl") or subscription.get("subscription_url") or sub.subscription_url
     await db.commit()
     return _subscription_out(sub, {**remote, **subscription})
