@@ -14,8 +14,7 @@ def test_live_version_is_20_0_5():
     assert installer.index('INSTALLER_VERSION="3.1.6"') < installer.index('INSTALLER_VERSION="3.1.5"')
     assert builder.index('VERSION="20.0.5"') < builder.index('VERSION="20.0.4"')
     assert builder.index('VERSION="3.1.6"') < builder.index('VERSION="3.1.5"')
-    first = main.index('APP_VERSION = "')
-    assert main[first:first + len('APP_VERSION = "20.0.5"')] == 'APP_VERSION = "20.0.5"'
+    assert main.index('APP_VERSION = "20.0.6"') < main.index('APP_VERSION = "20.0.5"')
 
 
 def test_reconciliation_looks_up_yookassa_instead_of_creating():
