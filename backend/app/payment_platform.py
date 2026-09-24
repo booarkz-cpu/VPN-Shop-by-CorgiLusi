@@ -57,6 +57,30 @@ class StripePlatform:
             return None
         if raw is None or not currency: return None
         return (Decimal(str(raw))/Decimal('100')).quantize(Decimal('0.01')), currency
+    async def verify_succeeded(self, payment_id, expected_amount, currency, expected_order_id=None) -> bool:
+        """Stripe has collected this checkout only when the API shows the same money."""
+        if not payment_id or not settings.stripe_secret_key: return False
+        pid=str(payment_id)
+        path='payment_intents' if pid.startswith('pi_') else 'checkout/sessions'
+        try:
+            async with _client() as c:
+                r=await c.get(f'{settings.stripe_api_url}/v1/{path}/{pid}',headers={'Authorization':f'Bearer {settings.stripe_secret_key}'})
+            if r.status_code>=400: return False
+            data=r.json()
+        except Exception:
+            return False
+        if pid.startswith('pi_'):
+            if data.get('status')!='succeeded': return False
+            raw=data.get('amount_received')
+            if raw is None: raw=data.get('amount')
+        else:
+            if data.get('payment_status')!='paid': return False
+            raw=data.get('amount_total')
+        if raw is None: return False
+        got=((Decimal(str(raw))/Decimal('100')).quantize(Decimal('0.01')), str(data.get('currency') or '').upper())
+        order=str((data.get('metadata') or {}).get('order_id') or '')
+        if expected_order_id and order!=str(expected_order_id): return False
+        return got==(Decimal(str(expected_amount)).quantize(Decimal('0.01')), str(currency or '').upper())
 
 class PayPalPlatform:
     name='paypal'
@@ -106,6 +130,29 @@ class PayPalPlatform:
         currency=str(amount.get('currency_code') or amount.get('currency') or '').upper()
         if not currency: return None
         return Decimal(str(amount['value'])).quantize(Decimal('0.01')), currency
+    async def verify_succeeded(self, payment_id, expected_amount, currency, expected_order_id=None) -> bool:
+        """PayPal order is paid only when the capture is completed and the money matches."""
+        if not payment_id: return False
+        try:
+            token=await self._token()
+            async with _client() as c:
+                r=await c.get(f'{settings.paypal_api_url}/v2/checkout/orders/{payment_id}',headers={'Authorization':f'Bearer {token}'})
+            if r.status_code>=400: return False
+            order=r.json()
+        except Exception:
+            return False
+        if str(order.get('status') or '').upper()!='COMPLETED': return False
+        units=order.get('purchase_units') or []
+        unit=units[0] if units and isinstance(units[0], dict) else {}
+        amount=unit.get('amount') if isinstance(unit.get('amount'), dict) else {}
+        if amount.get('value') in (None,''): return False
+        got=(Decimal(str(amount.get('value'))).quantize(Decimal('0.01')), str(amount.get('currency_code') or '').upper())
+        captures=((unit.get('payments') or {}).get('captures') or [])
+        captured=any(str(item.get('status') or '').upper()=='COMPLETED' for item in captures if isinstance(item, dict))
+        if not captured: return False
+        ref=str(unit.get('reference_id') or '')
+        if expected_order_id and ref!=str(expected_order_id): return False
+        return got==(Decimal(str(expected_amount)).quantize(Decimal('0.01')), str(currency or '').upper())
 
 class CryptoGatewayPlatform:
     name='crypto'
@@ -114,6 +161,33 @@ class CryptoGatewayPlatform:
         async with _client() as c:
             r=await c.post(settings.crypto_gateway_url.rstrip('/')+'/payments',json={'amount':_money(amount),'currency':currency,'description':description,'order_id':metadata.get('order_id'),'return_url':metadata.get('return_url')},headers={'Authorization':f'Bearer {settings.crypto_gateway_key}'})
             r.raise_for_status(); return r.json()
+    async def verify_succeeded(self, payment_id, expected_amount, currency, expected_order_id=None) -> bool:
+        """The gateway ledger, not the webhook body, decides that crypto was paid."""
+        if not payment_id or not settings.crypto_gateway_url or not settings.crypto_gateway_key: return False
+        try:
+            async with _client() as c:
+                r=await c.get(settings.crypto_gateway_url.rstrip('/')+f'/payments/{payment_id}',headers={'Authorization':f'Bearer {settings.crypto_gateway_key}'})
+            if r.status_code>=400: return False
+            data=r.json()
+        except Exception:
+            return False
+        if str(data.get('status') or '').lower() not in {'paid','succeeded','success','confirmed'}: return False
+        if data.get('amount') in (None,''): return False
+        got=(Decimal(str(data.get('amount'))).quantize(Decimal('0.01')), str(data.get('currency') or '').upper())
+        order=str(data.get('order_id') or '')
+        if expected_order_id and order!=str(expected_order_id): return False
+        return got==(Decimal(str(expected_amount)).quantize(Decimal('0.01')), str(currency or '').upper())
+    def verify_webhook(self, body: bytes, timestamp: str, signature: str) -> dict:
+        if not settings.crypto_gateway_key or not timestamp or not signature:
+            raise PlatformProviderError('Crypto webhook is not configured')
+        try:
+            ts=int(timestamp)
+        except (TypeError, ValueError):
+            raise PlatformProviderError('Invalid crypto webhook timestamp')
+        if abs(time.time()-ts)>300: raise PlatformProviderError('Invalid crypto webhook timestamp')
+        expected=hmac.new(settings.crypto_gateway_key.encode(), timestamp.encode()+b'.'+body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature): raise PlatformProviderError('Invalid crypto webhook signature')
+        return json.loads(body)
 
 class AppleStorePlatform:
     name='apple_iap'
