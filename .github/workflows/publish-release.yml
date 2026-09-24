@@ -1,4 +1,5 @@
 name: Publish GitHub release
+# Tag ruleset no longer blocks v20.0.3. This push restarts the release job.
 
 on:
   workflow_dispatch:
