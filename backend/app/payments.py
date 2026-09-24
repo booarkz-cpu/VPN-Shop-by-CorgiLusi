@@ -658,9 +658,17 @@ class SandboxProvider:
         from .sandbox_mode import payments_sandbox_allowed
         if not payments_sandbox_allowed():
             return False
-        if not str(payment_id).startswith("sandbox-"):
+        # Exact id only. A substring of another order id must not count as paid,
+        # and a zero amount is not a successful sandbox charge.
+        if expected_order_id:
+            if str(payment_id) != f"sandbox-{expected_order_id}":
+                return False
+        elif not str(payment_id).startswith("sandbox-"):
             return False
-        if expected_order_id and f"sandbox-{expected_order_id}" != payment_id and expected_order_id not in payment_id:
+        try:
+            if Decimal(str(expected_amount)) <= 0:
+                return False
+        except Exception:
             return False
         return True
 
