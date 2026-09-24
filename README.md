@@ -95,7 +95,84 @@ docker compose up -d --build
 curl -fsS https://API_DOMAIN/health
 ```
 
-Ответ содержит `"ok": true`. Откройте `https://ADMIN_DOMAIN` и войдите почтой из `.env`. Ключи касс можно оставить пустыми: живые платежи закрыты, пока не пройден staging E2E. Подключение касс — в [docs/ru/PAYMENTS.md](docs/ru/PAYMENTS.md).
+Ответ содержит `"ok": true` и `"version": "20.0.4"`. Откройте `https://ADMIN_DOMAIN` и войдите почтой из `.env`. Ключи касс можно оставить пустыми: живые платежи закрыты, пока не пройден staging E2E.
+
+### Возможности
+
+Магазин продаёт VPN-подписки. Покупатель выбирает тариф, оплачивает его и получает ссылку подписки Remnawave. Узлы VPN живут в панели Remnawave: этот репозиторий их не поднимает.
+
+| Часть | Где лежит | Что делает |
+| --- | --- | --- |
+| API | `backend/app/main.py` | Покупатели, тарифы, платежи, выдача подписки, методы панели |
+| Бот | `backend/app/bot.py` | Telegram: старт, цены, промокод, ссылка на Mini App |
+| Воркер | `backend/worker.py` | Очередь, повтор выдачи, пробный период, сверка платежей |
+| Админка | `admin/` | Вход сотрудника, тарифы, платежи, пользователи, контент |
+| Mini App | `miniapp/` | Покупка внутри Telegram |
+| Кабинет | `cabinet/` | Вход по email, обзор подписки, оплата, подключение |
+| Приложения | `mobile/` | Android и iOS для покупателя и администратора |
+| Support Pro | `support-pro/` | Отдельная служба заявок |
+| Периметр | `docker-compose.yml`, `deploy/Caddyfile` | HTTPS и отдельные домены |
+
+База — PostgreSQL. Очереди и блокировки — Redis. Схема меняется только миграциями Alembic в `backend/alembic`.
+
+Покупатель может:
+
+- Зарегистрироваться по email в личном кабинете или войти через Telegram, VK и Яндекс, если эти входы заполнены в `.env`.
+- Открыть Mini App из бота и увидеть тарифы.
+- Купить фиксированный тариф или собрать срок, трафик и число устройств. Конструктор тарифов доступен, если администратор его включил.
+- Применить промокод. Скидка и срок фиксируются в снимке платежа и не меняются, если тариф потом отредактируют.
+- Получить пробный период, если действующей подписки нет.
+- Пополнить внутренний баланс и потратить его на тариф. Повторное списание с тем же `Idempotency-Key` блокируется. Сумма 0 и меньше отклоняется до обращения к кассе.
+- Купить и погасить подарочную карту. Карта зачисляется на баланс только в валюте `DEFAULT_CURRENCY`.
+- Открыть ссылку подписки, скачать её файлом и посмотреть QR для Happ, v2rayNG и Streisand, когда ссылка начинается с `https://`.
+- Включить отмену подписки в конце оплаченного срока.
+- Смотреть свои платежи в центре биллинга.
+- Скачать приложения Android и iOS из карточек кабинета. Как скачать приложения для Android и iOS из старых релизов, описано ниже, в истории. Новые сборки администратор загружает в панель сам.
+
+Администратор может:
+
+- Войти по email и паролю. Роли: `viewer`, `operator`, `admin`. У роли `viewer` нет права смотреть ключи подписки.
+- Включить TOTP. Сессии привязаны к браузеру и гасятся после 15 минут бездействия или смены User-Agent.
+- Создавать и выключать тарифы, конструктор, промокоды, акции и пункты меню кабинета.
+- Смотреть платежи, возвращать оплаченный заказ и повторять выдачу, если Remnawave ответил ошибкой. Повтор выдачи работает только для статуса `paid`.
+- Загружать APK и IPA. Покупатель скачивает файл из кабинета, администратор — из панели.
+- Делать рассылку в Telegram. Сообщение ставится в очередь, доставляет процесс бота.
+- Включать технический режим. Пока он включён, новые платежи отклоняются.
+- Смотреть журнал аудита. В ответы панели не кладётся текст исключения и секрет провайдера.
+- Регистрировать узел и запускать failover только с правом `provision_nodes`. Без этого права методы отвечают отказом.
+
+Первый администратор создаётся из `ADMIN_EMAIL` и `ADMIN_PASSWORD` при пустой таблице администраторов.
+
+Боевая выдача ходит в Remnawave по `REMNAWAVE_URL` и `REMNAWAVE_TOKEN`. Магазин создаёт или продлевает пользователя и записывает срок, лимит трафика и ссылку. Повтор той же операции не продлевает срок второй раз. Обновление карточки из панели не копирует более поздний срок в оплаченную подписку. Без этих двух переменных песочница пишет `sandbox://local/...` и `sandbox-user-{id}`: это метка проверки, а не рабочий VPN.
+
+### Запуск с платёжными системами
+
+Сначала поднимите магазин по разделу «Установка на VDS». `APP_ENV=production`, `PAYMENTS_SANDBOX=false`, `COOKIE_SECURE=true`. Заполните только те ключи, которыми будете пользоваться. Пустой ключ выключает провайдера. Затем `docker compose up -d`.
+
+| Провайдер | Переменные | Вебхук |
+| --- | --- | --- |
+| YooKassa | `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `YOOKASSA_WEBHOOK_IP_ALLOWLIST` | `POST https://API_DOMAIN/api/webhooks/yookassa` |
+| Platega | `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET` | `POST https://API_DOMAIN/api/webhooks/platega` |
+| RollyPay | `ROLLYPAY_API_KEY`, `ROLLYPAY_SIGNING_SECRET` | `POST https://API_DOMAIN/api/webhooks/rollypay` |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `POST https://API_DOMAIN/api/payments/webhooks/stripe` |
+| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | `POST https://API_DOMAIN/api/payments/webhooks/paypal` |
+| Криптошлюз | `CRYPTO_GATEWAY_URL`, `CRYPTO_GATEWAY_KEY` | `POST https://API_DOMAIN/api/webhooks/crypto` |
+
+`YOOKASSA_API_URL` по умолчанию `https://api.yookassa.ru`. `PLATEGA_API_URL` — `https://app.platega.io`. `ROLLYPAY_API_URL` — `https://rollypay.io`. Адрес проверяется как публичный URL. Возвраты Platega и RollyPay требуют `PLATEGA_REFUND_URL`, `PLATEGA_REFUND_STATUS_URL`, `ROLLYPAY_REFUND_URL` и `ROLLYPAY_REFUND_STATUS_URL`. `ROLLYPAY_TEST_MODE=true` — тестовый счёт кассы, а не песочница магазина. SEPA redirect-checkout не открывает.
+
+1. YooKassa. В кабинете ЮKassa возьмите shop id и секретный ключ и запишите их в `.env`. В уведомлениях укажите URL вебхука и событие успешной оплаты. В `YOOKASSA_WEBHOOK_IP_ALLOWLIST` перечислите сети ЮKassa через запятую. Пустой список отклоняет все уведомления. Магазин смотрит адрес ближайшего прокси: Caddy подставляет `X-Forwarded-For` из реального клиента.
+2. Platega. Запишите merchant id и секрет. В кабинете Platega укажите вебхук. Уведомление должно приходить с `X-MerchantId` и `X-Secret`. Перед выдачей магазин ещё раз читает транзакцию и сверяет сумму и номер заказа.
+3. RollyPay. Запишите API-ключ и секрет подписи. Уведомление обязано содержать `X-Signature` (HMAC-SHA256 тела) и `X-Timestamp`. Метка старше пяти минут отклоняется.
+4. Stripe. В кабинете Stripe укажите вебхук `POST /api/payments/webhooks/stripe` и секрет подписи в `STRIPE_WEBHOOK_SECRET`. Подписка включается только если провайдер ответил `paid` или `succeeded`, а сумма, валюта и `order_id` совпали. Неоплаченная сессия checkout подписку не включает.
+5. PayPal. Укажите вебхук `POST /api/payments/webhooks/paypal` и `PAYPAL_WEBHOOK_ID`. Заказ проводится, когда заказ у PayPal в статусе `COMPLETED`, сумма и валюта совпали и есть завершённый захват.
+6. Криптошлюз. Вебхук `POST /api/webhooks/crypto` требует `X-Timestamp` (unix-секунды, окно 5 минут) и `X-Signature` = hex HMAC-SHA256 от `{timestamp}.{сырое тело}` ключом `CRYPTO_GATEWAY_KEY`. Затем магазин делает `GET {CRYPTO_GATEWAY_URL}/payments/{id}` и принимает статусы `paid`, `succeeded`, `success`, `confirmed` только при совпадении суммы, валюты и `order_id`.
+7. Apple и Google. `MOBILE_STORE_PRODUCTS` — JSON, где ключ это id продукта, а значение это id тарифа. Пример: `{"com.shop.month": 1}`. Пустая переменная отклоняет `POST /api/payments/mobile/verify`. Чек Apple без `transactionId` и без ключей App Store Server API отклоняется. Чек Google Play годится только при `SUBSCRIPTION_STATE_ACTIVE`, и продукт из ответа Google должен быть в этой карте.
+8. Откройте боевые платежи. Ключей недостаточно. Нужен успешный staging: счёт, вебхук, выдача, повтор того же вебхука и возврат. Результат должен быть не старше 24 часов, со статусом `FULL_E2E_PASS`. В панели, с правом `security.manage`, сохраните staging-ключи, которые не совпадают с боевыми ключами из `.env`. Затем `POST /api/admin/payments/production-gate` с телом `{"enabled": true}`. Если проверка устарела, ответ `409`. Выключение: `{"enabled": false}`. Пока флаг выключен, покупатель видит «Реальные платежи временно заблокированы».
+9. Проверьте один платёж. Создайте тариф с маленькой ценой, оплатите его, убедитесь, что статус `paid`, выдача `completed`, а ссылка начинается с `https://`. Повторный вебхук срок не продлевает. Возврат из панели отзывает доступ, и повторный успешный вебхук подписку не возвращает.
+
+`AUTO_RENEW_ENABLED=true` сохраняет способ оплаты ЮKassa для следующего периода. Не включайте автопродление, пока ручной возврат на staging не прошёл. Песочница рекуррентные списания не выполняет. Покупатель не может сам поставить `tax_exempt` или `reverse_charge`.
+
+Подробные таблицы переменных — в [docs/ru/PAYMENTS.md](docs/ru/PAYMENTS.md).
 
 ## English
 
@@ -175,7 +252,84 @@ docker compose up -d --build
 curl -fsS https://API_DOMAIN/health
 ```
 
-The body contains `"ok": true`. Open `https://ADMIN_DOMAIN` and sign in with the email from `.env`. Gateway keys can stay empty: live charges stay closed until a staging end-to-end run has passed. Connecting gateways is described in [docs/en/PAYMENTS.md](docs/en/PAYMENTS.md).
+The body contains `"ok": true` and `"version": "20.0.4"`. Open `https://ADMIN_DOMAIN` and sign in with the email from `.env`. Gateway keys can stay empty: live charges stay closed until a staging end-to-end run has passed.
+
+### Features
+
+The shop sells VPN subscriptions. A buyer picks a plan, pays, and receives a Remnawave subscription link. VPN nodes live in the Remnawave panel. This repository does not provision them.
+
+| Part | Path | Role |
+| --- | --- | --- |
+| API | `backend/app/main.py` | Buyers, plans, payments, fulfillment, admin methods |
+| Bot | `backend/app/bot.py` | Telegram: start, prices, promo code, Mini App link |
+| Worker | `backend/worker.py` | Queue, fulfillment retry, trial, payment reconciliation |
+| Admin | `admin/` | Staff sign-in, plans, payments, users, content |
+| Mini App | `miniapp/` | Purchase inside Telegram |
+| Cabinet | `cabinet/` | Email sign-in, subscription overview, payment, connect |
+| Apps | `mobile/` | Android and iOS for the buyer and the administrator |
+| Support Pro | `support-pro/` | Separate ticket desk |
+| Edge | `docker-compose.yml`, `deploy/Caddyfile` | HTTPS and separate hostnames |
+
+PostgreSQL stores the data. Redis holds queues and locks. The schema changes only through Alembic migrations in `backend/alembic`.
+
+A buyer can:
+
+- Register by email in the personal cabinet, or sign in with Telegram, VK, and Yandex when those logins are set in `.env`.
+- Open the Mini App from the bot and see the plans.
+- Buy a fixed plan or assemble duration, traffic, and device count in the plan constructor when an administrator has enabled it.
+- Apply a promo code. The discount and term are frozen on the payment snapshot.
+- Take a trial when there is no active subscription.
+- Top up the internal wallet and spend it on a plan. The same `Idempotency-Key` cannot debit twice. An amount of 0 or less is refused before any gateway call.
+- Buy and redeem a gift card. A card credits the wallet only in `DEFAULT_CURRENCY`.
+- Open the subscription link, download it as a file, and show a QR code for Happ, v2rayNG, and Streisand when the link starts with `https://`.
+- Cancel at the end of the paid term.
+- Read payments in the billing center.
+- Download Android and iOS apps from the cabinet cards. Older release APK links stay in the history section below. New builds are uploaded by an administrator.
+
+An administrator can:
+
+- Sign in with email and password. Roles are `viewer`, `operator`, and `admin`. A `viewer` cannot read subscription keys.
+- Turn on TOTP. Sessions are bound to the browser and end after 15 minutes idle or a User-Agent change.
+- Create and disable plans, the constructor, promo codes, campaigns, and cabinet menu items.
+- Read payments, refund a paid order, and retry fulfillment when Remnawave failed. A retry works only for status `paid`.
+- Upload APK and IPA files. Buyers download from the cabinet. Administrators download from the panel.
+- Queue a Telegram broadcast. The bot process delivers it.
+- Turn on maintenance mode. New payments are refused while it is on.
+- Read the audit log. Panel responses omit exception text and provider secrets.
+- Register a node and start failover only with the `provision_nodes` permission.
+
+The first administrator is created from `ADMIN_EMAIL` and `ADMIN_PASSWORD` when the administrator table is empty.
+
+Live fulfillment calls Remnawave with `REMNAWAVE_URL` and `REMNAWAVE_TOKEN`. The shop creates or extends the user and stores the term, traffic limit, and link. Repeating the same operation does not extend the term twice. Refreshing the card from the panel does not copy a later expiry into the paid subscription. Without those two variables the sandbox writes `sandbox://local/...` and `sandbox-user-{id}`. That mark is a shop check, not a working VPN.
+
+### Start with payment systems
+
+Bring the shop up with the VDS section first. Use `APP_ENV=production`, `PAYMENTS_SANDBOX=false`, and `COOKIE_SECURE=true`. Fill only the keys you will use. An empty key removes that provider from the route. Then run `docker compose up -d`.
+
+| Provider | Variables | Webhook |
+| --- | --- | --- |
+| YooKassa | `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `YOOKASSA_WEBHOOK_IP_ALLOWLIST` | `POST https://API_DOMAIN/api/webhooks/yookassa` |
+| Platega | `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET` | `POST https://API_DOMAIN/api/webhooks/platega` |
+| RollyPay | `ROLLYPAY_API_KEY`, `ROLLYPAY_SIGNING_SECRET` | `POST https://API_DOMAIN/api/webhooks/rollypay` |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `POST https://API_DOMAIN/api/payments/webhooks/stripe` |
+| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | `POST https://API_DOMAIN/api/payments/webhooks/paypal` |
+| Crypto gateway | `CRYPTO_GATEWAY_URL`, `CRYPTO_GATEWAY_KEY` | `POST https://API_DOMAIN/api/webhooks/crypto` |
+
+`YOOKASSA_API_URL` defaults to `https://api.yookassa.ru`. `PLATEGA_API_URL` defaults to `https://app.platega.io`. `ROLLYPAY_API_URL` defaults to `https://rollypay.io`. The address is checked as a public URL. Platega and RollyPay refunds need `PLATEGA_REFUND_URL`, `PLATEGA_REFUND_STATUS_URL`, `ROLLYPAY_REFUND_URL`, and `ROLLYPAY_REFUND_STATUS_URL`. `ROLLYPAY_TEST_MODE=true` is the gateway test invoice, not the shop sandbox. SEPA does not open a redirect checkout.
+
+1. YooKassa. Copy the shop id and secret key into `.env`. In YooKassa notifications set the webhook URL and the successful-payment event. Put YooKassa networks in `YOOKASSA_WEBHOOK_IP_ALLOWLIST`, comma-separated. An empty list refuses every notice. The shop reads the nearest proxy address: Caddy sets `X-Forwarded-For` from the real client.
+2. Platega. Store the merchant id and secret. Set the webhook in the Platega cabinet. The notice must carry `X-MerchantId` and `X-Secret`. Before fulfillment the shop reads the transaction again and compares the amount and the order id.
+3. RollyPay. Store the API key and the signing secret. The notice must carry `X-Signature` (HMAC-SHA256 of the body) and `X-Timestamp`. A stamp older than five minutes is refused.
+4. Stripe. Point the Stripe webhook at `POST /api/payments/webhooks/stripe` and store the signing secret in `STRIPE_WEBHOOK_SECRET`. A subscription is applied only when the provider reports `paid` or `succeeded` and the amount, currency, and `order_id` match. An unpaid checkout session does not grant a plan.
+5. PayPal. Point the webhook at `POST /api/payments/webhooks/paypal` and set `PAYPAL_WEBHOOK_ID`. The order is applied when PayPal reports `COMPLETED`, the amount and currency match, and a capture is completed.
+6. Crypto gateway. `POST /api/webhooks/crypto` requires `X-Timestamp` (unix seconds, five-minute window) and `X-Signature` equal to the hex HMAC-SHA256 of `{timestamp}.{raw body}` with `CRYPTO_GATEWAY_KEY`. The shop then calls `GET {CRYPTO_GATEWAY_URL}/payments/{id}` and accepts `paid`, `succeeded`, `success`, or `confirmed` only when the amount, currency, and `order_id` match.
+7. Apple and Google. `MOBILE_STORE_PRODUCTS` is JSON: the key is the store product id and the value is the shop plan id. Example: `{"com.shop.month": 1}`. An empty value refuses `POST /api/payments/mobile/verify`. An Apple receipt without `transactionId` and App Store Server API keys is refused. A Google Play receipt is accepted only for `SUBSCRIPTION_STATE_ACTIVE`, and the product in Google's answer must be in that map.
+8. Open live charges. Keys are not enough. A staging run must cover the invoice, the webhook, fulfillment, a repeat of the same webhook, and a refund. The result must be younger than 24 hours and carry `FULL_E2E_PASS`. In the panel, with `security.manage`, save staging keys that differ from the live keys in `.env`. Then call `POST /api/admin/payments/production-gate` with `{"enabled": true}`. A stale check answers `409`. Turn it off with `{"enabled": false}`. While the flag is off, the buyer sees that live payments are temporarily blocked.
+9. Check one payment. Create a small plan, pay it, and confirm status `paid`, fulfillment `completed`, and a link that starts with `https://`. A repeated webhook does not extend the term. A panel refund revokes access, and a later successful webhook does not grant it again.
+
+`AUTO_RENEW_ENABLED=true` stores a YooKassa payment method for the next period. Leave it off until a manual staging refund has passed. The sandbox does not run recurring charges. A buyer cannot set `tax_exempt` or `reverse_charge`.
+
+Variable tables are in [docs/en/PAYMENTS.md](docs/en/PAYMENTS.md).
 
 ## Українська
 
@@ -255,7 +409,92 @@ docker compose up -d --build
 curl -fsS https://API_DOMAIN/health
 ```
 
-Відповідь містить `"ok": true`. Відкрийте `https://ADMIN_DOMAIN` і увійдіть поштою з `.env`. Ключі кас можна лишити порожніми: живі платежі закриті, доки не пройдено staging E2E. Підключення кас — у [docs/uk/PAYMENTS.md](docs/uk/PAYMENTS.md).
+Відповідь містить `"ok": true` і `"version": "20.0.4"`. Відкрийте `https://ADMIN_DOMAIN` і увійдіть поштою з `.env`. Ключі кас можна лишити порожніми: живі платежі закриті, доки не пройдено staging E2E.
+
+### Можливості
+
+Магазин продає VPN-підписки. Покупець обирає тариф, оплачує його і отримує посилання підписки Remnawave. Вузли VPN живуть у панелі Remnawave: цей репозиторій їх не піднімає.
+
+| Частина | Де лежить | Що робить |
+| --- | --- | --- |
+| API | `backend/app/main.py` | Покупці, тарифи, платежі, видача підписки, методи панелі |
+| Бот | `backend/app/bot.py` | Telegram: старт, ціни, промокод, посилання на Mini App |
+| Воркер | `backend/worker.py` | Черга, повтор видачі, пробний період, звірка платежів |
+| Адмінка | `admin/` | Вхід співробітника, тарифи, платежі, користувачі, контент |
+| Mini App | `miniapp/` | Покупка всередині Telegram |
+| Кабінет | `cabinet/` | Вхід поштою, огляд підписки, оплата, підключення |
+| Застосунки | `mobile/` | Android і iOS для покупця і адміністратора |
+| Support Pro | `support-pro/` | Окрема служба заявок |
+| Периметр | `docker-compose.yml`, `deploy/Caddyfile` | HTTPS і окремі домени |
+
+База — PostgreSQL. Черги і блокування — Redis. Схема змінюється лише міграціями Alembic у `backend/alembic`.
+
+Покупець може:
+
+- Зареєструватися поштою в особистому кабінеті або увійти через Telegram, VK і Яндекс, якщо ці входи заповнені в `.env`.
+- Відкрити Mini App з бота і побачити тарифи.
+- Купити фіксований тариф або зібрати строк, трафік і кількість пристроїв у конструкторі тарифів, якщо адміністратор його увімкнув.
+- Застосувати промокод. Знижка і строк фіксуються в знімку платежу.
+- Отримати пробний період, якщо чинної підписки немає.
+- Поповнити внутрішній баланс і витратити його на тариф. Повторне списання з тим самим `Idempotency-Key` блокується. Сума 0 і менше відхиляється до звернення до каси.
+- Купити і погасити подарункову картку. Картка зараховується на баланс лише у валюті `DEFAULT_CURRENCY`.
+- Відкрити посилання підписки, завантажити його файлом і подивитися QR для Happ, v2rayNG і Streisand, коли посилання починається з `https://`.
+- Увімкнути скасування підписки наприкінці оплаченого строку.
+- Дивитися свої платежі в центрі білінгу.
+- Завантажити застосунки Android і iOS з карток кабінету. Старі посилання на APK лишаються в історії нижче. Нові збірки адміністратор завантажує в панель сам.
+
+Адміністратор може:
+
+- Увійти поштою і паролем. Ролі: `viewer`, `operator`, `admin`. Роль `viewer` не бачить ключі підписки.
+- Увімкнути TOTP. Сесії прив'язані до браузера і гасяться після 15 хвилин бездіяльності або зміни User-Agent.
+- Створювати і вимикати тарифи, конструктор, промокоди, акції і пункти меню кабінету.
+- Дивитися платежі, повертати оплачене замовлення і повторювати видачу, якщо Remnawave відповів помилкою. Повтор працює лише для статусу `paid`.
+- Завантажувати APK і IPA. Покупець завантажує файл з кабінету, адміністратор — з панелі.
+- Робити розсилку в Telegram. Повідомлення стає в чергу, доставляє процес бота.
+- Увімкнути технічний режим. Поки він увімкнений, нові платежі відхиляються.
+- Дивитися журнал аудиту. У відповіді панелі немає тексту винятку і секрету провайдера.
+- Реєструвати вузол і запускати failover лише з правом `provision_nodes`.
+
+Перший адміністратор створюється з `ADMIN_EMAIL` і `ADMIN_PASSWORD`, коли таблиця адміністраторів порожня.
+
+Бойова видача ходить у Remnawave за `REMNAWAVE_URL` і `REMNAWAVE_TOKEN`. Магазин створює або подовжує користувача і записує строк, ліміт трафіку і посилання. Повтор тієї самої операції не подовжує строк удруге. Оновлення картки з панелі не копіює пізніший строк в оплачену підписку. Без цих двох змінних пісочниця пише `sandbox://local/...` і `sandbox-user-{id}`: це мітка перевірки, а не робочий VPN.
+
+### Запуск із платіжними системами
+
+Спочатку підніміть магазин за розділом «Встановлення на VDS». `APP_ENV=production`, `PAYMENTS_SANDBOX=false`, `COOKIE_SECURE=true`. Заповніть лише ті ключі, якими будете користуватися. Порожній ключ вимикає провайдера. Потім `docker compose up -d`.
+
+| Провайдер | Змінні | Вебхук |
+| --- | --- | --- |
+| YooKassa | `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `YOOKASSA_WEBHOOK_IP_ALLOWLIST` | `POST https://API_DOMAIN/api/webhooks/yookassa` |
+| Platega | `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET` | `POST https://API_DOMAIN/api/webhooks/platega` |
+| RollyPay | `ROLLYPAY_API_KEY`, `ROLLYPAY_SIGNING_SECRET` | `POST https://API_DOMAIN/api/webhooks/rollypay` |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `POST https://API_DOMAIN/api/payments/webhooks/stripe` |
+| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | `POST https://API_DOMAIN/api/payments/webhooks/paypal` |
+| Криптошлюз | `CRYPTO_GATEWAY_URL`, `CRYPTO_GATEWAY_KEY` | `POST https://API_DOMAIN/api/webhooks/crypto` |
+
+`YOOKASSA_API_URL` за замовчуванням `https://api.yookassa.ru`. `PLATEGA_API_URL` — `https://app.platega.io`. `ROLLYPAY_API_URL` — `https://rollypay.io`. Адреса перевіряється як публічний URL. Повернення Platega і RollyPay потребують `PLATEGA_REFUND_URL`, `PLATEGA_REFUND_STATUS_URL`, `ROLLYPAY_REFUND_URL` і `ROLLYPAY_REFUND_STATUS_URL`. `ROLLYPAY_TEST_MODE=true` — тестовий рахунок каси, а не пісочниця магазину. SEPA redirect-checkout не відкриває.
+
+1. YooKassa. У кабінеті ЮKassa візьміть shop id і секретний ключ і запишіть їх у `.env`. У сповіщеннях вкажіть URL вебхука і подію успішної оплати. У `YOOKASSA_WEBHOOK_IP_ALLOWLIST` перелічіть мережі ЮKassa через кому. Порожній список відхиляє всі сповіщення. Магазин дивиться адресу найближчого проксі: Caddy підставляє `X-Forwarded-For` із реального клієнта.
+2. Platega. Запишіть merchant id і секрет. У кабінеті Platega вкажіть вебхук. Сповіщення має приходити з `X-MerchantId` і `X-Secret`. Перед видачею магазин ще раз читає транзакцію і звіряє суму і номер замовлення.
+3. RollyPay. Запишіть API-ключ і секрет підпису. Сповіщення мусить містити `X-Signature` (HMAC-SHA256 тіла) і `X-Timestamp`. Мітка старша за п'ять хвилин відхиляється.
+4. Stripe. У кабінеті Stripe вкажіть вебхук `POST /api/payments/webhooks/stripe` і секрет підпису в `STRIPE_WEBHOOK_SECRET`. Підписка вмикається лише якщо провайдер відповів `paid` або `succeeded`, а сума, валюта і `order_id` збіглися. Неоплачена сесія checkout підписку не вмикає.
+5. PayPal. Вкажіть вебхук `POST /api/payments/webhooks/paypal` і `PAYPAL_WEBHOOK_ID`. Замовлення проводиться, коли PayPal у статусі `COMPLETED`, сума і валюта збіглися і є завершене захоплення.
+6. Криптошлюз. Вебхук `POST /api/webhooks/crypto` вимагає `X-Timestamp` (unix-секунди, вікно 5 хвилин) і `X-Signature` = hex HMAC-SHA256 від `{timestamp}.{сире тіло}` ключем `CRYPTO_GATEWAY_KEY`. Потім магазин робить `GET {CRYPTO_GATEWAY_URL}/payments/{id}` і приймає статуси `paid`, `succeeded`, `success`, `confirmed` лише коли збіглися сума, валюта і `order_id`.
+7. Apple і Google. `MOBILE_STORE_PRODUCTS` — JSON, де ключ це id продукту, а значення це id тарифу. Приклад: `{"com.shop.month": 1}`. Порожня змінна відхиляє `POST /api/payments/mobile/verify`. Чек Apple без `transactionId` і без ключів App Store Server API відхиляється. Чек Google Play годиться лише при `SUBSCRIPTION_STATE_ACTIVE`, і продукт із відповіді Google має бути в цій карті.
+8. Відкрийте бойові платежі. Ключів недостатньо. Потрібен успішний staging: рахунок, вебхук, видача, повтор того самого вебхука і повернення. Результат має бути не старший за 24 години, зі статусом `FULL_E2E_PASS`. У панелі, з правом `security.manage`, збережіть staging-ключі, які не збігаються з бойовими ключами з `.env`. Потім `POST /api/admin/payments/production-gate` з тілом `{"enabled": true}`. Якщо перевірка застаріла, відповідь `409`. Вимкнення: `{"enabled": false}`. Поки прапор вимкнений, покупець бачить «Реальные платежи временно заблокированы».
+9. Перевірте один платіж. Створіть тариф з маленькою ціною, оплатіть його, переконайтеся, що статус `paid`, видача `completed`, а посилання починається з `https://`. Повторний вебхук строк не подовжує. Повернення з панелі відкликає доступ, і повторний успішний вебхук підписку не повертає.
+
+`AUTO_RENEW_ENABLED=true` зберігає спосіб оплати ЮKassa для наступного періоду. Не вмикайте автопродовження, доки ручне повернення на staging не пройшло. Пісочниця рекурентні списання не виконує. Покупець не може сам поставити `tax_exempt` або `reverse_charge`.
+
+Докладні таблиці змінних — у [docs/uk/PAYMENTS.md](docs/uk/PAYMENTS.md).
+
+### 20.0.4
+
+Версия в коде — `20.0.4`. Её отдают `GET /health` и `GET /api/public/v16/release`. Регистрация узла и failover требуют право `provision_nodes`. Обновление с GitHub читает репозиторий `booarkz-cpu/VPN-Shop-by-CorgiLusi`. Заметки: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
+
+The code version is `20.0.4`. `GET /health` and `GET /api/public/v16/release` return it. Node registration and failover require the `provision_nodes` permission. The GitHub updater reads `booarkz-cpu/VPN-Shop-by-CorgiLusi`. Notes: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
+
+Версія в коді — `20.0.4`. Її віддають `GET /health` і `GET /api/public/v16/release`. Реєстрація вузла і failover потребують права `provision_nodes`. Оновлення з GitHub читає репозиторій `booarkz-cpu/VPN-Shop-by-CorgiLusi`. Нотатки: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
 
 ### 20.0.3
 
