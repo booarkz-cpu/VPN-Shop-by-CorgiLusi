@@ -37,10 +37,21 @@ jobs:
             git commit -m "Assemble README and SECURITY for v20.0.6"
             git push origin "HEAD:${branch}"
             echo "name=${branch}" >> "$GITHUB_OUTPUT"
+            echo "$branch" > /tmp/assemble-branch.txt
           } > /tmp/assemble-push.log 2>&1
-          code=$?
-          STEP_CODE="$code" python3 -c 'from pathlib import Path; text = Path("/tmp/assemble-push.log").read_text(errors="replace")[-1800:].replace("\n", " | "); import os; level = "notice" if os.environ.get("STEP_CODE") == "0" else "error"; print(f"::{level}::{text}")'
-          exit "$code"
+          echo $? > /tmp/assemble-push.code
+
+      - name: Report the assembled branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const code = Number(fs.readFileSync('/tmp/assemble-push.code', 'utf8').trim());
+            const text = fs.readFileSync('/tmp/assemble-push.log', 'utf8').slice(-1500);
+            if (code !== 0) {
+              throw new Error(text);
+            }
+            core.notice(text);
 
       - name: Create or update the release
         uses: actions/github-script@v7
