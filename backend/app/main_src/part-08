@@ -330,7 +330,7 @@ async def admin_content(db:AsyncSession=Depends(get_db),admin=Depends(require_pe
     ss=(await db.execute(select(AppSetting).where(AppSetting.key.in_(safe_keys|secret_keys)))).scalars().all()
     setting_values={x.key:x.value for x in ss if x.key in safe_keys}
     try: setting_values["miniapp_buttons"]=json.loads(setting_values.get("miniapp_buttons","[]"))
-    except Exception: setting_values["miniapp_buttons"]={}
+    except Exception: setting_values["miniapp_buttons"]=[]
     secret_status={x.key:bool(x.value) for x in ss if x.key in secret_keys}
     mm=(await db.execute(select(BotMenuItem).order_by(BotMenuItem.sort_order,BotMenuItem.id))).scalars().all(); ff=(await db.execute(select(CustomField).order_by(CustomField.sort_order,CustomField.id))).scalars().all(); ii=(await db.execute(select(MenuImage).order_by(MenuImage.sort_order,MenuImage.id))).scalars().all()
     return {"settings":setting_values,"secret_status":secret_status,"menu":[{"id":x.id,"title":x.title,"action":x.action,"item_type":x.item_type,"sort_order":x.sort_order,"enabled":x.enabled} for x in mm],"fields":[{"id":x.id,"key":x.key,"label":x.label,"field_type":x.field_type,"value":x.value,"enabled":x.enabled,"sort_order":x.sort_order} for x in ff],"images":[{"id":x.id,"title":x.title,"url":"/media/"+x.filename,"sort_order":x.sort_order,"enabled":x.enabled} for x in ii]}
