@@ -58,6 +58,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Restore script modes after web upload
+        run: chmod +x install.sh scripts/build-release.sh scripts/package-source.py scripts/staging-e2e.sh scripts/test-up.sh backend/scripts/staging-e2e.sh
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
