@@ -1,5 +1,10 @@
 # Security / Безопасность — Remnawave VPN Shop 3.1.6
 
+## Аудит 20.0.4 / 20.0.4 audit
+
+- Живая версия в коде — `20.0.4`. `GET /health` и `GET /api/public/v16/release` отдают её, а не `16.0.0` и не `20.0.0`. `POST /api/admin/v16/nodes/register` и `POST /api/admin/v16/nodes/{node_name}/failover` требуют право `provision_nodes`. Обновление и `install.sh` по умолчанию читают `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
+- The live code version is `20.0.4`. `GET /health` and `GET /api/public/v16/release` return it, not `16.0.0` or `20.0.0`. `POST /api/admin/v16/nodes/register` and `POST /api/admin/v16/nodes/{node_name}/failover` require `provision_nodes`. The updater and the default `install.sh` URL read `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
+
 ## Аудит 20.0.3 / 20.0.3 audit
 
 - Заказ с суммой 0 или меньше не уходит в кассу и не становится оплаченным. Сверка Stripe, PayPal и криптошлюза читает статус у провайдера и сравнивает сумму, валюту и номер заказа. Вебхук `POST /api/webhooks/crypto` без `CRYPTO_GATEWAY_KEY`, со старым `X-Timestamp` или с неверной HMAC-подписью отклоняется. Повтор выдачи не переводит неоплаченный заказ в подписку. Поля `tax_exempt` и `reverse_charge` из профиля покупателя не принимаются. `POST /api/me/remnawave/subscription/refresh` не копирует более поздний срок из панели.
