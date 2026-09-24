@@ -308,3 +308,69 @@ class YooKassaProvider(BasePaymentProvider):
             )
         response.raise_for_status()
         return _checkout(response.json())
+
+    async def verify_succeeded(self, payment_id: str, expected_amount: Decimal, currency: str, expected_order_id: str|None = None) -> bool:
+        async with _public_client(10) as client:
+            response = await client.get(
+                f"{settings.yookassa_api_url}/v3/payments/{payment_id}",
+                auth=(settings.yookassa_shop_id, settings.yookassa_secret_key),
+            )
+        if response.status_code >= 400:
+            return False
+        d = response.json()
+        paid = str(d.get("status") or "").lower() in {"succeeded", "paid", "success"}
+        amount_value = Decimal(str((d.get("amount") or {}).get("value") or "0"))
+        currency_ok = str((d.get("amount") or {}).get("currency") or "").upper() == str(currency).upper()
+        order = str((d.get("metadata") or {}).get("order_id") or "")
+        if expected_order_id and order != expected_order_id:
+            return False
+        return paid and amount_value == Decimal(str(expected_amount)) and currency_ok
+
+    async def find_by_order_id(self, order_id: str, created_after: datetime | None = None):
+        """Find the payment already created for this shop order. Never creates one."""
+        params: Dict[str, Any] = {"limit": 100}
+        if created_after is not None:
+            stamp = created_after if created_after.tzinfo else created_after.replace(tzinfo=timezone.utc)
+            params["created_at.gte"] = stamp.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        cursor = None
+        async with _public_client(10) as client:
+            for _ in range(5):
+                query = dict(params)
+                if cursor:
+                    query["cursor"] = cursor
+                response = await client.get(
+                    f"{settings.yookassa_api_url}/v3/payments",
+                    auth=(settings.yookassa_shop_id, settings.yookassa_secret_key),
+                    params=query,
+                )
+                response.raise_for_status()
+                body = response.json()
+                for item in body.get("items") or []:
+                    if str((item.get("metadata") or {}).get("order_id") or "") == order_id:
+                        return item
+                cursor = body.get("next_cursor")
+                if not cursor:
+                    return None
+        return None
+
+    async def refund(self, payment_id: str, amount, currency: str, reason: str = "") -> Dict[str, Any]:
+        idem=f"refund-{payment_id}"
+        async with _public_client(20) as client:
+            response = await client.post(
+                f"{settings.yookassa_api_url}/v3/refunds",
+                auth=(settings.yookassa_shop_id, settings.yookassa_secret_key),
+                headers={"Idempotence-Key": idem, "Content-Type": "application/json"},
+                json={"payment_id": payment_id, "amount": {"value": _money(amount), "currency": currency}, "description": (reason or "Refund")[:250]},
+            )
+        response.raise_for_status()
+        data = response.json()
+        return {"id": data.get("id"), "status": data.get("status")}
+
+    async def get_refund_status(self, refund_id: str) -> str:
+        async with _public_client(10) as client:
+            response = await client.get(
+                f"{settings.yookassa_api_url}/v3/refunds/{refund_id}",
+                auth=(settings.yookassa_shop_id, settings.yookassa_secret_key),
+            )
+        response.raise_for_status()
+        return str(response.json().get("status") or "")
