@@ -117,4 +117,5 @@ jobs:
         run: |
           printf 'DB_PASSWORD=ci-password\nAPP_SECRET=ci-only-secret\n' > .env
           docker compose -f docker-compose.yml config --quiet
+          cp .env.test.example .env.test
           docker compose --env-file .env.test -f docker-compose.test.yml config --quiet
