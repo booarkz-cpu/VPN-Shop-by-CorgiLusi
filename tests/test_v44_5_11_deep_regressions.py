@@ -11,8 +11,13 @@ def test_webhook_event_conflict_target_matches_database_constraint():
 
 def test_creation_unknown_is_reconciled_without_new_idempotency_key():
     assert 'Payment.status=="creation_unknown"' in MAIN
-    assert 'provider.create(Decimal(str(p.amount)),p.order_id' in MAIN
+    assert 'find_by_order_id(p.order_id, p.created_at)' in MAIN
+    assert 'provider.create(Decimal(str(p.amount)),p.order_id' not in MAIN
     assert 'p.status="pending"; p.fulfillment_terminal=False' in MAIN
+    start = PAYMENTS.index("class YooKassaProvider")
+    create = PAYMENTS[start:PAYMENTS.index("async def get_payment_status", start)]
+    assert 'idempotence_key = str(metadata.get("order_id") or uuid.uuid4())' in create
+    assert 'idempotence_key = str(uuid.uuid4())' not in create
 
 def test_idempotent_retry_uses_immutable_payment_snapshot_before_promo_validation():
     marker='Resolve an existing durable intent before re-validating mutable commercial state.'
