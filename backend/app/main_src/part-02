@@ -1,3 +1,4 @@
+    if final_amount<=0: raise HTTPException(400,"Amount must be positive")
     risk_score,risk_decision,risk_signals=await _risk_score(db,user,final_amount,request)
     if risk_decision=="block":
         raise HTTPException(403,"Платёж отклонён системой защиты от мошенничества")
