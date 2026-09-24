@@ -77,6 +77,10 @@ The backend runs `alembic upgrade head` on start. Do not edit the schema by hand
 
 Older release notes stay in the repository root. A new install only needs `docs`.
 
+## Audit 20.0.5
+
+The application version in code is `20.0.5`. Reconciliation of a YooKassa `creation_unknown` payment does not call `create()` again. It finds the invoice with `find_by_order_id`. The idempotency key of a new invoice is the order id.
+
 ## Audit 20.0.4
 
 The application version in code is `20.0.4`. The public release method no longer answers `16.0.0`. Node registration and failover require `provision_nodes`. The updater and the default installer clone `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
