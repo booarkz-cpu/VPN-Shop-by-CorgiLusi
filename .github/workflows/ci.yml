@@ -82,12 +82,15 @@ jobs:
       - name: Tests
         run: python -m pytest -q tests --disable-warnings --maxfail=1
 
-  admin:
-    name: Admin • typecheck + build
+  frontend:
+    name: ${{ matrix.app }} • typecheck + build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [admin, miniapp, cabinet]
     defaults:
       run:
-        working-directory: admin
+        working-directory: ${{ matrix.app }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -96,7 +99,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: admin/package-lock.json
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
       - name: Install
         run: npm ci
       - name: Typecheck
@@ -114,3 +117,4 @@ jobs:
         run: |
           printf 'DB_PASSWORD=ci-password\nAPP_SECRET=ci-only-secret\n' > .env
           docker compose -f docker-compose.yml config --quiet
+          docker compose --env-file .env.test -f docker-compose.test.yml config --quiet
