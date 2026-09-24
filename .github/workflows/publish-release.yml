@@ -25,26 +25,22 @@ jobs:
       - name: Push the assembled documents
         id: branch
         run: |
-          set -euo pipefail
-          python3 - << 'PY'
-          from pathlib import Path
-          readme = Path("README.md").read_bytes()
-          if "Как пройти staging E2E".encode() not in readme or len(readme) < 120000:
-              raise SystemExit(f"README was not assembled: bytes={len(readme)}")
-          security = Path("SECURITY.md").read_bytes()
-          if "Аудит 20.0.6".encode() not in security:
-              raise SystemExit(f"SECURITY was not assembled: bytes={len(security)}")
-          print(f"assembled README={len(readme)} SECURITY={len(security)}")
-          PY
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          branch="cursor/assemble-docs-${GITHUB_RUN_ID}-c0ec"
-          git checkout -b "$branch"
-          git add README.md SECURITY.md
-          git commit -m "Assemble README and SECURITY for v20.0.6"
-          git push origin "HEAD:${branch}"
-          echo "name=${branch}" >> "$GITHUB_OUTPUT"
-          echo "::notice::assembled-branch=${branch}"
+          set +e
+          {
+            set -euo pipefail
+            python3 -c 'from pathlib import Path; readme = Path("README.md").read_bytes(); security = Path("SECURITY.md").read_bytes(); ok = "Как пройти staging E2E".encode() in readme and len(readme) >= 120000 and "Аудит 20.0.6".encode() in security; print("assembled", len(readme), len(security), ok); raise SystemExit(0 if ok else 1)'
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git config user.name "github-actions[bot]"
+            branch="cursor/assemble-docs-${GITHUB_RUN_ID}-c0ec"
+            git checkout -b "$branch"
+            git add README.md SECURITY.md
+            git commit -m "Assemble README and SECURITY for v20.0.6"
+            git push origin "HEAD:${branch}"
+            echo "name=${branch}" >> "$GITHUB_OUTPUT"
+          } > /tmp/assemble-push.log 2>&1
+          code=$?
+          STEP_CODE="$code" python3 -c 'from pathlib import Path; text = Path("/tmp/assemble-push.log").read_text(errors="replace")[-1800:].replace("\n", " | "); import os; level = "notice" if os.environ.get("STEP_CODE") == "0" else "error"; print(f"::{level}::{text}")'
+          exit "$code"
 
       - name: Create or update the release
         uses: actions/github-script@v7
