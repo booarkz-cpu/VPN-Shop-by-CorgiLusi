@@ -44,7 +44,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "18080:8000"
+      - "127.0.0.1:18080:8000"
     volumes:
       - test_media_data:/data/media
       - .:/project:ro
@@ -84,7 +84,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "18081:80"
+      - "127.0.0.1:18081:80"
     volumes:
       - ./deploy/nginx/test-proxy.conf:/etc/nginx/conf.d/default.conf:ro
 
@@ -97,7 +97,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "18082:80"
+      - "127.0.0.1:18082:80"
     volumes:
       - ./deploy/nginx/test-proxy.conf:/etc/nginx/conf.d/default.conf:ro
 
@@ -110,7 +110,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "18083:80"
+      - "127.0.0.1:18083:80"
     volumes:
       - ./deploy/nginx/test-proxy.conf:/etc/nginx/conf.d/default.conf:ro
 
