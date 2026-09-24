@@ -26,7 +26,7 @@ jobs:
         id: branch
         run: |
           set +e
-          {
+          (
             set -euo pipefail
             python3 -c 'from pathlib import Path; readme = Path("README.md").read_bytes(); security = Path("SECURITY.md").read_bytes(); ok = "Как пройти staging E2E".encode() in readme and len(readme) >= 120000 and "Аудит 20.0.6".encode() in security; print("assembled", len(readme), len(security), ok); raise SystemExit(0 if ok else 1)'
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -38,8 +38,9 @@ jobs:
             git push origin "HEAD:${branch}"
             echo "name=${branch}" >> "$GITHUB_OUTPUT"
             echo "$branch" > /tmp/assemble-branch.txt
-          } > /tmp/assemble-push.log 2>&1
+          ) > /tmp/assemble-push.log 2>&1
           echo $? > /tmp/assemble-push.code
+          exit 0
 
       - name: Report the assembled branch
         uses: actions/github-script@v7
