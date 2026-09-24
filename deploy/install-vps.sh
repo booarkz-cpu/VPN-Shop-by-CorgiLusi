@@ -89,7 +89,8 @@ env_line() {
 }
 
 # Previous release contract: INSTALLER_VERSION="1.0.0-realise"
-INSTALLER_VERSION="20.0.4"
+INSTALLER_VERSION="20.0.5"
+# Historical compatibility marker: INSTALLER_VERSION="20.0.4"
 # Historical compatibility marker: INSTALLER_VERSION="3.1.6"
 # Historical compatibility marker: INSTALLER_VERSION="3.1.5"
 # Historical compatibility marker: INSTALLER_VERSION="3.1.4"

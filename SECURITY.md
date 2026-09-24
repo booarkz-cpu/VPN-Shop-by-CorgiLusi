@@ -1,5 +1,10 @@
 # Security / Безопасность — Remnawave VPN Shop 3.1.6
 
+## Аудит 20.0.5 / 20.0.5 audit
+
+- Потерянный ответ ЮKassa больше не приводит к второму живому счёту. Сверка читает уже созданный платёж по `order_id`. `Idempotence-Key` нового счёта равен номеру заказа, а не случайному UUID.
+- A lost YooKassa response no longer opens a second live invoice. Reconciliation reads the payment that already exists for that `order_id`. The `Idempotence-Key` of a new invoice is the order id, not a random UUID.
+
 ## Аудит 20.0.4 / 20.0.4 audit
 
 - Живая версия в коде — `20.0.4`. `GET /health` и `GET /api/public/v16/release` отдают её, а не `16.0.0` и не `20.0.0`. `POST /api/admin/v16/nodes/register` и `POST /api/admin/v16/nodes/{node_name}/failover` требуют право `provision_nodes`. Обновление и `install.sh` по умолчанию читают `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
