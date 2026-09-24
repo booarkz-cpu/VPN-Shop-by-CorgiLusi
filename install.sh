@@ -2,7 +2,7 @@
 #
 # Remnawave VPN Shop — one-step installer / установка в один шаг
 #
-#   curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/remnawave-vpn-shop/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/main/install.sh | sudo bash
 #
 # Этот файл готовит Docker и исходники, затем передаёт управление
 # deploy/install-vps.sh. Все операторские данные вводятся там.
@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/booarkz-cpu/remnawave-vpn-shop.git}"
+REPO_URL="${REPO_URL:-https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git}"
 BRANCH="${BRANCH:-main}"
 SOURCE_DIR="${SOURCE_DIR:-/opt/vpn-shop-src}"
 

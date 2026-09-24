@@ -15,7 +15,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-REPO = "booarkz-cpu/remnawave-vpn-shop"
+REPO = "booarkz-cpu/VPN-Shop-by-CorgiLusi"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
 DOWNLOAD_PREFIX = f"https://github.com/{REPO}/releases/download/"
 MAX_ARCHIVE_BYTES = 80 * 1024 * 1024

@@ -77,6 +77,10 @@ The backend runs `alembic upgrade head` on start. Do not edit the schema by hand
 
 Older release notes stay in the repository root. A new install only needs `docs`.
 
+## Audit 20.0.4
+
+The application version in code is `20.0.4`. The public release method no longer answers `16.0.0`. Node registration and failover require `provision_nodes`. The updater and the default installer clone `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
+
 ## Audit 20.0.3
 
 A zero-amount order is not created. Stripe, PayPal and the crypto gateway are included in reconciliation: payment is taken from the provider API, not from the webhook body. The crypto webhook `POST /api/webhooks/crypto` checks the HMAC and the timestamp. An admin retry fulfills only a `paid` payment. A buyer cannot set `tax_exempt` or `reverse_charge`. Refreshing a Remnawave subscription does not extend the paid expiry.

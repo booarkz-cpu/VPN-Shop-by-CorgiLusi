@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 
-GITHUB_REPO = "booarkz-cpu/remnawave-vpn-shop"
+GITHUB_REPO = "booarkz-cpu/VPN-Shop-by-CorgiLusi"
 GITHUB_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 DOWNLOAD_PREFIX = f"https://github.com/{GITHUB_REPO}/releases/download/"
 

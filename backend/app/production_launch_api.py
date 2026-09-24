@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .db import get_db
 from pydantic import BaseModel, Field
 from .config import settings
+from .security import require_permission
 
 router = APIRouter()
 
@@ -83,7 +84,7 @@ async def roaming(payload: TunnelRequest, request: Request, db: AsyncSession = D
 
 
 @router.post("/api/admin/v16/nodes/register")
-async def register_node(payload: NodeRegister, request: Request):
+async def register_node(payload: NodeRegister, request: Request, admin=Depends(require_permission("provision_nodes"))):
     token = secrets.token_urlsafe(32)
     return {
         "ok": True,
@@ -100,16 +101,17 @@ async def register_node(payload: NodeRegister, request: Request):
 
 
 @router.post("/api/admin/v16/nodes/{node_name}/failover")
-async def node_failover(node_name: str, payload: FailoverRequest, request: Request):
+async def node_failover(node_name: str, payload: FailoverRequest, request: Request, admin=Depends(require_permission("provision_nodes"))):
     return {"ok": True, "node": node_name, "state": "draining", "reason": payload.reason, "traffic_shift": "automatic"}
 
 
 @router.get("/api/public/v16/release")
 async def release():
+    from .main import APP_VERSION
     return {
         "product": "VPN Shop by Corgi Lusi",
         "platform": "Corgi Lusi Platform",
-        "release": "16.0.0",
+        "release": APP_VERSION,
         "channels": ["stable", "canary", "internal"],
         "languages": ["ru", "en", "uk"],
         "privacy": {"private_traffic_inspection": False, "payload_logging": False},
