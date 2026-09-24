@@ -1,4 +1,5 @@
-"""Source checks read the assembled shop module and admin entry."""
+"""Source checks read the assembled shop module, admin entry, and installer."""
+import base64
 from pathlib import Path
 
 _read_text = Path.read_text
@@ -14,6 +15,10 @@ def _assembled_read_text(self, *args, **kwargs):
         parts = self.resolve().parent / "main_src"
         chunks = [_read_text(path, encoding="utf-8") for path in sorted(parts.glob("part-*"))]
         return "".join(chunks)
+    if self.name == "install-vps.sh" and "INSTALLER_ASSEMBLED_FROM_PARTS" in text:
+        parts = self.resolve().parent / "install-vps-src"
+        chunks = [base64.b64decode(_read_text(path, encoding="utf-8").strip()) for path in sorted(parts.glob("part-*"))]
+        return b"".join(chunks).decode("utf-8")
     return text
 
 
