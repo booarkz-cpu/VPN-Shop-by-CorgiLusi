@@ -1,12 +1,11 @@
 name: Publish GitHub release
-# Tag ruleset no longer blocks v20.0.3. This push restarts the release job.
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - .github/release-v20.0.3.md
+      - .github/release-v20.0.4.md
       - .github/workflows/publish-release.yml
 
 permissions:
@@ -14,7 +13,7 @@ permissions:
 
 jobs:
   release:
-    name: Publish v20.0.3
+    name: Publish v20.0.4
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,9 +24,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const body = fs.readFileSync('.github/release-v20.0.3.md', 'utf8');
-            const tag = 'v20.0.3';
-            const name = 'v20.0.3 — аудит оплаты';
+            const body = fs.readFileSync('.github/release-v20.0.4.md', 'utf8');
+            const tag = 'v20.0.4';
+            const name = 'v20.0.4 — версия и аудит';
             const common = {
               owner: context.repo.owner,
               repo: context.repo.repo,
