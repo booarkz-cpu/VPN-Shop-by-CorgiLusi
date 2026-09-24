@@ -28,6 +28,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const readme = fs.readFileSync('README.md');
+            if (!readme.includes('Как пройти staging E2E') || readme.length < 120000) {
+              throw new Error(`README was not assembled: cwd=${process.cwd()} bytes=${readme.length}`);
+            }
             async function put(filePath) {
               const content = Buffer.from(fs.readFileSync(filePath)).toString('base64');
               let sha;
@@ -55,11 +59,7 @@ jobs:
                 return result.data.commit.sha;
               } catch (error) {
                 const message = String(error.message || error);
-                if (error.status === 409 || message.includes('identical')) {
-                  core.info(`${filePath} is already current`);
-                  return context.sha;
-                }
-                throw error;
+                throw new Error(`upload ${filePath} failed status=${error.status} ${message}`);
               }
             }
             await put('README.md');
