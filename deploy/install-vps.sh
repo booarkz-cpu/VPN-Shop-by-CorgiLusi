@@ -368,6 +368,9 @@ ufw allow 80/tcp >/dev/null 2>&1 || true
 ufw allow 443/tcp >/dev/null 2>&1 || true
 ufw allow 443/udp >/dev/null 2>&1 || true
 ufw --force enable >/dev/null 2>&1 || true
+if [[ -f "$ROOT/scripts/open-ports.sh" ]]; then
+  bash "$ROOT/scripts/open-ports.sh" vds || true
+fi
 
 # SSH hardening without changing authentication mode, so a fresh VDS is not locked out.
 mkdir -p /etc/ssh/sshd_config.d
