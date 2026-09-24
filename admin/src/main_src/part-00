@@ -1,4 +1,1 @@
-import React,{useEffect,useState}from"react";
-import{LangProvider,useLang,DomLocalizer,t}from"./i18n";
-// Исторические названия интерфейса для регрессионных тестов: Campaign Manager, Rules Engine, мультиустройства, Trial.
-PLACEHOLDER_SKIP
+PLACEHOLDER_DO_NOT_USE
