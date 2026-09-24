@@ -4,7 +4,7 @@
 
 Песочница не имитирует боевой VPN. Ссылка подписки будет `sandbox://local/...`. Клиент Happ её не импортирует. Так проверяются регистрация, витрина, оплата и запись подписки в базе.
 
-`bash scripts/test-up.sh` публикует порты 18080–18083 на всех интерфейсах и открывает их в файрволе хоста (ufw, firewalld или iptables). С этой машины откройте `http://127.0.0.1:18081`. С другой машины замените адрес на `http://IP-СЕРВЕРА:18081`. `COOKIE_SECURE=false` годится только для этой проверки. Внешний файрвол хостера, если он есть, должен пропускать TCP 18080–18083. Установка боевого магазина на VDS описана в корневом `README.md` и в [DEPLOYMENT.md](DEPLOYMENT.md).
+`bash scripts/test-up.sh` передаёт `.env.test` в Docker Compose и привязывает тестовые порты к `127.0.0.1`. Для доступа с другого компьютера используйте SSH-туннель: `ssh -L 18081:127.0.0.1:18081 user@server`. `COOKIE_SECURE=false` годится только для локальной проверки. Боевая установка описана в [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Что нужно
 
@@ -23,7 +23,7 @@ bash scripts/test-up.sh
 Скрипт делает пять вещей:
 
 1. Если файла `.env.test` нет, копирует `.env.test.example` и подставляет случайные `APP_SECRET`, пароль базы и пароль администратора.
-2. Открывает TCP 18080–18083 в файрволе хоста и запускает `docker-compose.test.yml`.
+2. Передаёт `.env.test` в Compose и запускает `docker-compose.test.yml`.
 3. Ждёт `http://127.0.0.1:18080/health`.
 4. Прогоняет `scripts/sandbox-e2e.sh`: регистрация, покупка тарифа «Тестовый месяц» через провайдер `sandbox`, завершение выдачи.
 
@@ -41,7 +41,7 @@ bash scripts/test-up.sh
 Остановить:
 
 ```bash
-docker compose -f docker-compose.test.yml down
+docker compose --env-file .env.test -f docker-compose.test.yml down
 ```
 
 Данные базы сохраняются в томах Compose. Чтобы начать с пустой базы, добавьте `-v`.
@@ -86,7 +86,7 @@ curl -fsS http://127.0.0.1:18080/api/public/config
 ## 7. Починить запуск
 
 ```bash
-docker compose -f docker-compose.test.yml logs --tail 80 backend
+docker compose --env-file .env.test -f docker-compose.test.yml logs --tail 80 backend
 ```
 
 Если API не становится готовым, почти всегда виден текст Alembic или `APP_SECRET must be at least 32 characters`. Не ставьте в `.env.test` значение `APP_ENV=production`.

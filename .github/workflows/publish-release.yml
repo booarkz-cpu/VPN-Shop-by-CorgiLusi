@@ -2,93 +2,74 @@ name: Publish GitHub release
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/release-v20.0.6.md
-      - .github/workflows/publish-release.yml
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   release:
-    name: Publish v20.0.6
+    name: Publish v20.0.7 after CI
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Check out main
         uses: actions/checkout@v4
-
-      - name: Assemble the README and security notes
-        run: node .github/assemble-docs.js
-
-      - name: Push the assembled documents
-        id: branch
+        with:
+          ref: main
+      - name: Require successful CI on this commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = (await github.rest.repos.getBranch({
+              owner: context.repo.owner, repo: context.repo.repo, branch: 'main'
+            })).data.commit.sha;
+            if (sha !== process.env.GITHUB_SHA) {
+              throw new Error('Run this workflow from the current main commit.');
+            }
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner, repo: context.repo.repo,
+              workflow_id: 'ci.yml', head_sha: sha, status: 'completed', per_page: 20
+            });
+            if (!runs.data.workflow_runs.some(run => run.event === 'push' && run.conclusion === 'success')) {
+              throw new Error(`No successful main push CI run for ${sha}`);
+            }
+      - name: Publish v20.0.7
         run: |
-          set +e
-          (
-            set -euo pipefail
-            python3 -c 'from pathlib import Path; readme = Path("README.md").read_bytes(); security = Path("SECURITY.md").read_bytes(); ok = "Как пройти staging E2E".encode() in readme and len(readme) >= 120000 and "Аудит 20.0.6".encode() in security; print("assembled", len(readme), len(security), ok); raise SystemExit(0 if ok else 1)'
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git config user.name "github-actions[bot]"
-            branch="cursor/assemble-docs-${GITHUB_RUN_ID}-c0ec"
-            git checkout -b "$branch"
-            git add README.md SECURITY.md
-            git commit -m "Assemble README and SECURITY for v20.0.6"
-            git push origin "HEAD:${branch}"
-            echo "name=${branch}" >> "$GITHUB_OUTPUT"
-            echo "$branch" > /tmp/assemble-branch.txt
-          ) > /tmp/assemble-push.log 2>&1
-          echo $? > /tmp/assemble-push.code
-          exit 0
-
-      - name: Report the assembled branch
+          chmod +x install.sh scripts/build-release.sh scripts/package-source.py scripts/staging-e2e.sh scripts/test-up.sh backend/scripts/staging-e2e.sh
+          python3 scripts/package-source.py remnawave_vpn_shop_v20_0_7_full_release.zip
+          sha256sum remnawave_vpn_shop_v20_0_7_full_release.zip > remnawave_vpn_shop_v20_0_7_full_release.zip.sha256
+      - name: Create release and attach verified source
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const code = Number(fs.readFileSync('/tmp/assemble-push.code', 'utf8').trim());
-            const text = fs.readFileSync('/tmp/assemble-push.log', 'utf8').slice(-1500);
-            if (code !== 0) {
-              throw new Error(text);
-            }
-            core.notice(text);
-
-      - name: Create or update the release
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const body = fs.readFileSync('.github/release-v20.0.6.md', 'utf8');
-            const tag = 'v20.0.6';
-            const name = 'v20.0.6 — staging E2E';
-            const common = {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: tag,
-              name,
-              body,
-              draft: false,
-              prerelease: false,
-            };
+            const tag = 'v20.0.7';
+            const body = fs.readFileSync('.github/release-v20.0.7.md', 'utf8');
             try {
-              const existing = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag,
-              });
-              await github.rest.repos.updateRelease({
-                ...common,
-                release_id: existing.data.id,
-              });
-              core.info(`Updated ${existing.data.html_url}`);
+              await github.rest.repos.getReleaseByTag({owner: context.repo.owner, repo: context.repo.repo, tag});
+              throw new Error(`${tag} already exists; refusing to overwrite an existing release`);
             } catch (error) {
-              if (error.status !== 404) {
-                throw error;
-              }
-              const created = await github.rest.repos.createRelease({
-                ...common,
-                target_commitish: context.sha,
-              });
-              core.info(`Created ${created.data.html_url}`);
+              if (error.status !== 404) throw error;
             }
+            const result = await github.rest.repos.createRelease({
+              owner: context.repo.owner, repo: context.repo.repo,
+              tag_name: tag, target_commitish: context.sha,
+              name: 'v20.0.7 — audit and documentation', body,
+              draft: true, prerelease: false
+            });
+            for (const name of [
+              'remnawave_vpn_shop_v20_0_7_full_release.zip',
+              'remnawave_vpn_shop_v20_0_7_full_release.zip.sha256'
+            ]) {
+              const data = fs.readFileSync(name);
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner, repo: context.repo.repo,
+                release_id: result.data.id, name, data,
+                headers: { 'content-type': name.endsWith('.zip') ? 'application/zip' : 'text/plain', 'content-length': data.length }
+              });
+            }
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner, repo: context.repo.repo,
+              release_id: result.data.id, draft: false
+            });
+            core.info(`Published ${result.data.html_url}`);

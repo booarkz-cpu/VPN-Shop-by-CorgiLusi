@@ -1,75 +1,25 @@
-SPDX-License-Identifier: LicenseRef-Proprietary
+SPDX-License-Identifier: LicenseRef-CorgiLusi-Commercial-Use
 
-Remnawave VPN Shop Proprietary License 1.0
-Проприетарная лицензия Remnawave VPN Shop 1.0
-Пропрієтарна ліцензія Remnawave VPN Shop 1.0
+Corgi Lusi VPN Shop Source License 2.0
+Copyright (c) 2026 booarkz-cpu. All rights reserved except as granted below.
 
-Copyright (c) 2026 booarkz-cpu. All rights reserved.
-Все права защищены.
-Усі права захищені.
+Русский (основной текст)
 
-Владелец репозитория сохраняет исключительные права на исходный код, документацию, схемы сборки, приложения Android и iOS для покупателей и администраторов и сопутствующие материалы этого магазина.
+1. Разрешение. Владелец авторских прав бесплатно разрешает любому лицу и организации скачивать, копировать, устанавливать, запускать и изменять этот проект для собственного VPN-магазина, в том числе коммерческого. Разрешено размещать такой магазин для клиентов, подключать свои платёжные системы и VPN-инфраструктуру, вносить внутренние изменения, собирать приложения Android и iOS и распространять собранные клиентские приложения своим клиентам для доступа к этому магазину. Отдельное согласие владельца для перечисленных действий не требуется.
+2. Условия. При распространении исходного кода или собранных клиентских приложений сохраняйте уведомление об авторском праве и текст этой лицензии в доступном для получателя месте. Соблюдайте лицензии сторонних компонентов. Это разрешение не передаёт права на товарные знаки, логотипы и оформление других лиц.
+3. Иные способы распространения. Публикация изменённого исходного кода, зеркала всего проекта, контейнерных образов или самостоятельного продукта для перепродажи требует отдельного письменного разрешения владельца. Запуск собственного магазина для клиентов по пункту 1 разрешён, даже если магазин приносит доход.
+4. Гарантии. Программа предоставляется «как есть», без гарантий. В пределах, разрешённых применимым правом, владелец не несёт ответственности за ущерб от использования программы.
 
-The owner of the repository retains the exclusive rights in the source code, documentation, build files, the Android and iOS applications for buyers and administrators, and the accompanying materials of this shop.
+English (translation)
 
-Власник репозиторію зберігає виключні права на вихідний код, документацію, схеми збирання, застосунки Android і iOS для покупців та адміністраторів і супутні матеріали цього магазину.
+1. Grant. The copyright owner grants every person and organization, free of charge, permission to download, copy, install, run, and modify this project for their own VPN shop, including a commercial shop. You may host that shop for customers, connect your own payment and VPN infrastructure, make internal changes, build the Android and iOS applications, and distribute built customer applications to your customers for access to that shop. No separate approval from the owner is required for these activities.
+2. Conditions. When distributing source code or built customer applications, retain the copyright notice and this license in a place accessible to recipients. Comply with third-party component licenses. This grant does not convey rights to another party's trademarks, logos, or branding.
+3. Other distribution. Publishing modified source, a mirror of the whole project, container images, or a standalone product for resale requires the owner's separate written permission. Running your own shop for customers under section 1 is permitted even when it generates revenue.
+4. Warranty. The software is provided "as is", without warranty. To the extent permitted by applicable law, the owner is not liable for damages arising from its use.
 
-## Разрешено
+Українська (переклад)
 
-- Читать код и документацию в репозитории.
-- Запускать собранный экземпляр для собственного магазина, если владелец репозитория отдельно разрешил это письменно, включая сообщение в репозитории от учётной записи владельца.
-- Подключать собственные ключи платёжных систем и собственную панель Remnawave к разрешённому экземпляру.
-
-## Дозволено
-
-- Читати код і документацію в репозиторії.
-- Запускати зібраний екземпляр для власного магазину, якщо власник репозиторію окремо дозволив це письмово, включно з повідомленням у репозиторії від облікового запису власника.
-- Підключати власні ключі платіжних систем і власну панель Remnawave до дозволеного екземпляра.
-
-## Allowed
-
-- Reading the code and documentation in the repository.
-- Running a built instance for your own shop when the repository owner has granted that use in writing, including a message in the repository from the owner's account.
-- Connecting your own payment-gateway keys and your own Remnawave panel to a permitted instance.
-
-## Требует письменного разрешения владельца
-
-- Копирование, изменение и создание производных произведений.
-- Распространение исходного кода, архивов релиза и контейнеров.
-- Предоставление этого программного обеспечения как услуги третьим лицам.
-- Удаление уведомления об авторском праве и этой лицензии.
-- Снятие отметки об авторстве с приложений Android и iOS.
-
-## Потребує письмового дозволу власника
-
-- Копіювання, зміна і створення похідних творів.
-- Поширення вихідного коду, архівів релізу і контейнерів.
-- Надання цього програмного забезпечення як послуги третім особам.
-- Видалення повідомлення про авторське право і цієї ліцензії.
-- Зняття позначки про авторство із застосунків Android і iOS.
-
-## Requires the owner's written permission
-
-- Copying, modifying and creating derivative works.
-- Distributing the source, release archives and container images.
-- Offering this software as a service to third parties.
-- Removing the copyright notice and this license.
-- Stripping the authorship notice from the Android and iOS applications.
-
-## Гарантии
-
-Программа поставляется «как есть», без гарантий пригодности, безошибочности и соответствия конкретной задаче. Владелец не отвечает за убытки, потерю данных и простой, возникшие из использования программы.
-
-Письменное разрешение может сузить или расширить эти условия для конкретного получателя. Если такого разрешения нет, действуют только пункты «Разрешено».
-
-## Гарантії
-
-Програма постачається «як є», без гарантій придатності, безпомилковості і відповідності конкретній задачі. Власник не відповідає за збитки, втрату даних і простій, що виникли з використання програми.
-
-Письмовий дозвіл може звузити або розширити ці умови для конкретного отримувача. Якщо такого дозволу немає, діють лише пункти «Дозволено».
-
-## Warranty
-
-The software is provided as is, without warranties of fitness, freedom from defects or fitness for a particular purpose. The owner is not liable for damages, data loss or downtime arising from use of the software.
-
-A written grant may narrow or widen these terms for a specific recipient. Without that grant, only the Allowed section applies.
+1. Дозвіл. Правовласник безоплатно дозволяє кожній особі й організації завантажувати, копіювати, встановлювати, запускати та змінювати цей проєкт для власного VPN-магазину, зокрема комерційного. Дозволено розміщувати магазин для клієнтів, підключати власні платіжні системи й VPN-інфраструктуру, робити внутрішні зміни, збирати застосунки Android та iOS і поширювати зібрані клієнтські застосунки серед клієнтів для доступу до цього магазину. Окремий дозвіл власника для цих дій не потрібен.
+2. Умови. Поширюючи вихідний код або зібрані клієнтські застосунки, зберігайте повідомлення про авторське право й цей текст ліцензії в доступному для отримувача місці. Дотримуйтеся ліцензій сторонніх компонентів. Цей дозвіл не передає прав на чужі торговельні марки, логотипи чи оформлення.
+3. Інше поширення. Публікація зміненого вихідного коду, дзеркала всього проєкту, контейнерних образів або самостійного продукту для перепродажу потребує окремого письмового дозволу власника. Робота власного магазину для клієнтів за пунктом 1 дозволена, навіть якщо він приносить дохід.
+4. Гарантії. Програма надається «як є», без гарантій. У межах, дозволених застосовним правом, власник не відповідає за збитки від її використання.

@@ -29,9 +29,9 @@ def test_sandbox_is_refused_in_production_and_works_without_gateways():
     compose = (ROOT / "docker-compose.test.yml").read_text()
     opener = (ROOT / "scripts/open-ports.sh").read_text()
     installer = (ROOT / "deploy/install-vps.sh").read_text()
-    assert '"18080:8000"' in compose
-    assert "127.0.0.1:18080" not in compose
-    assert "scripts/open-ports.sh" in (ROOT / "scripts/test-up.sh").read_text()
+    assert '"127.0.0.1:18080:8000"' in compose
+    assert '"127.0.0.1:18081:80"' in compose
+    assert "--env-file .env.test" in (ROOT / "scripts/test-up.sh").read_text()
     assert "open-ports.sh" in installer
     assert "ufw allow 80/tcp" in installer
     assert "18080:18083/tcp" in opener

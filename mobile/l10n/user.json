@@ -69,7 +69,14 @@
     "unlock": "Разблокировать",
     "qr": "QR подписки",
     "device_revoked": "Устройство отозвано",
-    "no_devices": "Нет устройств"
+    "no_devices": "Нет устройств",
+    "notifications": "Уведомления",
+    "security": "Безопасность",
+    "recommended": "Рекомендуемый сервер",
+    "quick_connect": "Быстрое подключение",
+    "mark_read": "Прочитано",
+    "no_notifications": "Нет уведомлений",
+    "corgi_user": "VPN Shop by Corgi Lusi"
   },
   "en": {
     "app_name": "VPN shop",
@@ -141,7 +148,14 @@
     "unlock": "Unlock",
     "qr": "Subscription QR",
     "device_revoked": "Device revoked",
-    "no_devices": "No devices"
+    "no_devices": "No devices",
+    "notifications": "Notifications",
+    "security": "Security",
+    "recommended": "Recommended server",
+    "quick_connect": "Quick connect",
+    "mark_read": "Mark read",
+    "no_notifications": "No notifications",
+    "corgi_user": "VPN Shop by Corgi Lusi"
   },
   "uk": {
     "app_name": "VPN Shop by Corgi Lusi",
@@ -213,6 +227,13 @@
     "unlock": "Розблокувати",
     "qr": "QR підписки",
     "device_revoked": "Пристрій відкликано",
-    "no_devices": "Немає пристроїв"
+    "no_devices": "Немає пристроїв",
+    "quick_connect": "Швидке підключення",
+    "notifications": "Сповіщення",
+    "recommended": "Рекомендований сервер",
+    "no_notifications": "Немає сповіщень",
+    "mark_read": "Прочитано",
+    "security": "Безпека",
+    "corgi_user": "VPN Shop by Corgi Lusi"
   }
 }

@@ -8,15 +8,18 @@ def test_live_version_is_20_0_6():
     main = (ROOT / "backend/app/main.py").read_text()
     installer = (ROOT / "deploy/install-vps.sh").read_text()
     builder = (ROOT / "scripts/build-release.sh").read_text()
+    assert main.index('APP_VERSION = "20.0.7"') < main.index('APP_VERSION = "20.0.6"')
     assert main.index('APP_VERSION = "20.0.6"') < main.index('APP_VERSION = "20.0.5"')
     assert main.index('APP_VERSION = "20.0.5"') < main.index('APP_VERSION = "20.0.4"')
     assert main.index('APP_VERSION = "3.1.6"') < main.index('APP_VERSION = "3.1.5"')
+    assert installer.index('INSTALLER_VERSION="20.0.7"') < installer.index('INSTALLER_VERSION="20.0.6"')
     assert installer.index('INSTALLER_VERSION="20.0.6"') < installer.index('INSTALLER_VERSION="20.0.5"')
     assert installer.index('INSTALLER_VERSION="3.1.6"') < installer.index('INSTALLER_VERSION="3.1.5"')
+    assert builder.index('VERSION="20.0.7"') < builder.index('VERSION="20.0.6"')
     assert builder.index('VERSION="20.0.6"') < builder.index('VERSION="20.0.5"')
     assert builder.index('VERSION="3.1.6"') < builder.index('VERSION="3.1.5"')
     first = main.index('APP_VERSION = "')
-    assert main[first:first + len('APP_VERSION = "20.0.6"')] == 'APP_VERSION = "20.0.6"'
+    assert main[first:first + len('APP_VERSION = "20.0.7"')] == 'APP_VERSION = "20.0.7"'
 
 
 def test_full_pass_requires_its_own_line_and_localhost_checks():

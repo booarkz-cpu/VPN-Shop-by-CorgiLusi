@@ -60,9 +60,9 @@ async def mobile_features(request: Request, db: AsyncSession = Depends(get_db)):
         'app_name': 'VPN Shop by Corgi Lusi',
         'version': '9.0.0',
         'features': {
-            'smart_connect': True, 'auto_failover': True, 'kill_switch': True,
-            'always_on_vpn': True, 'trusted_networks': True, 'split_tunneling': True,
-            'gaming_mode': True, 'streaming_profiles': True, 'live_connection': True,
+            'smart_connect': False, 'auto_failover': False, 'kill_switch': False,
+            'always_on_vpn': False, 'trusted_networks': False, 'split_tunneling': False,
+            'gaming_mode': False, 'streaming_profiles': False, 'live_connection': False,
             'security_alerts': True, 'device_trust': True, 'diagnostics': True,
             'privacy_dashboard': True, 'family_plan': True, 'business_vpn': True,
             'referrals': True, 'rewards': True, 'network_map': True,
@@ -94,7 +94,7 @@ async def mobile_connection(request: Request, db: AsyncSession = Depends(get_db)
         'packet_loss_percent': None,
         'jitter_ms': None,
         'uptime_seconds': 0,
-        'auto_failover': True,
+        'auto_failover': False,
         'profile': 'fastest',
         'user_id': user.id,
     }
@@ -113,7 +113,7 @@ async def mobile_diagnostics(request: Request, db: AsyncSession = Depends(get_db
 @router.get('/api/me/mobile/privacy')
 async def mobile_privacy(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _user(request, db)
-    return {'user_id': user.id, 'vpn_time_seconds': 0, 'protected_traffic_bytes': 0, 'dns_protected': True, 'ipv6_protected': True, 'kill_switch': True, 'note':'Traffic counters are shown when node telemetry is available.'}
+    return {'user_id': user.id, 'vpn_time_seconds': 0, 'protected_traffic_bytes': 0, 'dns_protected': False, 'ipv6_protected': False, 'kill_switch': False, 'note':'This app does not implement a VPN tunnel. Use a supported external client with the subscription URL.'}
 
 @router.get('/api/me/mobile/alerts')
 async def mobile_alerts(request: Request, db: AsyncSession = Depends(get_db)):

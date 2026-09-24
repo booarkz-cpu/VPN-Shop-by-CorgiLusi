@@ -17,6 +17,18 @@ A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android a
 
 Песочница разрешена только при `APP_ENV=development`, `test` или `staging`. На `APP_ENV=production` процесс с `PAYMENTS_SANDBOX=true` не стартует. Пока не пройден staging E2E, живые платежи отвечают отказом.
 
+
+## Аудит 20.0.7 и актуальные руководства
+
+- [Отчёт аудита и границы проверок](docs/ru/AUDIT_20_0_7.md)
+- [Пошаговое подключение Android и iOS](docs/ru/MOBILE_GUIDE.md)
+- [Функции магазина по разделам](docs/ru/FUNCTION_GUIDE.md)
+- [Справочник API](API_REFERENCE_RU.md) · [Операционный регламент](OPERATIONS_RUNBOOK_RU.md)
+
+Мобильные приложения магазина показывают подписку, оплату и сведения аккаунта. Встроенного движка VPN в них нет: импортируйте ссылку подписки в совместимый внешний клиент. API не подтверждает Kill Switch или защиту DNS/IPv6 без реального туннеля.
+
+Бесплатное разрешение на собственный коммерческий магазин, внутренние изменения и собранные клиентские приложения дано в [LICENSE](LICENSE). Публикация изменённого исходного кода или контейнеров требует отдельного разрешения.
+
 ## Русский
 
 ### Тестовый стенд
@@ -31,7 +43,7 @@ cd VPN-Shop-by-CorgiLusi
 bash scripts/test-up.sh
 ```
 
-Скрипт создаёт `.env.test` со случайными секретами, открывает TCP 18080–18083 в файрволе хоста, собирает `docker-compose.test.yml`, ждёт `http://127.0.0.1:18080/health` и покупает тариф «Тестовый месяц» через песочницу. Пароль администратора печатается один раз: почта `admin@example.test`.
+Скрипт создаёт `.env.test` со случайными секретами, передаёт его Compose и собирает `docker-compose.test.yml`, ждёт `http://127.0.0.1:18080/health` и покупает тариф «Тестовый месяц» через песочницу. Пароль администратора печатается один раз: почта `admin@example.test`.
 
 | Поверхность | Адрес |
 | --- | --- |
@@ -40,9 +52,9 @@ bash scripts/test-up.sh
 | Кабинет | http://127.0.0.1:18082 |
 | Mini App | http://127.0.0.1:18083 |
 
-Порты опубликованы на всех интерфейсах. Скрипт сам открывает TCP 18080–18083 в ufw, firewalld или iptables. С этой машины используйте адреса из таблицы. С другой машины замените `127.0.0.1` на IP сервера, например `http://IP:18081`. `COOKIE_SECURE=false` годится только для этой проверки: стенд не является публичным магазином. Если у хостера есть отдельный файрвол панели, разрешите в нём TCP 18080–18083.
+Порты слушают только `127.0.0.1`. Для проверки с другой машины создайте SSH-туннель, например `ssh -L 18081:127.0.0.1:18081 user@server`, затем откройте `http://127.0.0.1:18081`. `COOKIE_SECURE=false` допустим только в этом локальном стенде.
 
-Остановка: `docker compose -f docker-compose.test.yml down`. Флаг `-v` удаляет базу.
+Остановка: `docker compose --env-file .env.test -f docker-compose.test.yml down`. Флаг `-v` удаляет базу.
 
 ### Установка на VDS
 
@@ -95,7 +107,7 @@ docker compose up -d --build
 curl -fsS https://API_DOMAIN/health
 ```
 
-Ответ содержит `"ok": true` и `"version": "20.0.5"`. Откройте `https://ADMIN_DOMAIN` и войдите почтой из `.env`. Ключи касс можно оставить пустыми: живые платежи закрыты, пока не пройден staging E2E.
+Ответ содержит `"ok": true` и текущую версию из `backend/app/main.py`. Откройте `https://ADMIN_DOMAIN` и войдите почтой из `.env`. Ключи касс можно оставить пустыми: живые платежи закрыты, пока не пройден staging E2E.
 
 ### Возможности
 
@@ -188,7 +200,7 @@ cd VPN-Shop-by-CorgiLusi
 bash scripts/test-up.sh
 ```
 
-The script writes `.env.test` with random secrets, opens TCP 18080–18083 in the host firewall, builds `docker-compose.test.yml`, waits for `http://127.0.0.1:18080/health`, and buys the plan "Тестовый месяц" through the sandbox. The admin password is printed once. The email is `admin@example.test`.
+The script writes `.env.test` with random secrets, passes it to Compose, builds `docker-compose.test.yml`, waits for `http://127.0.0.1:18080/health`, and buys the plan "Тестовый месяц" through the sandbox. The admin password is printed once. The email is `admin@example.test`.
 
 | Surface | URL |
 | --- | --- |
@@ -197,9 +209,9 @@ The script writes `.env.test` with random secrets, opens TCP 18080–18083 in th
 | Cabinet | http://127.0.0.1:18082 |
 | Mini App | http://127.0.0.1:18083 |
 
-The ports are published on every interface. The script opens TCP 18080–18083 in ufw, firewalld, or iptables. On this machine use the table above. From another machine replace `127.0.0.1` with the server IP, for example `http://IP:18081`. `COOKIE_SECURE=false` is only for this check: the stand is not a public shop. If the hoster has a panel firewall, allow TCP 18080–18083 there too.
+The ports bind to `127.0.0.1` only. For remote access use an SSH tunnel, for example `ssh -L 18081:127.0.0.1:18081 user@server`, then open `http://127.0.0.1:18081`. `COOKIE_SECURE=false` applies only to this local test.
 
-Stop with `docker compose -f docker-compose.test.yml down`. Add `-v` to drop the database.
+Stop with `docker compose --env-file .env.test -f docker-compose.test.yml down`. Add `-v` to drop the database.
 
 ### Install on a VDS
 
@@ -345,7 +357,7 @@ cd VPN-Shop-by-CorgiLusi
 bash scripts/test-up.sh
 ```
 
-Скрипт створює `.env.test` з випадковими секретами, відкриває TCP 18080–18083 у файрволі хоста, збирає `docker-compose.test.yml`, чекає на `http://127.0.0.1:18080/health` і купує тариф «Тестовый месяц» через пісочницю. Пароль адміністратора друкується один раз. Пошта — `admin@example.test`.
+Скрипт створює `.env.test` з випадковими секретами, передає його Compose і збирає `docker-compose.test.yml`, чекає на `http://127.0.0.1:18080/health` і купує тариф «Тестовый месяц» через пісочницю. Пароль адміністратора друкується один раз. Пошта — `admin@example.test`.
 
 | Поверхня | Адреса |
 | --- | --- |
@@ -354,9 +366,9 @@ bash scripts/test-up.sh
 | Кабінет | http://127.0.0.1:18082 |
 | Mini App | http://127.0.0.1:18083 |
 
-Порти опубліковані на всіх інтерфейсах. Скрипт сам відкриває TCP 18080–18083 в ufw, firewalld або iptables. З цієї машини використовуйте адреси з таблиці. З іншої машини замініть `127.0.0.1` на IP сервера, наприклад `http://IP:18081`. `COOKIE_SECURE=false` годиться лише для цієї перевірки: стенд не є публічним магазином. Якщо в хостера є окремий файрвол панелі, дозвольте в ньому TCP 18080–18083.
+Порти доступні лише через `127.0.0.1`. Для віддаленої перевірки створіть SSH-тунель: `ssh -L 18081:127.0.0.1:18081 user@server`. `COOKIE_SECURE=false` годиться лише для локального стенду.
 
-Зупинка: `docker compose -f docker-compose.test.yml down`. Прапор `-v` видаляє базу.
+Зупинка: `docker compose --env-file .env.test -f docker-compose.test.yml down`. Прапор `-v` видаляє базу.
 
 ### Встановлення на VDS
 
@@ -524,11 +536,11 @@ A forged Apple receipt no longer grants a subscription. Stripe and PayPal apply 
 
 ### 20.0.1
 
-Тестовый стенд сам открывает TCP 18080–18083. Установщик VDS сам открывает SSH, TCP 80, TCP 443 и UDP 443. Заметки релиза: [.github/release-v20.0.1.md](.github/release-v20.0.1.md).
+Тестовый стенд слушает TCP 18080–18083 только на localhost. Установщик VDS сам открывает SSH, TCP 80, TCP 443 и UDP 443. Заметки релиза: [.github/release-v20.0.1.md](.github/release-v20.0.1.md).
 
-The test stand opens TCP 18080–18083 by itself. The VDS installer opens SSH, TCP 80, TCP 443 and UDP 443. Release notes: [.github/release-v20.0.1.md](.github/release-v20.0.1.md).
+The test stack binds TCP 18080–18083 to localhost only. The VDS installer opens SSH, TCP 80, TCP 443 and UDP 443. Release notes: [.github/release-v20.0.1.md](.github/release-v20.0.1.md).
 
-Тестовий стенд сам відкриває TCP 18080–18083. Встановлювач VDS сам відкриває SSH, TCP 80, TCP 443 і UDP 443. Нотатки релізу: [.github/release-v20.0.1.md](.github/release-v20.0.1.md).
+Тестовий стенд слухає TCP 18080–18083 лише на localhost. Встановлювач VDS сам відкриває SSH, TCP 80, TCP 443 і UDP 443. Нотатки релізу: [.github/release-v20.0.1.md](.github/release-v20.0.1.md).
 
 Ниже сохранена история релизов.
 
@@ -684,7 +696,7 @@ The test stand opens TCP 18080–18083 by itself. The VDS installer opens SSH, T
 - **Четыре приложения.** `mobile/android-user`, `mobile/android-admin`, `mobile/ios-user`, `mobile/ios-admin`. Покупатель покупает тариф, собирает конструктор, видит серверы и копирует ссылку подписки. Администратор смотрит обзор, платежи, мониторинг и разбирает нарушения.
 - **Язык в приложении.** Переключатель RU/EN. Каталоги `mobile/l10n/user.json` и `mobile/l10n/admin.json`.
 - **Сессия.** Заголовок `X-Shop-Client` получает `access_token` в JSON. Веб-вход остаётся на HttpOnly cookie и токен в JSON не кладёт.
-- **Лицензия приложений.** Тот же файл `LICENSE`, Remnawave VPN Shop Proprietary License 1.0. Разбор функций — `MOBILE.md`.
+- **Лицензия приложений.** Тот же файл `LICENSE`, Corgi Lusi VPN Shop Source License 2.0. Разбор функций — `MOBILE.md`.
 
 ### Возможности 2.6.0
 
@@ -693,7 +705,7 @@ The test stand opens TCP 18080–18083 by itself. The VDS installer opens SSH, T
 - **Почта и метрики.** Тестовое SMTP-письмо уходит администратору, который нажал кнопку. DKIM выдаёт TXT-запись. `/metrics` добавляет три ряда, дашборд лежит в `deploy/grafana/vpnshop-platform.json`.
 - **Кабинет на домашний экран.** `cabinet/public/manifest.webmanifest`.
 - **Семь тем админки:** dark, light, midnight, graphite, lagoon, amber, paper.
-- **Лицензия.** Remnawave VPN Shop Proprietary License 1.0, файл `LICENSE`, русский и английский текст.
+- **Лицензия.** Corgi Lusi VPN Shop Source License 2.0, файл `LICENSE`, русский и английский текст.
 
 ### Возможности 2.5.0
 
@@ -738,7 +750,7 @@ sudo bash /opt/vpn-shop/scripts/update-from-github.sh
 | `FUNCTIONS.md` | Разбор функций кода, RU/EN |
 | `SECURITY.md` | Модель безопасности RU/EN |
 | `DOCUMENTATION.md` | Карта актуальных документов и архивных аудитов |
-| `LICENSE` | Проприетарная лицензия 1.0, RU/EN |
+| `LICENSE` | Лицензия Source 2.0, RU/EN |
 | `MOBILE.md` | Android и iOS: функции, сессия, логотип, сборка, RU/EN |
 | `RELEASE_NOTES_V3_1_0.md` | Аудит 3.1.0, контрольная сумма и скачивание приложений |
 | `RELEASE_NOTES_V3_0_1.md` | Аудит 3.0.1: автопродление, копия и баланс |
@@ -769,15 +781,13 @@ cd ../cabinet && npm install && npx vite build
 
 ### Лицензия
 
-**Remnawave VPN Shop Proprietary License 1.0** (`SPDX-License-Identifier: LicenseRef-Proprietary`). Полный текст на русском и английском — в `LICENSE`.
-
-Чтение репозитория разрешено. Копирование, изменение, распространение и запуск как услуги для третьих лиц требуют письменного разрешения владельца репозитория booarkz-cpu/remnawave-vpn-shop. Программа поставляется «как есть», без гарантий.
+**Corgi Lusi VPN Shop Source License 2.0.** Бесплатно разрешены свой коммерческий VPN-магазин, внутренние изменения и распространение собранных клиентских приложений своим покупателям. Условия и ограничения на публикацию исходников — в [LICENSE](LICENSE).
 
 ## English
 
 A VPN shop with a Telegram bot, a Mini App, a standalone user cabinet, an admin console, separate Android and iOS apps for buyers and administrators, a FastAPI backend, three payment providers plus a sandbox provider, a tariff constructor, Remnawave node status, abuse scoring, a node agent, provisioning, queues and backups.
 
-Current release: **3.1.6**. Previous releases: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
+Latest published tag: **v20.0.6**. Audit candidate: **v20.0.7**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
 
 ### What is in the tree
 
@@ -917,7 +927,7 @@ Four apps: `mobile/android-user`, `mobile/android-admin`, `mobile/ios-user`, `mo
 
 ### What 2.6.0 added
 
-The **Платформа** tab scores subscription sharing, lists node agents, an HWID blacklist, API keys, outbound webhooks and country counts. A secret is shown once. `scripts/node-agent.py` sends a heartbeat. The node may apply only `throttle` and `clear`, and only when `AGENT_APPLY_TC=1`. The SMTP test sends mail to the administrator who pressed the button. DKIM returns a TXT record. Extra Prometheus lines and `deploy/grafana/vpnshop-platform.json` cover the platform. The cabinet can be installed to the home screen via `cabinet/public/manifest.webmanifest`. Admin themes: dark, light, midnight, graphite, lagoon, amber, paper. The license is Remnawave VPN Shop Proprietary License 1.0.
+The **Платформа** tab scores subscription sharing, lists node agents, an HWID blacklist, API keys, outbound webhooks and country counts. A secret is shown once. `scripts/node-agent.py` sends a heartbeat. The node may apply only `throttle` and `clear`, and only when `AGENT_APPLY_TC=1`. The SMTP test sends mail to the administrator who pressed the button. DKIM returns a TXT record. Extra Prometheus lines and `deploy/grafana/vpnshop-platform.json` cover the platform. The cabinet can be installed to the home screen via `cabinet/public/manifest.webmanifest`. Admin themes: dark, light, midnight, graphite, lagoon, amber, paper. The license is Corgi Lusi VPN Shop Source License 2.0.
 
 ### What 2.5.0 added
 
@@ -959,7 +969,7 @@ The full procedure is `INSTRUCTION.md`, section 9.9. Do not commit `.env`, token
 | `FUNCTIONS.md` | Function map, RU/EN |
 | `SECURITY.md` | Security model, RU/EN |
 | `DOCUMENTATION.md` | Index of current documents and archived audits |
-| `LICENSE` | Proprietary license 1.0, RU/EN |
+| `LICENSE` | Source License 2.0, RU/EN |
 | `MOBILE.md` | Android and iOS functions, session, logo and build, RU/EN |
 | `RELEASE_NOTES_V3_1_0.md` | 3.1.0 audit, checksum and app download steps |
 | `RELEASE_NOTES_V3_0_1.md` | 3.0.1 audit: auto-renew, backups and wallet |
@@ -984,8 +994,16 @@ cd ../cabinet && npm install && npx vite build
 
 ### License
 
-**Remnawave VPN Shop Proprietary License 1.0** (`SPDX-License-Identifier: LicenseRef-Proprietary`). The full Russian and English text is `LICENSE`.
-
-Reading the repository is allowed. Copying, modifying, redistributing, or offering the software as a service needs a written grant from the repository owner booarkz-cpu/remnawave-vpn-shop. The program is provided as is, without warranties.
+**Corgi Lusi VPN Shop Source License 2.0.** Your own commercial VPN shop, internal changes, and distribution of built customer apps to your customers are permitted free of charge. See [LICENSE](LICENSE) for the conditions and source redistribution limits.
 
 - v20 Payment Platform: see V20_PAYMENT_PLATFORM_RU.md
+
+## Changelog
+
+### 20.0.7
+
+См. [отчёт аудита](docs/ru/AUDIT_20_0_7.md) и [заметки релиза](.github/release-v20.0.7.md).
+
+### 20.0.6
+
+Ниже сохранена история релизов. Как пройти staging E2E — [PAYMENTS.md](docs/ru/PAYMENTS.md). How to pass staging E2E — [PAYMENTS.md](docs/en/PAYMENTS.md). Як пройти staging E2E — [PAYMENTS.md](docs/uk/PAYMENTS.md). Маркер `FULL_E2E_PASS` появляется только после всех проверок.

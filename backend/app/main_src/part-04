@@ -347,7 +347,7 @@ async def apply_referral(payload:dict,request:Request,db:AsyncSession=Depends(ge
 async def auto_renew_status(request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db); method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id))).scalar_one_or_none()
     last_error="Автопродление не выполнено" if method and method.last_error else None
-    return {"enabled":user.auto_renew_enabled,"configured":bool(method and method.enabled),"provider":method.provider if method else None,"last_attempt_at":method.last_attempt_at if method else None,"last_success_at":method.last_success_at if method else None,"last_error":last_error,"supported_providers":["yookassa","stripe","paypal"]}
+    return {"enabled":user.auto_renew_enabled,"configured":bool(method and method.enabled and method.provider == "yookassa"),"provider":method.provider if method else None,"last_attempt_at":method.last_attempt_at if method else None,"last_success_at":method.last_success_at if method else None,"last_error":last_error,"supported_providers":["yookassa"]}
 
 @app.get("/api/me/connection-qr")
 async def connection_qr(request:Request,db:AsyncSession=Depends(get_db)):
@@ -400,7 +400,7 @@ async def connection_info(request:Request,db:AsyncSession=Depends(get_db)):
 async def set_auto_renew(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db); enabled=bool(payload.get("enabled"))
     method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id))).scalar_one_or_none()
-    if enabled and (not method or not method.enabled): raise HTTPException(409,"No saved recurring payment method is configured")
+    if enabled and (not method or not method.enabled or method.provider != "yookassa"): raise HTTPException(409,"No supported recurring payment method is configured")
     user.auto_renew_enabled=enabled; await db.commit(); return {"enabled":enabled,"configured":bool(method and method.enabled)}
 
 @app.delete("/api/me/auto-renew/method")

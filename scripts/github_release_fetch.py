@@ -31,6 +31,8 @@ def version_tuple(value: str) -> tuple:
 
 def current_version(app_dir: Path) -> str:
     text = (app_dir / "backend/app/main.py").read_text(encoding="utf-8")
+    if "MAIN_PY_ASSEMBLED_FROM_PARTS" in text:
+        text = (app_dir / "backend/app/main_src/part-00").read_text(encoding="utf-8")
     marker = 'APP_VERSION = "'
     start = text.index(marker) + len(marker)
     return text[start:text.index('"', start)]

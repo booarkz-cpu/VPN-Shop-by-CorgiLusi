@@ -1,8 +1,5 @@
-SPDX-License-Identifier: LicenseRef-Proprietary
+SPDX-License-Identifier: LicenseRef-CorgiLusi-Commercial-Use
 
-The Android user app, Android admin app, iOS user app and iOS admin app in this directory are part of Remnawave VPN Shop and are covered by the Remnawave VPN Shop Proprietary License 1.0.
+The Android and iOS source and built customer applications in this directory are covered by Corgi Lusi VPN Shop Source License 2.0. The full terms are in the repository root LICENSE file.
 
-Приложения Android и iOS для покупателей и администраторов входят в Remnawave VPN Shop и распространяются на условиях проприетарной лицензии Remnawave VPN Shop 1.0.
-
-The full license text is the repository root file LICENSE.
-Полный текст лицензии — файл LICENSE в корне репозитория.
+Исходники Android и iOS и собранные клиентские приложения распространяются по лицензии Corgi Lusi VPN Shop Source License 2.0. Полный текст находится в корневом файле LICENSE.
