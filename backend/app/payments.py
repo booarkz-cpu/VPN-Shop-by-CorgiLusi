@@ -374,3 +374,420 @@ class YooKassaProvider(BasePaymentProvider):
             )
         response.raise_for_status()
         return str(response.json().get("status") or "")
+
+
+# ============================================================
+# Platega Provider
+# ============================================================
+
+class PlategaProvider(BasePaymentProvider):
+    """Провайдер Platega."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    async def create_payment(
+        self,
+        amount: float,
+        currency: str,
+        description: str,
+        metadata: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        client = await self._get_client()
+        payload = {
+            "amount": amount,
+            "currency": currency,
+            "description": description,
+            "metadata": metadata,
+            "payload": metadata.get("payload") or metadata.get("order_id") or "",
+            "return_url": metadata.get(
+                "return_url", settings.public_base_url
+            ),
+        }
+        response = await client.post(
+            f"{settings.platega_api_url}/api/payment",
+            headers={
+                "X-Merchant": settings.platega_merchant_id,
+                "X-Secret": settings.platega_secret,
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
+        client = await self._get_client()
+        response = await client.get(
+            f"{settings.platega_api_url}/api/payment/{payment_id}",
+            headers={
+                "X-Merchant": settings.platega_merchant_id,
+                "X-Secret": settings.platega_secret,
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        return str(data.get("status") or data.get("Status") or "")
+
+    async def create(self, amount: Decimal, order_id: str, description: str, return_url: str) -> Dict[str, Any]:
+        data = await self.create_payment(float(amount), settings.default_currency, description, {"order_id": order_id, "return_url": return_url, "payload": order_id})
+        return _checkout(data)
+
+    async def verify_succeeded(self, payment_id: str, expected_amount: Decimal, currency: str, expected_order_id: str|None = None) -> bool:
+        async with _public_client(10) as client:
+            response = await client.get(
+                f"{settings.platega_api_url}/transaction/{payment_id}",
+                headers={"X-Merchant": settings.platega_merchant_id, "X-Secret": settings.platega_secret},
+            )
+        if response.status_code >= 400:
+            return False
+        d = response.json()
+        paid = str(d.get("status") or d.get("Status") or "").upper() in {"CONFIRMED", "SUCCESS", "SUCCEEDED", "PAID"}
+        amount_value = Decimal(str(d.get("amount") or d.get("Amount") or "0"))
+        order = str(d.get("payload") or d.get("Payload") or "")
+        if expected_order_id and order != expected_order_id:
+            return False
+        return paid and amount_value == Decimal(str(expected_amount))
+
+    async def refund(self, payment_id: str, amount, currency: str, reason: str = "") -> Dict[str, Any]:
+        if not settings.platega_refund_url:
+            raise PaymentError("Platega refund URL is not configured")
+        idem=f"refund-{payment_id}"
+        async with _public_client(20) as client:
+            response = await client.post(
+                settings.platega_refund_url,
+                headers={"X-Merchant": settings.platega_merchant_id, "X-Secret": settings.platega_secret, "Idempotence-Key": idem},
+                json={"id": payment_id, "amount": _money(amount), "currency": currency, "description": reason[:250]},
+            )
+        response.raise_for_status()
+        data = response.json()
+        return {"id": data.get("id") or data.get("refund_id") or payment_id, "status": data.get("status") or data.get("Status") or "processing"}
+
+    async def get_refund_status(self, refund_id: str) -> str:
+        url = settings.platega_refund_status_url or settings.platega_refund_url
+        if not url:
+            raise PaymentError("Platega refund status URL is not configured")
+        async with _public_client(10) as client:
+            response = await client.get(url.rstrip("/") + "/" + refund_id, headers={"X-Merchant": settings.platega_merchant_id, "X-Secret": settings.platega_secret})
+        response.raise_for_status()
+        data = response.json()
+        return str(data.get("status") or data.get("Status") or "")
+
+    def verify_webhook(
+        self,
+        headers: Dict[str, str],
+        body: bytes,
+        remote_addr: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Проверка подписи вебхука Platega (HMAC-SHA256)."""
+        signature = (
+            headers.get("X-Signature")
+            or headers.get("x-signature")
+        )
+        if not signature:
+            raise SignatureVerificationError(
+                "Отсутствует заголовок X-Signature"
+            )
+
+        expected = hmac.new(
+            settings.platega_secret.encode(), body, hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected, signature):
+            raise SignatureVerificationError(
+                "Неверная подпись Platega"
+            )
+
+        try:
+            return json.loads(body)
+        except json.JSONDecodeError as e:
+            raise PaymentError(f"Невалидный JSON: {e}")
+
+
+# ============================================================
+# RollyPay Provider
+# ============================================================
+
+class RollyPayProvider(BasePaymentProvider):
+    """Провайдер RollyPay."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    async def create_payment(
+        self,
+        amount: float,
+        currency: str,
+        description: str,
+        metadata: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        client = await self._get_client()
+        payload = {
+            "amount": amount,
+            "currency": currency,
+            "description": description,
+            "metadata": metadata,
+            "return_url": metadata.get(
+                "return_url", settings.public_base_url
+            ),
+            "order_id": metadata.get("order_id") or "",
+            "test": settings.rollypay_test_mode,
+        }
+        response = await client.post(
+            f"{settings.rollypay_api_url}/api/v1/payments",
+            headers={
+                "Authorization": f"Bearer {settings.rollypay_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
+        client = await self._get_client()
+        response = await client.get(
+            f"{settings.rollypay_api_url}/api/v1/payments/{payment_id}",
+            headers={
+                "Authorization": f"Bearer {settings.rollypay_api_key}"
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        return str(data.get("status") or "")
+
+    async def create(self, amount: Decimal, order_id: str, description: str, return_url: str) -> Dict[str, Any]:
+        data = await self.create_payment(float(amount), settings.default_currency, description, {"order_id": order_id, "return_url": return_url})
+        return _checkout(data)
+
+    async def verify_succeeded(self, payment_id: str, expected_amount: Decimal, currency: str, expected_order_id: str|None = None) -> bool:
+        async with _public_client(10) as client:
+            response = await client.get(
+                f"{settings.rollypay_api_url}/api/v1/payments/{payment_id}",
+                headers={"Authorization": f"Bearer {settings.rollypay_api_key}"},
+            )
+        if response.status_code >= 400:
+            return False
+        d = response.json()
+        paid = str(d.get("status") or "").lower() in {"paid", "success", "succeeded"}
+        amount_value = Decimal(str(d.get("amount") or "0"))
+        order = str(d.get("order_id") or "")
+        if expected_order_id and order != expected_order_id:
+            return False
+        return paid and amount_value == Decimal(str(expected_amount))
+
+    async def refund(self, payment_id: str, amount, currency: str, reason: str = "") -> Dict[str, Any]:
+        if not settings.rollypay_refund_url:
+            raise PaymentError("RollyPay refund URL is not configured")
+        nonce=str(uuid.uuid4())
+        idem=f"refund-{payment_id}"
+        body = json.dumps({"payment_id": payment_id, "amount": _money(amount), "currency": currency, "description": reason[:250]}).encode()
+        signature = hmac.new(settings.rollypay_signing_secret.encode(), body, hashlib.sha256).hexdigest()
+        async with _public_client(20) as client:
+            response = await client.post(
+                settings.rollypay_refund_url,
+                content=body,
+                headers={"Authorization": f"Bearer {settings.rollypay_api_key}", "X-Nonce":nonce, "X-Signature": signature, "Idempotence-Key": idem, "Content-Type": "application/json"},
+            )
+        response.raise_for_status()
+        data = response.json()
+        return {"id": data.get("id") or data.get("refund_id") or payment_id, "status": data.get("status") or "processing"}
+
+    async def get_refund_status(self, refund_id: str) -> str:
+        url = settings.rollypay_refund_status_url or settings.rollypay_refund_url
+        if not url:
+            raise PaymentError("RollyPay refund status URL is not configured")
+        async with _public_client(10) as client:
+            response = await client.get(url.rstrip("/") + "/" + refund_id, headers={"Authorization": f"Bearer {settings.rollypay_api_key}"})
+        response.raise_for_status()
+        return str(response.json().get("status") or "")
+
+    def verify_webhook(
+        self,
+        headers: Dict[str, str],
+        body: bytes,
+        remote_addr: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Проверка подписи вебхука RollyPay (HMAC-SHA256) + timestamp.
+        """
+        signature = (
+            headers.get("X-RollyPay-Signature")
+            or headers.get("x-rollypay-signature")
+        )
+        if not signature:
+            raise SignatureVerificationError(
+                "Отсутствует заголовок X-RollyPay-Signature"
+            )
+
+        expected = hmac.new(
+            settings.rollypay_signing_secret.encode(),
+            body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected, signature):
+            raise SignatureVerificationError(
+                "Неверная подпись RollyPay"
+            )
+
+        # Проверка timestamp (защита от replay). Без метки времени подпись можно повторить.
+        ts_header = (
+            headers.get("X-RollyPay-Timestamp")
+            or headers.get("x-rollypay-timestamp")
+        )
+        if not ts_header:
+            raise SignatureVerificationError("Missing RollyPay timestamp")
+        try:
+            ts = int(ts_header)
+        except ValueError:
+            raise SignatureVerificationError(
+                "Неверный формат timestamp"
+            )
+        now = int(time.time())
+        if abs(now - ts) > 300:
+            raise WebhookReplayError(
+                "Подпись RollyPay устарела"
+            )
+
+        try:
+            return json.loads(body)
+        except json.JSONDecodeError as e:
+            raise PaymentError(f"Невалидный JSON: {e}")
+
+
+class SandboxProvider:
+    """Local payment provider for tests without live gateways."""
+
+    async def close(self) -> None:
+        return None
+
+    async def create(self, amount, order_id: str, description: str, return_url: str):
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
+            raise PaymentError("Sandbox payments are disabled")
+        payment_id = f"sandbox-{order_id}"
+        url = f"{(settings.cabinet_url or settings.mini_app_url or return_url).rstrip('/')}/?sandbox_payment={payment_id}"
+        return {"id": payment_id, "url": url, "status": "succeeded"}
+
+    async def verify_succeeded(self, payment_id: str, expected_amount: Decimal, currency: str, expected_order_id: str | None = None):
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
+            return False
+        # Exact id only. A substring of another order id must not count as paid,
+        # and a zero amount is not a successful sandbox charge.
+        if expected_order_id:
+            if str(payment_id) != f"sandbox-{expected_order_id}":
+                return False
+        elif not str(payment_id).startswith("sandbox-"):
+            return False
+        try:
+            if Decimal(str(expected_amount)) <= 0:
+                return False
+        except Exception:
+            return False
+        return True
+
+    async def get_payment_status(self, payment_id: str) -> str:
+        from .sandbox_mode import payments_sandbox_allowed
+        return "succeeded" if payments_sandbox_allowed() and str(payment_id).startswith("sandbox-") else "canceled"
+
+    async def refund(self, payment_id: str, amount: Decimal, currency: str = "RUB"):
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
+            raise PaymentError("Sandbox payments are disabled")
+        return {"id": f"refund-{payment_id}", "status": "succeeded"}
+
+    async def get_refund_status(self, refund_id: str) -> str:
+        from .sandbox_mode import payments_sandbox_allowed
+        if not payments_sandbox_allowed():
+            raise PaymentError("Sandbox payments are disabled")
+        return "succeeded"
+
+    async def charge_recurring(self, *args, **kwargs):
+        raise PaymentError("Sandbox does not support recurring charges")
+
+
+# ============================================================
+# Фабрика провайдеров
+# ============================================================
+
+_providers: Dict[str, BasePaymentProvider] = {}
+
+
+def get_payment_provider(name: str) -> BasePaymentProvider:
+    """Вернуть singleton-провайдер по имени."""
+    if name not in _providers:
+        if name == "yookassa":
+            _providers[name] = YooKassaProvider()
+        elif name == "platega":
+            _providers[name] = PlategaProvider()
+        elif name == "rollypay":
+            _providers[name] = RollyPayProvider()
+        elif name == "sandbox":
+            _providers[name] = SandboxProvider()  # type: ignore[assignment]
+        else:
+            raise PaymentError(f"Неизвестный провайдер: {name}")
+    return _providers[name]
+
+
+async def close_all_providers() -> None:
+    """Закрыть HTTP-клиенты всех провайдеров при остановке."""
+    for provider in _providers.values():
+        await provider.close()
+
+
+def verify_platega_headers(merchant_id: str | None, secret: str | None) -> bool:
+    if not merchant_id or not secret or not settings.platega_merchant_id or not settings.platega_secret:
+        return False
+    return hmac.compare_digest(merchant_id, settings.platega_merchant_id) and hmac.compare_digest(secret, settings.platega_secret)
+
+
+def verify_rollypay(raw: bytes, timestamp: str, signature: str) -> bool:
+    if not raw or not timestamp or not signature or not settings.rollypay_signing_secret:
+        return False
+    try:
+        ts = int(timestamp)
+    except ValueError:
+        return False
+    if abs(int(time.time()) - ts) > 300:
+        return False
+    expected = hmac.new(settings.rollypay_signing_secret.encode(), raw, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
+async def staging_create_payment(provider: str, creds: Dict[str, Any], amount: Decimal, order_id: str, description: str, return_url: str) -> Dict[str, Any]:
+    """Создать платёж только по переданным staging credentials.
+
+    Production settings are deliberately never consulted.
+    """
+    from .main import validate_public_url, _pinned_public_http_client
+    provider = str(provider)
+    if provider == "yookassa":
+        api_url = creds.get("api_url")
+        api_url = validate_public_url(api_url, allow_empty=False)
+        payload = {"amount": {"value": _money(amount), "currency": "RUB"}, "capture": True, "confirmation": {"type": "redirect", "return_url": return_url}, "description": description, "metadata": {"order_id": order_id}}
+        auth = (str(creds.get("shop_id") or ""), str(creds.get("secret_key") or ""))
+        headers = {"Idempotence-Key": order_id, "Content-Type": "application/json"}
+        path = "/v3/payments"
+    elif provider == "platega":
+        api_url = creds.get("api_url")
+        api_url = validate_public_url(api_url, allow_empty=False)
+        payload = {"amount": float(amount), "currency": "RUB", "description": description, "payload": order_id, "return_url": return_url}
+        auth = None
+        headers = {"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or ""), "Content-Type": "application/json"}
+        path = "/api/payment"
+    elif provider == "rollypay":
+        api_url = creds.get("api_url")
+        api_url = validate_public_url(api_url, allow_empty=False)
+        payload = {"amount": float(amount), "currency": "RUB", "description": description, "order_id": order_id, "return_url": return_url}
+        payload["test"] = True
+        auth = None
+        headers = {"Authorization": f"Bearer {creds.get('api_key') or ''}", "Content-Type": "application/json"}
+        path = "/api/v1/payments"
+    else:
+        raise PaymentError(f"Неизвестный провайдер: {provider}")
+    async with _pinned_public_http_client(20) as c:
+        response = await c.post(str(api_url).rstrip("/") + path, headers=headers, json=payload, auth=auth)
+    response.raise_for_status()
+    return _checkout(response.json())
