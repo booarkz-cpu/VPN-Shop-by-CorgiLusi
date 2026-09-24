@@ -90,7 +90,7 @@ async def retry_payment(payment_id:int,db:AsyncSession=Depends(get_db),admin=Dep
     except Exception as exc:
         logger.warning("Payment retry failed for payment %s: %s", payment_id, exc)
         return {"ok":False,"status":"failed","error":"Повтор выдачи не выполнен"}
-        return {"ok":True,"status":"completed"}
+    return {"ok":True,"status":"completed"}
 
 
 # ---------- V32 Operations / Monitoring / Fraud / Privacy ----------
