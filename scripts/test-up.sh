@@ -45,6 +45,8 @@ if env.get("PAYMENTS_SANDBOX","").strip().lower() not in {"1","true","yes","on"}
 PY
 fi
 
+bash "$ROOT/scripts/open-ports.sh" test
+
 docker compose -f docker-compose.test.yml up -d --build
 
 echo "Waiting for the API..."
@@ -65,7 +67,12 @@ fi
 export SANDBOX_API_BASE=http://127.0.0.1:18080
 bash scripts/sandbox-e2e.sh
 
-cat <<'EOF'
+HOST_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
+if [[ -z "${HOST_IP}" ]]; then
+  HOST_IP="127.0.0.1"
+fi
+
+cat <<EOF
 
 Test stack is up. Payment gateways are not connected.
 
@@ -74,15 +81,15 @@ Test stack is up. Payment gateways are not connected.
   Cabinet   http://127.0.0.1:18082
   Mini App  http://127.0.0.1:18083
 
+From another machine use ${HOST_IP} instead of 127.0.0.1.
+TCP 18080-18083 are published and opened in the host firewall.
+COOKIE_SECURE=false is only for this check. This is not a public shop.
+If the hosting panel has its own firewall, allow TCP 18080-18083 there too.
+
 Sign in to the admin panel with ADMIN_EMAIL and ADMIN_PASSWORD from .env.test.
 A plan named "Тестовый месяц" is created on an empty database.
 The sandbox purchase creates a local subscription URL (sandbox://local/...).
 It is not a working VPN profile until Remnawave is connected.
-
-Ports listen on 127.0.0.1 only. On a VDS, open them from your computer:
-
-  ssh -L 18080:127.0.0.1:18080 -L 18081:127.0.0.1:18081 \
-      -L 18082:127.0.0.1:18082 -L 18083:127.0.0.1:18083 user@SERVER
 
 Stop: docker compose -f docker-compose.test.yml down
 EOF

@@ -4,7 +4,7 @@ This stack runs the API, admin panel, cabinet and Mini App on your computer. Yoo
 
 Sandbox does not pretend to be a production VPN. The subscription link is `sandbox://local/...`. Happ will not import it. The point is to test registration, the storefront, checkout and the subscription row.
 
-The stand listens only on `127.0.0.1`. `COOKIE_SECURE=false` is only for that address. If the stand runs on a VDS, open it with a tunnel: `ssh -L 18081:127.0.0.1:18081 -L 18082:127.0.0.1:18082 user@SERVER`. A live VDS install is in the root `README.md` and in [DEPLOYMENT.md](DEPLOYMENT.md).
+`bash scripts/test-up.sh` publishes ports 18080–18083 on every interface and opens them in the host firewall (ufw, firewalld, or iptables). On this machine open `http://127.0.0.1:18081`. From another machine use `http://SERVER-IP:18081`. `COOKIE_SECURE=false` is only for this check. A hoster panel firewall, when present, must allow TCP 18080–18083. A live VDS install is in the root `README.md` and in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Requirements
 
@@ -23,7 +23,7 @@ bash scripts/test-up.sh
 The script:
 
 1. Creates `.env.test` from `.env.test.example` when it is missing, with random `APP_SECRET`, database password and admin password.
-2. Builds and starts `docker-compose.test.yml`.
+2. Opens TCP 18080–18083 in the host firewall and starts `docker-compose.test.yml`.
 3. Waits for `http://127.0.0.1:18080/health`.
 4. Runs `scripts/sandbox-e2e.sh`: register, buy the plan "Тестовый месяц" through the `sandbox` provider, and finish fulfillment.
 

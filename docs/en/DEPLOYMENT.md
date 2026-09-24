@@ -9,7 +9,7 @@ Use this file for a server that will take real orders. To try the shop without g
 - A running Remnawave panel: base URL and API token.
 - A bot token from @BotFather.
 - An administrator email and a long password.
-- Ports 80 and 443 open. PostgreSQL, Redis and the API are not published to the host firewall.
+- The installer opens SSH, TCP 80, TCP 443 and UDP 443. PostgreSQL, Redis and the API are not published. A hoster panel firewall must allow the same ports.
 
 Keep `.env` passwords to letters and digits. The characters `@ : / #` break `DATABASE_URL`.
 
