@@ -30,7 +30,7 @@ Mako==1.4.1
 MarkupSafe==3.0.3
 multidict==6.8.0
 packaging==26.3
-pillow==11.3.0
+pillow==12.3.0
 propcache==0.5.4
 pycparser==3.0
 pydantic==2.13.5
