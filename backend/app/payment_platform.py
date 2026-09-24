@@ -42,6 +42,21 @@ class StripePlatform:
         expected=hmac.new(settings.stripe_webhook_secret.encode(),ts.encode()+b'.'+body,hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected,sig): raise PlatformProviderError('Invalid Stripe webhook signature')
         return json.loads(body)
+    def confirmed_amount(self, event: dict):
+        """Money Stripe has actually collected. Unpaid checkout sessions are not paid."""
+        typ=str(event.get('type') or '')
+        obj=(event.get('data') or {}).get('object') or {}
+        if typ in {'checkout.session.completed','checkout.session.async_payment_succeeded'}:
+            if obj.get('payment_status')!='paid': return None
+            raw=obj.get('amount_total'); currency=str(obj.get('currency') or '').upper()
+        elif typ=='payment_intent.succeeded':
+            raw=obj.get('amount_received')
+            if raw is None: raw=obj.get('amount')
+            currency=str(obj.get('currency') or '').upper()
+        else:
+            return None
+        if raw is None or not currency: return None
+        return (Decimal(str(raw))/Decimal('100')).quantize(Decimal('0.01')), currency
 
 class PayPalPlatform:
     name='paypal'
@@ -80,6 +95,17 @@ class PayPalPlatform:
             r.raise_for_status(); x=r.json()
             if x.get('verification_status')!='SUCCESS': raise PlatformProviderError('Invalid PayPal webhook signature')
             return payload['webhook_event']
+    def captured_amount(self, event: dict):
+        """Amount on a verified PayPal capture or completed order. Missing money is not paid."""
+        resource=event.get('resource') or {}
+        amount=resource.get('amount') if isinstance(resource.get('amount'), dict) else None
+        if not amount:
+            units=resource.get('purchase_units') or []
+            amount=(units[0].get('amount') if units and isinstance(units[0], dict) else None)
+        if not isinstance(amount, dict) or amount.get('value') in (None,''): return None
+        currency=str(amount.get('currency_code') or amount.get('currency') or '').upper()
+        if not currency: return None
+        return Decimal(str(amount['value'])).quantize(Decimal('0.01')), currency
 
 class CryptoGatewayPlatform:
     name='crypto'
@@ -93,22 +119,25 @@ class AppleStorePlatform:
     name='apple_iap'
     async def verify_transaction(self,signed_transaction:str):
         if not settings.apple_bundle_id: raise PlatformProviderError('Apple bundle id is not configured')
-        # StoreKit 2 supplies JWS transactions. Decode for routing, then optionally
-        # query App Store Server API when a signed transaction id is present.
+        if not (settings.apple_issuer_id and settings.apple_key_id and settings.apple_private_key):
+            raise PlatformProviderError('Apple App Store Server API credentials are not configured')
+        # The client JWS is only a hint for the transaction id. Entitlement comes
+        # from the signed payload returned by the App Store Server API.
         try:
-            payload=jwt.decode(signed_transaction,options={'verify_signature':False,'verify_exp':False},algorithms=['ES256','RS256'])
+            hinted=jwt.decode(signed_transaction,options={'verify_signature':False,'verify_exp':False},algorithms=['ES256','RS256'])
         except Exception as e: raise PlatformProviderError(f'Invalid Apple transaction JWS: {e}')
-        if payload.get('bundleId') and payload.get('bundleId')!=settings.apple_bundle_id: raise PlatformProviderError('Apple bundle id mismatch')
-        if payload.get('transactionId'):
-            data=await self.get_transaction(payload['transactionId'])
-            signed=(data.get('signedTransactions') or [None])[0] if isinstance(data,dict) else None
-            if signed:
-                verified_payload=jwt.decode(signed,options={'verify_signature':False,'verify_exp':False},algorithms=['ES256','RS256'])
-                if verified_payload.get('bundleId') != settings.apple_bundle_id: raise PlatformProviderError('Apple bundle id mismatch')
-                if str(verified_payload.get('transactionId')) != str(payload.get('transactionId')): raise PlatformProviderError('Apple transaction id mismatch')
-                return verified_payload
-            return data
-        return payload
+        transaction_id=str(hinted.get('transactionId') or '')
+        if not transaction_id: raise PlatformProviderError('Apple transaction id is required')
+        data=await self.get_transaction(transaction_id)
+        signed=None
+        if isinstance(data, dict):
+            signed=data.get('signedTransactionInfo') or ((data.get('signedTransactions') or [None])[0])
+        if not signed: raise PlatformProviderError('Apple App Store Server API did not return a signed transaction')
+        verified_payload=jwt.decode(signed,options={'verify_signature':False,'verify_exp':False},algorithms=['ES256','RS256'])
+        if verified_payload.get('bundleId') != settings.apple_bundle_id: raise PlatformProviderError('Apple bundle id mismatch')
+        if str(verified_payload.get('transactionId') or '') != transaction_id: raise PlatformProviderError('Apple transaction id mismatch')
+        if verified_payload.get('revocationDate'): raise PlatformProviderError('Apple transaction is revoked')
+        return verified_payload
     async def get_transaction(self,transaction_id):
         # Signed API token is generated only when App Store API credentials exist.
         if not (settings.apple_issuer_id and settings.apple_key_id and settings.apple_private_key): raise PlatformProviderError('Apple App Store Server API credentials are not configured')
@@ -129,7 +158,28 @@ class GooglePlayPlatform:
     async def verify_subscription(self,purchase_token):
         token=await self._access_token()
         async with _client() as c:
-            r=await c.get(f'{settings.google_play_api_url}/androidpublisher/v3/applications/{settings.google_play_package}/purchases/subscriptionsv2/tokens/{purchase_token}',headers={'Authorization':f'Bearer {token}'}); r.raise_for_status(); return r.json()
+            r=await c.get(f'{settings.google_play_api_url}/androidpublisher/v3/applications/{settings.google_play_package}/purchases/subscriptionsv2/tokens/{purchase_token}',headers={'Authorization':f'Bearer {token}'}); r.raise_for_status(); data=r.json()
+        if data.get('subscriptionState')!='SUBSCRIPTION_STATE_ACTIVE': raise PlatformProviderError('Google Play purchase is not active')
+        items=data.get('lineItems') or []
+        product=str((items[0] or {}).get('productId') or '') if items else ''
+        if not product: raise PlatformProviderError('Google Play product id is missing')
+        data['productId']=product
+        return data
+
+def store_product_plan_id(product_id: str) -> int:
+    """Map a store product id to a shop plan. An empty map refuses the purchase."""
+    raw=(settings.mobile_store_products or '').strip()
+    if not raw: raise PlatformProviderError('Mobile store products are not configured')
+    try:
+        mapping=json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise PlatformProviderError('MOBILE_STORE_PRODUCTS is not valid JSON') from exc
+    if not isinstance(mapping, dict) or not product_id or product_id not in mapping:
+        raise PlatformProviderError('Store product is not mapped to a plan')
+    try:
+        return int(mapping[product_id])
+    except (TypeError, ValueError) as exc:
+        raise PlatformProviderError('Store product is not mapped to a plan') from exc
 
 PROVIDER_CAPABILITIES={
  'yookassa':{'cards':True,'recurring':True,'refunds':True,'currency':['RUB','EUR','USD']},

@@ -162,6 +162,8 @@ class Settings(BaseSettings):
     google_play_package: str = Field(default="", alias="GOOGLE_PLAY_PACKAGE")
     google_service_account_json: str = Field(default="", alias="GOOGLE_SERVICE_ACCOUNT_JSON")
     google_play_api_url: str = Field(default="https://androidpublisher.googleapis.com", alias="GOOGLE_PLAY_API_URL")
+    # JSON object {"store.product.id": plan_id}. Empty refuses Apple and Google purchases.
+    mobile_store_products: str = Field(default="", alias="MOBILE_STORE_PRODUCTS")
     crypto_gateway_url: str = Field(default="", alias="CRYPTO_GATEWAY_URL")
     crypto_gateway_key: str = Field(default="", alias="CRYPTO_GATEWAY_KEY")
     sepa_enabled: bool = Field(default=False, alias="SEPA_ENABLED")
