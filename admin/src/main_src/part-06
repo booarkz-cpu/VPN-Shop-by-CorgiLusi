@@ -1,0 +1,40 @@
+ return <div className="branding-page"><div className="hero"><div><div className="eyebrow">ВИЗУАЛЬНЫЕ НАСТРОЙКИ</div><h2>{name||"Название панели"}</h2><p>Название, логотип, favicon и предпочтительная тема панели. Все изображения нормализуются сервером.</p></div><div className="brand-preview">{branding.logo_url?<img src={API+branding.logo_url} alt="preview"/>:<span>RW</span>}</div></div><div className="grid2"><div className="card"><div className="card-title"><h3>Название и тема</h3><span className="badge">Сохраняется в БД</span></div><div className="form-grid"><label>Название панели<input maxLength={255} value={name} onChange={e=>setName(e.target.value)}/></label><label>Тема по умолчанию<select value={theme} onChange={e=>setTheme(e.target.value as "light"|"dark")}><option value="dark">Тёмная</option><option value="light">Светлая</option></select></label></div><button className="primary" disabled={busy||!name.trim()} onClick={save}>{busy?"Сохранение…":"Сохранить изменения"}</button><div id="branding-message" className="muted" style={{marginTop:12}}></div></div><div className="card"><div className="card-title"><h3>Логотип</h3><span className="badge">PNG / JPG / WEBP · до 2 МБ</span></div><p className="muted">Рекомендуется квадратный или горизонтальный логотип. Сервер преобразует изображение в безопасный PNG.</p>{branding.logo_url&&<img className="branding-image" src={API+branding.logo_url} alt="logo"/>}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setLogo(e.target.files?.[0]||null)}/></div><div className="card"><div className="card-title"><h3>Favicon</h3><span className="badge">PNG / JPG / WEBP · до 512 КБ</span></div><p className="muted">Будет нормализован в PNG до 512×512.</p>{branding.favicon_url&&<img className="favicon-preview" src={API+branding.favicon_url} alt="favicon"/>}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setFavicon(e.target.files?.[0]||null)}/></div></div></div>}
+
+function Корпоративный({d,reload,toast}:any){
+ const [busy,setBusy]=useState(false);
+ async function addCheck(){const name=prompt(t("Название проверки"));const url=prompt("HTTPS URL");if(!name||!url)return;try{await req("/api/admin/enterprise/monitoring",{method:"POST",body:JSON.stringify({name,url})});toast("Проверка добавлена");reload()}catch(e:any){toast(e.message)}}
+ async function addCampaign(){const name=prompt(t("Название кампании"));if(!name)return;try{await req("/api/admin/enterprise/campaigns",{method:"POST",body:JSON.stringify({name,kind:"broadcast",status:"draft",audience:{type:"all"},content:{text:""}})});toast("Кампания создана");reload()}catch(e:any){toast(e.message)}}
+ async function addRule(){const name=prompt(t("Название правила"));const event=prompt(t("Событие"), "subscription.expiring");if(!name||!event)return;try{await req("/api/admin/enterprise/rules",{method:"POST",body:JSON.stringify({name,event,conditions:{},actions:{type:"notify"},enabled:false,priority:100})});toast("Правило создано");reload()}catch(e:any){toast(e.message)}}
+ return <><div className="hero"><div><div className="eyebrow">КОРПОРАТИВНЫЙ КОНТУР</div><h2>Все функции в одном центре.</h2><p>Мониторинг, платежи, антифрод, кабинет, устройства, автопродление, кампании, правила и восстановление.</p></div><div className="hero-glow">✦</div></div><div className="stats">{(d?.summary?.features||[]).slice(0,4).map((x:string,i:number)=><Stat key={i} title={x} value="включено" icon="✓"/>)}<Stat title="Активные устройства" value={d?.summary?.devices||0} icon="⌁"/></div><div className="grid2"><div className="card"><div className="toolbar"><h3>24/7 мониторинг</h3><button onClick={addCheck}>Добавить</button></div><Table title="Проверки" cols={['Название','URL','Статус','Задержка','Ошибки']} rows={(d?.checks||[]).map((x:any)=>[x.name,x.url,x.last_status||'ожидание',x.last_latency_ms?`${x.last_latency_ms} мс`:'—',x.failure_streak])}/></div><div className="card"><div className="toolbar"><h3>Управление кампаниями</h3><button onClick={addCampaign}>Создать</button></div><Table title="Кампании" cols={['Название','Тип','Статус','Отправлено','Ошибки']} rows={(d?.campaigns||[]).map((x:any)=>[x.name,x.kind,ru(x.status),x.sent_count,x.failed_count])}/></div></div><div className="card"><div className="toolbar"><h3>Движок автоматизации</h3><button onClick={addRule}>Создать правило</button></div><Table title="Автоматизация" cols={['Правило','Событие','Состояние','Приоритет','Запусков']} rows={(d?.rules||[]).map((x:any)=>[x.name,x.event,x.enabled?'включено':'выключено',x.priority,x.run_count])}/></div><div className="card"><h3>Покрытие корпоративный контур</h3><p className="muted">Антифрод, Умная маршрутизация платежей, личный кабинет, мультиустройства, автопродление, Конструктор бота, Конструктор сообщений, Конструктор Mini App, тарифы 2.0, Trial, Управление кампаниями, аналитика, Управление узлами, Движок автоматизации, Поддержка Center и Аварийное восстановление интегрированы с существующей production-безопасностью.</p></div></> }
+
+function Обзор({d,navigate}:any){
+ const a=d?.analytics||{};
+ const users=a?.users?.total||d?.remnawave_users?.response?.total||0;
+ const active=a?.subscriptions?.active||0;
+ const revenue=a?.revenue?.['30d']||0;
+ const failed=a?.payments?.fulfillment_failed||0;
+ const checks=[
+  ['API',d?.health?.ok],['Redis',d?.health?.redis],['Remnawave',!d?.nodes?.error],
+ ].map(([name,ok])=>({name,ok:Boolean(ok)}));
+ return <>
+  <section className="hero">
+   <div><div className="eyebrow">VPN SHOP BY CORGI · CONTROL CENTER</div><h2>Операционная панель бизнеса.</h2><p>Продажи, подписки, инфраструктура и безопасность — в одном месте.</p></div>
+   <div className="hero-glow">🐾</div>
+  </section>
+  <div className="metric-grid">
+   <div className="stat"><div className="stat-icon">◉</div><div><span>Пользователи</span><strong>{users}</strong><small className="muted">Всего аккаунтов</small></div></div>
+   <div className="stat"><div className="stat-icon">⌁</div><div><span>Активные VPN</span><strong>{active}</strong><small className="muted">Активные подписки</small></div></div>
+   <div className="stat"><div className="stat-icon">₽</div><div><span>Выручка · 30 дней</span><strong>{revenue} ₽</strong><small className="muted">По подтверждённым платежам</small></div></div>
+   <div className="stat"><div className="stat-icon">!</div><div><span>Ошибки выдачи</span><strong>{failed}</strong><small className="muted">Требуют внимания</small></div></div>
+  </div>
+  <div className="dashboard-grid">
+   <div className="card">
+    <div className="toolbar"><div><h3>Состояние платформы</h3><p className="muted">Критические зависимости и production readiness.</p></div><span className="status-chip">{checks.every(x=>x.ok)?'Система в норме':'Есть внимание'}</span></div>
+    <div className="grid2">{checks.map(x=><div className="metric" key={x.name}><span>{x.name}</span><strong>{x.ok?'Работает':'Проблема'}</strong></div>)}</div>
+    <div className="security-row"><span>Ошибки API за период</span><b>{a?.payments?.errors||0}</b></div>
+    <div className="security-row"><span>Платёжный sandbox</span><b>{d?.payments_sandbox?'ВКЛ':'ВЫКЛ'}</b></div>
+   </div>
+   <div className="card">
+    <h3>Быстрые действия</h3><p className="muted">Частые операции администратора.</p>
+    <div className="quick-actions">
+      <button onClick={()=>navigate?.("dashboard")}><b>Обзор</b><br/><small>Состояние системы</small></button>
