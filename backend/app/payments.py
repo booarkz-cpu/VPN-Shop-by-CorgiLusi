@@ -756,6 +756,98 @@ def verify_rollypay(raw: bytes, timestamp: str, signature: str) -> bool:
     return hmac.compare_digest(expected, signature)
 
 
+def _staging_paid(status: str) -> bool:
+    value = str(status or "").strip().lower()
+    return value in {"succeeded", "success", "paid", "confirmed"}
+
+
+def _staging_refund_done(status: str) -> bool:
+    return str(status or "").strip().lower() in {"succeeded", "success", "refunded", "completed"}
+
+
+async def staging_read_payment(provider: str, creds: Dict[str, Any], payment_id: str, expected_amount: Decimal, expected_order_id: str) -> Dict[str, Any]:
+    """Read a staging invoice with the staging credentials. Production settings are not used."""
+    from .main import validate_public_url, _pinned_public_http_client
+    provider = str(provider)
+    api_url = validate_public_url(creds.get("api_url"), allow_empty=False)
+    async with _pinned_public_http_client(20) as client:
+        if provider == "yookassa":
+            response = await client.get(f"{api_url}/v3/payments/{payment_id}", auth=(str(creds.get("shop_id") or ""), str(creds.get("secret_key") or "")))
+        elif provider == "platega":
+            response = await client.get(f"{api_url}/transaction/{payment_id}", headers={"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or "")})
+        elif provider == "rollypay":
+            response = await client.get(f"{api_url}/api/v1/payments/{payment_id}", headers={"Authorization": f"Bearer {creds.get('api_key') or ''}"})
+        else:
+            raise PaymentError(f"Неизвестный провайдер: {provider}")
+    if response.status_code >= 400:
+        return {"paid": False, "status": f"http_{response.status_code}"}
+    data = response.json()
+    status = str(data.get("status") or data.get("Status") or "")
+    amount_value = Decimal(str((data.get("amount") or {}).get("value") if isinstance(data.get("amount"), dict) else (data.get("amount") or data.get("Amount") or "0")))
+    if provider == "yookassa":
+        order = str((data.get("metadata") or {}).get("order_id") or "")
+        currency_ok = str((data.get("amount") or {}).get("currency") or "").upper() == "RUB"
+    elif provider == "platega":
+        order = str(data.get("payload") or data.get("Payload") or "")
+        currency_ok = True
+    else:
+        order = str(data.get("order_id") or "")
+        currency_ok = True
+    paid = _staging_paid(status) and amount_value == Decimal(str(expected_amount)) and order == expected_order_id and currency_ok
+    return {"paid": paid, "status": status, "amount": str(amount_value), "order_id": order}
+
+
+async def staging_refund_payment(provider: str, creds: Dict[str, Any], payment_id: str, amount: Decimal) -> Dict[str, Any]:
+    """Refund a staging invoice with the staging credentials. Production settings are not used."""
+    from .main import validate_public_url, _pinned_public_http_client
+    provider = str(provider)
+    async with _pinned_public_http_client(20) as client:
+        if provider == "yookassa":
+            api_url = validate_public_url(creds.get("api_url"), allow_empty=False)
+            response = await client.post(
+                f"{api_url}/v3/refunds",
+                auth=(str(creds.get("shop_id") or ""), str(creds.get("secret_key") or "")),
+                headers={"Idempotence-Key": f"staging-refund-{payment_id}", "Content-Type": "application/json"},
+                json={"payment_id": payment_id, "amount": {"value": _money(amount), "currency": "RUB"}},
+            )
+        elif provider == "platega":
+            refund_url = validate_public_url(creds.get("refund_url"), allow_empty=False)
+            response = await client.post(refund_url, headers={"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or ""), "Content-Type": "application/json"}, json={"id": payment_id, "amount": _money(amount), "currency": "RUB"})
+        elif provider == "rollypay":
+            refund_url = validate_public_url(creds.get("refund_url"), allow_empty=False)
+            body = json.dumps({"payment_id": payment_id, "amount": _money(amount), "currency": "RUB"}).encode()
+            signature = hmac.new(str(creds.get("signing_secret") or "").encode(), body, hashlib.sha256).hexdigest()
+            response = await client.post(refund_url, content=body, headers={"Authorization": f"Bearer {creds.get('api_key') or ''}", "X-Signature": signature, "Content-Type": "application/json"})
+        else:
+            raise PaymentError(f"Неизвестный провайдер: {provider}")
+    response.raise_for_status()
+    data = response.json()
+    status = str(data.get("status") or data.get("Status") or "")
+    return {"id": data.get("id") or data.get("refund_id") or payment_id, "status": status, "done": _staging_refund_done(status)}
+
+
+async def staging_refund_read(provider: str, creds: Dict[str, Any], refund_id: str) -> Dict[str, Any]:
+    from .main import validate_public_url, _pinned_public_http_client
+    provider = str(provider)
+    async with _pinned_public_http_client(20) as client:
+        if provider == "yookassa":
+            api_url = validate_public_url(creds.get("api_url"), allow_empty=False)
+            response = await client.get(f"{api_url}/v3/refunds/{refund_id}", auth=(str(creds.get("shop_id") or ""), str(creds.get("secret_key") or "")))
+        elif provider == "platega":
+            status_url = validate_public_url(creds.get("refund_status_url") or creds.get("refund_url"), allow_empty=False)
+            response = await client.get(str(status_url).rstrip("/") + "/" + refund_id, headers={"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or "")})
+        elif provider == "rollypay":
+            status_url = validate_public_url(creds.get("refund_status_url") or creds.get("refund_url"), allow_empty=False)
+            response = await client.get(str(status_url).rstrip("/") + "/" + refund_id, headers={"Authorization": f"Bearer {creds.get('api_key') or ''}"})
+        else:
+            raise PaymentError(f"Неизвестный провайдер: {provider}")
+    if response.status_code >= 400:
+        return {"status": f"http_{response.status_code}", "done": False}
+    data = response.json()
+    status = str(data.get("status") or data.get("Status") or "")
+    return {"status": status, "done": _staging_refund_done(status)}
+
+
 async def staging_create_payment(provider: str, creds: Dict[str, Any], amount: Decimal, order_id: str, description: str, return_url: str) -> Dict[str, Any]:
     """Создать платёж только по переданным staging credentials.
 
