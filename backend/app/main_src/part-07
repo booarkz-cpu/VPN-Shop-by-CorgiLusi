@@ -170,7 +170,7 @@ async def production_payment_gate(payload:ProductionGateIn, db:AsyncSession=Depe
     try: status=json.loads(raw)
     except Exception: status={}
     if status.get("status")!="passed" or not status.get("full_e2e"):
-        raise HTTPException(409,"Сначала необходимо успешно завершить полный staging E2E: checkout {{ARROW}} webhook {{ARROW}} fulfillment {{ARROW}} duplicate webhook {{ARROW}} refund")
+        raise HTTPException(409,"Сначала необходимо успешно завершить полный staging E2E: checkout → webhook → fulfillment → duplicate webhook → refund")
     finished=status.get("finished_at")
     try:
         finished_dt=datetime.fromisoformat(str(finished)) if finished else None
@@ -210,6 +210,10 @@ class StagingE2EConfigIn(BaseModel):
     rollypay_api_url:str="https://rollypay.io"
     rollypay_api_key:str=""
     rollypay_signing_secret:str=""
+    platega_refund_url:str=""
+    platega_refund_status_url:str=""
+    rollypay_refund_url:str=""
+    rollypay_refund_status_url:str=""
     staging_confirmed:bool=False
 
 async def _staging_config(db):
@@ -226,7 +230,7 @@ async def staging_e2e_config(db:AsyncSession=Depends(get_db),admin=Depends(requi
     try: status=json.loads(status)
     except Exception: status={}
     if cfg:
-        safe={"public_base_url":cfg.get("public_base_url"),"remnawave_url":cfg.get("remnawave_url"),"plan_id":cfg.get("plan_id"),"providers":cfg.get("providers",[]),"yookassa_enabled":cfg.get("yookassa_enabled",True),"platega_enabled":cfg.get("platega_enabled",True),"rollypay_enabled":cfg.get("rollypay_enabled",True),"timeout_seconds":cfg.get("timeout_seconds",1800),"staging_confirmed":bool(cfg.get("staging_confirmed")),"provider_credentials":{"yookassa":bool(cfg.get("yookassa_shop_id") and cfg.get("yookassa_secret_key")),"platega":bool(cfg.get("platega_merchant_id") and cfg.get("platega_secret")),"rollypay":bool(cfg.get("rollypay_api_key"))},"credentials_configured":True,"remnawave_token_configured":bool(cfg.get("remnawave_token")),"user_bearer_token_configured":bool(cfg.get("user_bearer_token"))}
+        safe={"public_base_url":cfg.get("public_base_url"),"remnawave_url":cfg.get("remnawave_url"),"plan_id":cfg.get("plan_id"),"providers":cfg.get("providers",[]),"yookassa_enabled":cfg.get("yookassa_enabled",True),"platega_enabled":cfg.get("platega_enabled",True),"rollypay_enabled":cfg.get("rollypay_enabled",True),"timeout_seconds":cfg.get("timeout_seconds",1800),"staging_confirmed":bool(cfg.get("staging_confirmed")),"platega_refund_url":cfg.get("platega_refund_url") or "","platega_refund_status_url":cfg.get("platega_refund_status_url") or "","rollypay_refund_url":cfg.get("rollypay_refund_url") or "","rollypay_refund_status_url":cfg.get("rollypay_refund_status_url") or "","provider_credentials":{"yookassa":bool(cfg.get("yookassa_shop_id") and cfg.get("yookassa_secret_key")),"platega":bool(cfg.get("platega_merchant_id") and cfg.get("platega_secret")),"rollypay":bool(cfg.get("rollypay_api_key"))},"credentials_configured":True,"remnawave_token_configured":bool(cfg.get("remnawave_token")),"user_bearer_token_configured":bool(cfg.get("user_bearer_token"))}
     else: safe={"credentials_configured":False,"providers":["yookassa","platega","rollypay"],"timeout_seconds":1800}
     return {"config":safe,"status":status}
 
@@ -245,6 +249,12 @@ async def update_staging_e2e_config(payload:StagingE2EConfigIn,db:AsyncSession=D
     for key in ("remnawave_token","user_bearer_token","yookassa_shop_id","yookassa_secret_key","platega_merchant_id","platega_secret","rollypay_api_key","rollypay_signing_secret"):
         if not str(data.get(key) or "").strip() and str(previous.get(key) or "").strip():
             data[key]=previous[key]
+    for key in ("platega_refund_url","platega_refund_status_url","rollypay_refund_url","rollypay_refund_status_url"):
+        if not str(data.get(key) or "").strip() and str(previous.get(key) or "").strip():
+            data[key]=previous[key]
+    for refund_url in (data.get("platega_refund_url"),data.get("platega_refund_status_url"),data.get("rollypay_refund_url"),data.get("rollypay_refund_status_url")):
+        if str(refund_url or "").strip():
+            validate_public_url(str(refund_url), allow_empty=False)
     if not str(data.get("remnawave_token") or "").strip():
         raise HTTPException(400,"Укажите токен Remnawave для staging")
     prod_pairs=[(data.get("yookassa_shop_id"),data.get("yookassa_secret_key"),(settings.yookassa_shop_id,settings.yookassa_secret_key)),(data.get("platega_merchant_id"),data.get("platega_secret"),(settings.platega_merchant_id,settings.platega_secret)),(data.get("rollypay_api_key"),data.get("rollypay_signing_secret"),(settings.rollypay_api_key,settings.rollypay_signing_secret))]
@@ -254,6 +264,10 @@ async def update_staging_e2e_config(payload:StagingE2EConfigIn,db:AsyncSession=D
     providers=[p for p in payload.providers if p in {"yookassa","platega","rollypay"}]
     enabled=[p for p,flag in (("yookassa",payload.yookassa_enabled),("platega",payload.platega_enabled),("rollypay",payload.rollypay_enabled)) if flag]
     providers=[p for p in providers if p in enabled] or enabled
+    if "platega" in providers and (not str(data.get("platega_refund_url") or "").strip() or not str(data.get("platega_refund_status_url") or "").strip()):
+        raise HTTPException(400,"Укажите публичные HTTPS URL возврата и статуса возврата Platega")
+    if "rollypay" in providers and (not str(data.get("rollypay_refund_url") or "").strip() or not str(data.get("rollypay_refund_status_url") or "").strip()):
+        raise HTTPException(400,"Укажите публичные HTTPS URL возврата и статуса возврата RollyPay")
     data["providers"]=providers; data["runner_token"]=secrets.token_urlsafe(32)
     await set_setting(db,STAGING_E2E_CONFIG_KEY,encrypt_secret(json.dumps(data,ensure_ascii=False)))
     await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"0")
@@ -269,44 +283,119 @@ def _redact_staging_output(text: str, config: dict) -> str:
             redacted = redacted.replace(value, "[скрыто]")
     return redacted
 
+async def _publish_staging_running(config, started, chunks):
+    text=_redact_staging_output("".join(chunks)[-30000:], config)
+    try:
+        async with AsyncSession(engine,expire_on_commit=False) as db:
+            await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"running","started_at":started,"full_e2e":False,"output":text},ensure_ascii=False))
+            await db.commit()
+    except Exception as exc:
+        logger.warning("Staging E2E status update failed: %s", exc)
+
 async def _run_staging_e2e(config, admin_email):
+    started=datetime.utcnow().isoformat()
     async with AsyncSession(engine,expire_on_commit=False) as db:
-        await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"running","started_at":datetime.utcnow().isoformat(),"provider_results":[]},ensure_ascii=False)); await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"0"); await db.commit()
+        await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"running","started_at":started,"provider_results":[],"full_e2e":False,"output":""},ensure_ascii=False)); await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"0"); await db.commit()
     env=os.environ.copy()
     env.update({"STAGING_PUBLIC_BASE_URL":config["public_base_url"],"STAGING_REMNAWAVE_URL":config["remnawave_url"],"STAGING_REMNAWAVE_TOKEN":config["remnawave_token"],"STAGING_USER_BEARER_TOKEN":config["user_bearer_token"],"STAGING_PLAN_ID":str(config["plan_id"]),"STAGING_TIMEOUT_SECONDS":str(config.get("timeout_seconds",1800)),"STAGING_PROVIDERS":",".join(config.get("providers",[])),"STAGING_RUNNER_TOKEN":config["runner_token"]})
     script="/app/staging-e2e.sh"
+    chunks=[]
     try:
         proc=await asyncio.create_subprocess_exec("bash",script,env=env,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT)
-        try: out,_=await asyncio.wait_for(proc.communicate(),timeout=config.get("timeout_seconds",1800)+30)
+        async def _pump():
+            while True:
+                line=await proc.stdout.readline()
+                if not line: return
+                chunks.append(line.decode("utf-8","replace"))
+                await _publish_staging_running(config, started, chunks)
+        try:
+            await asyncio.wait_for(_pump(), timeout=int(config.get("timeout_seconds",1800))+30)
+            if proc.returncode is None: await proc.wait()
         except asyncio.TimeoutError:
-            proc.kill(); out,_=await proc.communicate(); raise RuntimeError("Превышен таймаут staging E2E")
-        text=_redact_staging_output(out.decode("utf-8","replace")[-30000:], config)
+            proc.kill(); await proc.wait(); raise RuntimeError("Превышен таймаут staging E2E")
+        text=_redact_staging_output("".join(chunks)[-30000:], config)
         # Exit code 0 only means the runner completed its configured checks. A production gate
         # requires an explicit FULL_E2E_PASS marker emitted after checkout/webhook/fulfillment/refund
-        # verification. This prevents the old false-positive where payment creation alone unlocked production.
-        full_pass = proc.returncode == 0 and "FULL_E2E_PASS" in text
+        # verification. A mention inside a help sentence does not count: the marker must be its own line.
+        # This prevents the old false-positive where payment creation alone unlocked production.
+        full_pass = proc.returncode == 0 and "FULL_E2E_PASS" in text and any(line.strip()=="FULL_E2E_PASS" for line in text.splitlines())
         status="passed" if full_pass else ("awaiting_checkout" if proc.returncode==0 else "failed")
         result={"status":status,"full_e2e":full_pass,"exit_code":proc.returncode,"finished_at":datetime.utcnow().isoformat(),"output":text,"admin":admin_email}
     except Exception as exc:
-        result={"status":"failed","exit_code":-1,"finished_at":datetime.utcnow().isoformat(),"output":_redact_staging_output(str(exc), config),"admin":admin_email}
+        partial=_redact_staging_output("".join(chunks)[-30000:], config)
+        result={"status":"failed","full_e2e":False,"exit_code":-1,"finished_at":datetime.utcnow().isoformat(),"output":_redact_staging_output((partial+"\n"+str(exc)).strip(), config),"admin":admin_email}
     async with AsyncSession(engine,expire_on_commit=False) as db:
         await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps(result,ensure_ascii=False)); await audit(db,"staging_e2e.completed",admin_email,None,{"status":result["status"],"exit_code":result["exit_code"]}); await db.commit()
 
-@app.post("/api/internal/staging-e2e/payment")
-async def internal_staging_payment(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
+async def _require_staging_runner(request:Request, db):
     client_host=request.client.host if request.client else ""
     if client_host not in {"127.0.0.1","::1"}: raise HTTPException(403,"Staging endpoint доступен только локальному runner")
     cfg=await _staging_config(db)
     if not cfg or request.headers.get("X-Staging-Runner-Token") != cfg.get("runner_token"):
         raise HTTPException(403,"Недействительный staging runner token")
-    if not cfg or not cfg.get("staging_confirmed"): raise HTTPException(409,"Staging E2E не настроен безопасно")
+    if not cfg.get("staging_confirmed"): raise HTTPException(409,"Staging E2E не настроен безопасно")
+    return cfg
+
+def _staging_provider_creds(cfg, provider):
+    return {"yookassa":{"api_url":cfg.get("yookassa_api_url"),"shop_id":cfg.get("yookassa_shop_id"),"secret_key":cfg.get("yookassa_secret_key")},"platega":{"api_url":cfg.get("platega_api_url"),"merchant_id":cfg.get("platega_merchant_id"),"secret":cfg.get("platega_secret"),"refund_url":cfg.get("platega_refund_url"),"refund_status_url":cfg.get("platega_refund_status_url")},"rollypay":{"api_url":cfg.get("rollypay_api_url"),"api_key":cfg.get("rollypay_api_key"),"signing_secret":cfg.get("rollypay_signing_secret"),"refund_url":cfg.get("rollypay_refund_url"),"refund_status_url":cfg.get("rollypay_refund_status_url")}}.get(provider)
+
+@app.post("/api/internal/staging-e2e/payment")
+async def internal_staging_payment(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
+    cfg=await _require_staging_runner(request, db)
     provider=str(payload.get("provider")); plan=await db.get(Plan,int(payload.get("plan_id",0)))
     if not plan or not plan.enabled: raise HTTPException(404,"Тестовый тариф не найден")
-    creds={"yookassa":{"api_url":cfg.get("yookassa_api_url"),"shop_id":cfg.get("yookassa_shop_id"),"secret_key":cfg.get("yookassa_secret_key")},"platega":{"api_url":cfg.get("platega_api_url"),"merchant_id":cfg.get("platega_merchant_id"),"secret":cfg.get("platega_secret")},"rollypay":{"api_url":cfg.get("rollypay_api_url"),"api_key":cfg.get("rollypay_api_key"),"signing_secret":cfg.get("rollypay_signing_secret")}}.get(provider)
+    creds=_staging_provider_creds(cfg, provider)
     if not creds: raise HTTPException(400,"Неизвестный staging-провайдер")
     oid=f"STAGING-{provider.upper()}-{secrets.token_hex(8)}"
     result=await staging_create_payment(provider,creds,Decimal(str(plan.price)),oid,"Staging E2E",cfg["public_base_url"].rstrip("/")+"/staging-e2e")
     return {"provider":provider,"order_id":oid,"amount":float(plan.price),**result}
+
+@app.post("/api/internal/staging-e2e/verify")
+async def internal_staging_verify(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
+    cfg=await _require_staging_runner(request, db)
+    provider=str(payload.get("provider") or "")
+    creds=_staging_provider_creds(cfg, provider)
+    if not creds: raise HTTPException(400,"Неизвестный staging-провайдер")
+    try: amount=Decimal(str(payload.get("amount")))
+    except Exception: raise HTTPException(400,"Некорректная сумма")
+    try:
+        return await staging_read_payment(provider, creds, str(payload.get("payment_id") or ""), amount, str(payload.get("order_id") or ""))
+    except Exception as exc:
+        logger.warning("Staging verify is still pending: %s", type(exc).__name__)
+        return {"paid": False, "status": "unread"}
+
+@app.post("/api/internal/staging-e2e/refund")
+async def internal_staging_refund(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
+    cfg=await _require_staging_runner(request, db)
+    provider=str(payload.get("provider") or "")
+    creds=_staging_provider_creds(cfg, provider)
+    if not creds: raise HTTPException(400,"Неизвестный staging-провайдер")
+    try: amount=Decimal(str(payload.get("amount")))
+    except Exception: raise HTTPException(400,"Некорректная сумма")
+    return await staging_refund_payment(provider, creds, str(payload.get("payment_id") or ""), amount)
+
+@app.post("/api/internal/staging-e2e/refund-status")
+async def internal_staging_refund_status(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
+    cfg=await _require_staging_runner(request, db)
+    provider=str(payload.get("provider") or "")
+    creds=_staging_provider_creds(cfg, provider)
+    if not creds: raise HTTPException(400,"Неизвестный staging-провайдер")
+    try:
+        return await staging_refund_read(provider, creds, str(payload.get("refund_id") or ""))
+    except Exception as exc:
+        logger.warning("Staging refund status is still pending: %s", type(exc).__name__)
+        return {"status": "unread", "done": False}
+
+@app.post("/api/internal/staging-e2e/remnawave")
+async def internal_staging_remnawave(request:Request,db:AsyncSession=Depends(get_db)):
+    cfg=await _require_staging_runner(request, db)
+    url=validate_public_url(cfg.get("remnawave_url"), allow_empty=False)
+    token=str(cfg.get("remnawave_token") or "")
+    async with _pinned_public_http_client(20) as client:
+        response=await client.get(f"{str(url).rstrip('/')}/api/users?start=0&size=1", headers={"Authorization": f"Bearer {token}"})
+    if response.status_code >= 400:
+        raise HTTPException(502,"Staging Remnawave не подтвердил токен")
+    return {"ok": True}
 
 @app.post("/api/admin/staging-e2e/run")
 async def run_staging_e2e(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("staging_e2e.manage"))):
