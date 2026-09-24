@@ -83,7 +83,8 @@ class TaxProfileIn(BaseModel):
 async def set_tax_profile(payload:TaxProfileIn,request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db); row=(await db.execute(select(PaymentTaxProfile).where(PaymentTaxProfile.user_id==user.id).with_for_update())).scalar_one_or_none()
     if not row: row=PaymentTaxProfile(user_id=user.id); db.add(row)
-    row.country=payload.country.upper(); row.vat_id=payload.vat_id; row.business_name=payload.business_name; row.tax_exempt=payload.tax_exempt; row.reverse_charge=payload.reverse_charge; row.updated_at=datetime.utcnow(); await db.commit()
+    # A buyer cannot declare themselves tax exempt or reverse-charge. Those flags stay off.
+    row.country=payload.country.upper(); row.vat_id=payload.vat_id; row.business_name=payload.business_name; row.tax_exempt=False; row.reverse_charge=False; row.updated_at=datetime.utcnow(); await db.commit()
     return {"ok":True,"country":row.country,"vat_id":row.vat_id,"tax_exempt":row.tax_exempt,"reverse_charge":row.reverse_charge}
 
 @app.get("/api/me/payments/{payment_id}/invoice")
@@ -121,6 +122,46 @@ async def payment_risk_recheck(payment_id:int,request:Request,db:AsyncSession=De
     if not row: row=PaymentRiskAssessment(payment_id=payment.id); db.add(row)
     row.score=score; row.decision=decision; row.signals=signals; await db.commit(); return {"score":score,"decision":decision,"signals":signals}
 
+@app.post("/api/webhooks/crypto")
+async def crypto_webhook(request:Request,db:AsyncSession=Depends(get_db)):
+    raw=await request.body()
+    try:
+        d=CryptoGatewayPlatform().verify_webhook(raw,request.headers.get("X-Timestamp",""),request.headers.get("X-Signature",""))
+    except Exception as exc:
+        raise HTTPException(403,"Invalid crypto webhook") from exc
+    pid=str(d.get("id") or d.get("payment_id") or "")
+    order_id=str(d.get("order_id") or "")
+    event_id=str(d.get("event_id") or hashlib.sha256(raw).hexdigest())
+    if str(d.get("status") or "").lower() not in {"paid","succeeded","success","confirmed"} or not pid:
+        return {"ok":True}
+    p=await payment_by_provider_or_order(db,"crypto",pid,order_id or None)
+    if not p:
+        return {"ok":True}
+    if order_id and order_id != p.order_id:
+        raise HTTPException(403,"Order mismatch")
+    if p.status in {"refunded","refunded_pending_revoke"}:
+        return {"ok":True,"ignored":True,"reason":"payment_already_refunded"}
+    if not await CryptoGatewayPlatform().verify_succeeded(p.provider_payment_id or pid,Decimal(str(p.amount)),p.currency,p.order_id):
+        raise HTTPException(503,"Payment verification unavailable")
+    if not p.provider_payment_id:
+        await bind_provider_payment_id(db,p,pid)
+    if not await register_provider_event(db,"crypto",event_id,p.id):
+        await db.rollback(); return {"ok":True,"duplicate":True}
+    await db.commit()
+    try:
+        result=await _confirm_and_fulfill_payment(p.id,db)
+        if result.get("ignored"):
+            async with AsyncSession(engine,expire_on_commit=False) as edb:
+                await finish_provider_event(edb,"crypto",event_id,ok=True); await edb.commit()
+            return {"ok":True,"ignored":True,"reason":"payment_already_refunded"}
+        async with AsyncSession(engine,expire_on_commit=False) as edb:
+            await finish_provider_event(edb,"crypto",event_id,ok=True); await edb.commit()
+    except Exception as exc:
+        async with AsyncSession(engine,expire_on_commit=False) as edb:
+            await finish_provider_event(edb,"crypto",event_id,ok=False,error=str(exc)); await edb.commit()
+        raise
+    return {"ok":True}
+
 @app.post("/api/payments/webhooks/stripe")
 async def stripe_webhook(request:Request,db:AsyncSession=Depends(get_db)):
     body=await request.body()
@@ -134,6 +175,9 @@ async def stripe_webhook(request:Request,db:AsyncSession=Depends(get_db)):
         if p and confirmed and p.status not in {"refunded","refunded_pending_revoke"}:
             amount,currency=confirmed
             if currency==str(p.currency or "").upper() and amount==Decimal(str(p.amount)).quantize(Decimal("0.01")):
+                remote_id=p.provider_payment_id or str(obj.get("id") or "")
+                if not remote_id or not await StripePlatform().verify_succeeded(remote_id,Decimal(str(p.amount)),p.currency,p.order_id):
+                    raise HTTPException(503,"Payment status verification unavailable")
                 p.status="paid"; p.paid_at=p.paid_at or datetime.utcnow(); await _record_provider_metric(db,"stripe",success=1,gross=Decimal(str(p.amount))); await _issue_invoice(db,p); await db.commit(); await _confirm_and_fulfill_payment(p.id,db)
     if typ in {"charge.dispute.created","charge.dispute.updated","charge.dispute.closed"}:
         did=obj.get("id") or event.get("id"); amount=Decimal(str((obj.get("amount") or 0)))/100; currency=(obj.get("currency") or "usd").upper();
@@ -164,6 +208,8 @@ async def paypal_webhook(request:Request,db:AsyncSession=Depends(get_db)):
         if p and confirmed:
             amount,currency=confirmed
             if currency==str(p.currency or "").upper() and amount==Decimal(str(p.amount)).quantize(Decimal("0.01")) and p.status not in {"refunded","refunded_pending_revoke"}:
+                if not p.provider_payment_id or not await PayPalPlatform().verify_succeeded(p.provider_payment_id,Decimal(str(p.amount)),p.currency,p.order_id):
+                    raise HTTPException(503,"Payment status verification unavailable")
                 p.status="paid"; p.paid_at=p.paid_at or datetime.utcnow(); await _record_provider_metric(db,"paypal",success=1,gross=Decimal(str(p.amount))); await _issue_invoice(db,p); await db.commit(); await _confirm_and_fulfill_payment(p.id,db)
     if typ in {"PAYMENT.CAPTURE.DENIED","CHECKOUT.PAYMENT-APPROVAL.REVERSED"} and order_id:
         p=(await db.execute(select(Payment).where(Payment.order_id==order_id))).scalar_one_or_none()
