@@ -79,5 +79,10 @@ A plan named "Тестовый месяц" is created on an empty database.
 The sandbox purchase creates a local subscription URL (sandbox://local/...).
 It is not a working VPN profile until Remnawave is connected.
 
+Ports listen on 127.0.0.1 only. On a VDS, open them from your computer:
+
+  ssh -L 18080:127.0.0.1:18080 -L 18081:127.0.0.1:18081 \
+      -L 18082:127.0.0.1:18082 -L 18083:127.0.0.1:18083 user@SERVER
+
 Stop: docker compose -f docker-compose.test.yml down
 EOF
