@@ -1,5 +1,10 @@
 # Security / Безопасность — Remnawave VPN Shop 3.1.6
 
+## Аудит 20.0.6 / 20.0.6 audit
+
+- Подсказка в журнале staging больше не открывает живые платежи. `FULL_E2E_PASS` принимается только как отдельная строка после оплаты, повторного чтения, возврата и проверки токена staging Remnawave. Внутренние методы `/verify`, `/refund`, `/refund-status` и `/remnawave` доступны только с `127.0.0.1` или `::1` и не создают строку платежа магазина. Секреты по-прежнему заменяются на `[скрыто]`.
+- A help sentence in the staging log no longer opens live charges. `FULL_E2E_PASS` counts only as its own line after payment, a second read, a refund, and a staging Remnawave token check. The internal `/verify`, `/refund`, `/refund-status`, and `/remnawave` methods accept only `127.0.0.1` or `::1` and do not insert a shop payment row. Secrets are still replaced with `[скрыто]`.
+
 ## Аудит 20.0.5 / 20.0.5 audit
 
 - Потерянный ответ ЮKassa больше не приводит к второму живому счёту. Сверка читает уже созданный платёж по `order_id`. `Idempotence-Key` нового счёта равен номеру заказа, а не случайному UUID.
