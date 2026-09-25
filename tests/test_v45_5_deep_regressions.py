@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 SRC=Path('backend/app/main.py').read_text(); WORKER=Path('backend/worker.py').read_text()
-def test_refund_creation_serializes_on_payment_row(): assert 'select(Payment).where(Payment.id==payment_id).with_for_update()' in SRC
+def test_refund_creation_serializes_on_payment_row(): assert 'select(Payment).where(Payment.id==payment_id).execution_options(populate_existing=True).with_for_update()' in SRC
 def test_repurchase_reenables_disabled_remnawave_user(): assert 'await rw.enable_user(sub.remnawave_uuid)' in SRC and 'remote_status in {"disabled","blocked","inactive"}' in SRC
 def test_trial_reactivates_disabled_remote_user(): assert 'await rw.enable_user(remote_id)' in WORKER
 def test_auto_renew_payment_freezes_plan_terms():
@@ -40,5 +40,5 @@ def test_all_refund_side_effect_paths_follow_user_then_payment_lock_order():
 
 def test_refund_scheduler_rechecks_payment_and_refund_after_both_locks():
     block=SRC[SRC.index('async def refund_revoke_scheduler'):SRC.index('async def auto_renew_scheduler')]
-    assert 'select(Payment).where(Payment.id==p.id).with_for_update()' in block
-    assert 'select(RefundRequest).where(RefundRequest.id==r.id).with_for_update()' in block
+    assert 'select(Payment).where(Payment.id==p.id).execution_options(populate_existing=True).with_for_update()' in block
+    assert 'select(RefundRequest).where(RefundRequest.id==r.id).execution_options(populate_existing=True).with_for_update()' in block

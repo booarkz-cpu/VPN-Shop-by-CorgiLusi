@@ -49,7 +49,7 @@
             candidate_provider={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform(),"crypto":CryptoGatewayPlatform(),"sandbox":SandboxProvider()}[candidate]
             # Re-check after acquiring the distributed lock so two first-time callers cannot
             # create two durable intents for the same idempotency key.
-            existing=(await db.execute(select(Payment).where(Payment.order_id==order_id).with_for_update())).scalar_one_or_none()
+            existing=(await db.execute(select(Payment).where(Payment.order_id==order_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
             if existing:
                 return {"id":existing.provider_payment_id,"url":existing.checkout_url,"provider":existing.provider,"status":existing.status}
             if promo:
@@ -73,7 +73,7 @@
                 if health:
                     health.success_count += 1; health.failure_count=0; health.last_error=None; health.circuit_open_until=None; health.updated_at=datetime.utcnow()
                 await _record_provider_metric(db,candidate,attempt=1,success=1,gross=final_amount)
-                payment_row=(await db.execute(select(Payment).where(Payment.id==payment_row.id).with_for_update())).scalar_one()
+                payment_row=(await db.execute(select(Payment).where(Payment.id==payment_row.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
                 payment_row.provider_payment_id=result["id"]; payment_row.checkout_url=result.get("url"); payment_row.fulfillment_terminal=False
                 if candidate=="sandbox" and result.get("status")=="succeeded":
                     payment_row.status="paid"; payment_row.paid_at=datetime.utcnow(); await db.commit()
@@ -93,7 +93,7 @@
                     health.failure_count += 1; health.last_error=last_error; health.updated_at=datetime.utcnow()
                 await _record_provider_metric(db,candidate,attempt=1,failed=1)
                 if health and health.failure_count >= 3: health.circuit_open_until=datetime.utcnow()+timedelta(minutes=5)
-                payment_row=(await db.execute(select(Payment).where(Payment.id==payment_row.id).with_for_update())).scalar_one()
+                payment_row=(await db.execute(select(Payment).where(Payment.id==payment_row.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
                 payment_row.status="creation_unknown"; payment_row.fulfillment_terminal=True; payment_row.fulfillment_error=last_error
                 await audit(db,"payment.creation.uncertain",str(user.id),str(payment_row.id),{"provider":candidate,"error":last_error,"fallback_blocked":True})
                 await db.commit()
@@ -199,10 +199,10 @@ async def _confirm_and_fulfill_payment(payment_id:int, db:AsyncSession):
     if not seed:
         raise RuntimeError("Payment not found")
     user_lock,user_token=await _acquire_user_fulfillment_lock(seed.user_id,ttl=300)
-    payment_lock=payment_token=None
+    confirm_payment_lock=confirm_payment_token=None
     try:
         confirm_payment_lock,confirm_payment_token=await _acquire_payment_side_effect_lock(payment_id)
-        confirmed=(await db.execute(select(Payment).where(Payment.id==payment_id).with_for_update())).scalar_one_or_none()
+        confirmed=(await db.execute(select(Payment).where(Payment.id==payment_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
         if not confirmed:
             raise RuntimeError("Payment not found after acquiring locks")
         if confirmed.status in {"refunded","refunded_pending_revoke","creation_unknown"}:
@@ -264,7 +264,7 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
         # FOR UPDATE, including when the caller already supplied the held user-lock token.
         # Otherwise auto-renew/webhook paths could keep a stale `deleted_at=None` object
         # and start a Remnawave side effect for an account that has already been anonymized.
-        user=(await db.execute(select(User).where(User.id==user.id).with_for_update())).scalar_one_or_none()
+        user=(await db.execute(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
         if not user or user.deleted_at is not None:
             raise RuntimeError("User is deleted or no longer available for fulfillment")
         plan=None if (payment.purpose or "subscription")=="topup" else await db.get(Plan,payment.plan_id)
@@ -280,7 +280,7 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
         # remote provisioning from a stale `paid` snapshot: doing so could provision a
         # payment that has already been refunded, even though the final DB check would
         # eventually reject completion.
-        payment=(await db.execute(select(Payment).where(Payment.id==payment_id).with_for_update())).scalar_one_or_none()
+        payment=(await db.execute(select(Payment).where(Payment.id==payment_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
         if not payment:
             raise RuntimeError("Payment not found after acquiring fulfillment lock")
         if payment.status in {"refunded", "refunded_pending_revoke", "creation_unknown"}:
@@ -401,7 +401,7 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
             op_row.status="completed"; op_row.completed_at=datetime.utcnow(); op_row.updated_at=datetime.utcnow()
         except Exception as remote_exc:
             op_row.status="retry"; op_row.last_error=str(remote_exc)[:2000]; op_row.updated_at=datetime.utcnow(); job.status="failed" if payment.fulfillment_attempts >= payment.fulfillment_max_attempts else "queued"; job.error=str(remote_exc)[:2000]; job.next_retry_at=datetime.utcnow()+timedelta(minutes=min(30,max(1,2**min(payment.fulfillment_attempts,5)))); job.locked_at=None; await db.commit(); raise
-        payment=(await db.execute(select(Payment).where(Payment.id==payment.id).with_for_update())).scalar_one()
+        payment=(await db.execute(select(Payment).where(Payment.id==payment.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
         if payment.status != "paid" or payment.fulfillment_terminal:
             raise RuntimeError("Payment state changed while fulfillment was in progress; reconciliation is required")
         payment.fulfillment_status="completed"; payment.next_retry_at=None; payment.fulfillment_terminal=False
@@ -460,6 +460,6 @@ async def payment_by_provider_or_order(db: AsyncSession, provider: str, pid: str
     payment = await payment_by_provider(db, provider, pid) if pid else None
     if payment or not order_id:
         return payment
-    return (await db.execute(select(Payment).where(Payment.provider==provider, Payment.order_id==str(order_id)).with_for_update())).scalar_one_or_none()
+    return (await db.execute(select(Payment).where(Payment.provider==provider, Payment.order_id==str(order_id)).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
 
 async def bind_provider_payment_id(db: AsyncSession, payment: Payment, provider_payment_id: str):

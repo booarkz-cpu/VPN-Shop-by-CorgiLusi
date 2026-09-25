@@ -28,7 +28,8 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "20.0.8"
+APP_VERSION = "20.0.9"
+# Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
 # Historical compatibility marker: APP_VERSION = "20.0.5"
@@ -593,6 +594,8 @@ def issue_user_token(user:User, ttl_minutes:int=60, jti:str|None=None):
     return __import__("jwt").encode({"sub":str(user.id),"type":"user","jti":jti,"iat":int(now.timestamp()),"exp":int((now+timedelta(minutes=ttl_minutes)).timestamp())},settings.app_secret,algorithm="HS256")
 
 async def create_user_session(db:AsyncSession,user:User,request:Request,ttl_minutes:int=60):
+    if user.deleted_at is not None:
+        raise HTTPException(401,"User account deleted")
     jti=secrets.token_urlsafe(24); now=datetime.utcnow(); expires=now+timedelta(minutes=ttl_minutes)
     db.add(UserSession(user_id=user.id,jti_hash=hashlib.sha256(jti.encode()).hexdigest(),ip=_client_ip(request),user_agent=(request.headers.get("user-agent") or "")[:512],expires_at=expires))
     await db.commit()

@@ -12,7 +12,7 @@ def _block(start_marker, end_marker):
 def test_confirm_and_fulfill_rechecks_payment_under_locks_before_paid_transition():
     block = _block('async def _confirm_and_fulfill_payment', 'async def fulfill(')
     assert block.index('_acquire_user_fulfillment_lock(seed.user_id,ttl=300)') < block.index('_acquire_payment_side_effect_lock(payment_id)')
-    assert 'select(Payment).where(Payment.id==payment_id).with_for_update()' in block
+    assert 'select(Payment).where(Payment.id==payment_id).execution_options(populate_existing=True).with_for_update()' in block
     assert 'if confirmed.status in {"refunded","refunded_pending_revoke","creation_unknown"}' in block
     assert 'confirmed.status="paid"' in block
     assert 'await fulfill(payment_id,db,existing_user_lock_token=user_token)' in block

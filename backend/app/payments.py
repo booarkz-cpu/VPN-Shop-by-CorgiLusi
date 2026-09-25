@@ -42,6 +42,12 @@ def _money(amount) -> str:
     return f"{Decimal(str(amount)).quantize(Decimal('0.01')):.2f}"
 
 
+def _currency_matches(data: dict, expected: str) -> bool:
+    """Missing or mismatched currency cannot confirm a financial operation."""
+    value = data.get("currency") or data.get("Currency")
+    return isinstance(value, str) and bool(value.strip()) and value.strip().upper() == str(expected).strip().upper()
+
+
 def _checkout(data: Dict[str, Any]) -> Dict[str, Any]:
     confirmation = data.get("confirmation") or {}
     url = confirmation.get("confirmation_url") or data.get("url") or data.get("redirect") or data.get("paymentUrl") or data.get("link")
@@ -447,7 +453,7 @@ class PlategaProvider(BasePaymentProvider):
         order = str(d.get("payload") or d.get("Payload") or "")
         if expected_order_id and order != expected_order_id:
             return False
-        return paid and amount_value == Decimal(str(expected_amount))
+        return paid and amount_value == Decimal(str(expected_amount)) and _currency_matches(d, currency)
 
     async def refund(self, payment_id: str, amount, currency: str, reason: str = "") -> Dict[str, Any]:
         if not settings.platega_refund_url:
@@ -574,7 +580,7 @@ class RollyPayProvider(BasePaymentProvider):
         order = str(d.get("order_id") or "")
         if expected_order_id and order != expected_order_id:
             return False
-        return paid and amount_value == Decimal(str(expected_amount))
+        return paid and amount_value == Decimal(str(expected_amount)) and _currency_matches(d, currency)
 
     async def refund(self, payment_id: str, amount, currency: str, reason: str = "") -> Dict[str, Any]:
         if not settings.rollypay_refund_url:
@@ -789,10 +795,10 @@ async def staging_read_payment(provider: str, creds: Dict[str, Any], payment_id:
         currency_ok = str((data.get("amount") or {}).get("currency") or "").upper() == "RUB"
     elif provider == "platega":
         order = str(data.get("payload") or data.get("Payload") or "")
-        currency_ok = True
+        currency_ok = _currency_matches(data, "RUB")
     else:
         order = str(data.get("order_id") or "")
-        currency_ok = True
+        currency_ok = _currency_matches(data, "RUB")
     paid = _staging_paid(status) and amount_value == Decimal(str(expected_amount)) and order == expected_order_id and currency_ok
     return {"paid": paid, "status": status, "amount": str(amount_value), "order_id": order}
 

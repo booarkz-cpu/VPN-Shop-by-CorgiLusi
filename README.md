@@ -18,6 +18,18 @@ A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android a
 Песочница разрешена только при `APP_ENV=development`, `test` или `staging`. На `APP_ENV=production` процесс с `PAYMENTS_SANDBOX=true` не стартует. Пока не пройден staging E2E, живые платежи отвечают отказом.
 
 
+## v20.0.9 — безопасность аккаунтов и возвратов
+
+- Убрано автоматическое объединение VK и email-аккаунтов: совпадение адреса теперь возвращает 409, существующие привязки продолжают работать.
+- Подтверждение Platega/RollyPay требует совпадения валюты. Ответ без валюты не даёт выдать VPN или зачислить кошелёк.
+- Возврат пополнения списывает зачисленную сумму ровно один раз и не отключает отдельную VPN-подписку. Потраченная сумма отражается отрицательным балансом.
+- После ожидания блокировок платежи перечитываются с обновлением ORM-кэша; поздний webhook не должен воскресить возвращённый платёж.
+- Админская сессия проверяется на принадлежность аккаунту; удалённым пользователям не выдаются новые сессии.
+
+[Подробный аудит и порядок обновления](docs/ru/AUDIT_20_0_9.md) · [Заметки релиза](.github/release-v20.0.9.md).
+
+Живые платежи по-прежнему закрыты до полной сквозной проверки. Этот релиз не является подтверждением готовности платёжных интеграций к production.
+
 ## v20.0.8 — аудит, установка и безопасный staging
 
 | | Русский | English | Українська |
@@ -802,7 +814,7 @@ cd ../cabinet && npm install && npx vite build
 
 A VPN shop with a Telegram bot, a Mini App, a standalone user cabinet, an admin console, separate Android and iOS apps for buyers and administrators, a FastAPI backend, three payment providers plus a sandbox provider, a tariff constructor, Remnawave node status, abuse scoring, a node agent, provisioning, queues and backups.
 
-Latest published tag before this change: **v20.0.7**. Audit candidate: **v20.0.8**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
+Release version: **v20.0.9**. Previous published version: **v20.0.8**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
 
 ### What is in the tree
 
