@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    name: Publish v20.0.12 after CI
+    name: Publish v20.0.13 after CI
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -37,17 +37,17 @@ jobs:
             if (!runs.data.workflow_runs.some(run => run.event === 'push' && run.conclusion === 'success')) {
               throw new Error(`No successful main push CI run for ${sha}`);
             }
-      - name: Package v20.0.12
+      - name: Package v20.0.13
         run: |
-          python3 scripts/package-source.py remnawave_vpn_shop_v20_0_12_full_release.zip
-          sha256sum remnawave_vpn_shop_v20_0_12_full_release.zip > remnawave_vpn_shop_v20_0_12_full_release.zip.sha256
+          python3 scripts/package-source.py remnawave_vpn_shop_v20_0_13_full_release.zip
+          sha256sum remnawave_vpn_shop_v20_0_13_full_release.zip > remnawave_vpn_shop_v20_0_13_full_release.zip.sha256
       - name: Create release and attach verified source
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const tag = 'v20.0.12';
-            const body = fs.readFileSync('.github/release-v20.0.12.md', 'utf8');
+            const tag = 'v20.0.13';
+            const body = fs.readFileSync('.github/release-v20.0.13.md', 'utf8');
             try {
               await github.rest.repos.getReleaseByTag({owner: context.repo.owner, repo: context.repo.repo, tag});
               throw new Error(`${tag} already exists; refusing to overwrite an existing release`);
@@ -57,12 +57,12 @@ jobs:
             const result = await github.rest.repos.createRelease({
               owner: context.repo.owner, repo: context.repo.repo,
               tag_name: tag, target_commitish: context.payload.workflow_run.head_sha,
-              name: 'v20.0.12 — проверка прав и резервных копий', body,
+              name: 'v20.0.13 — защита staging gate и инструкция E2E v2', body,
               draft: true, prerelease: false
             });
             for (const name of [
-              'remnawave_vpn_shop_v20_0_12_full_release.zip',
-              'remnawave_vpn_shop_v20_0_12_full_release.zip.sha256'
+              'remnawave_vpn_shop_v20_0_13_full_release.zip',
+              'remnawave_vpn_shop_v20_0_13_full_release.zip.sha256'
             ]) {
               const data = fs.readFileSync(name);
               await github.rest.repos.uploadReleaseAsset({

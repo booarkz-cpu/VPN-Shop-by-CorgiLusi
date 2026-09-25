@@ -152,8 +152,7 @@ async def admin_security(db:AsyncSession=Depends(get_db),admin=Depends(require_p
     active_sessions=int((await db.execute(select(func.count()).select_from(AdminSession).where(AdminSession.revoked_at.is_(None),AdminSession.expires_at>datetime.utcnow()))).scalar() or 0)
     failed_24h=int((await db.execute(select(func.count()).select_from(Payment).where(Payment.fulfillment_status=="failed",Payment.created_at>=datetime.utcnow()-timedelta(hours=24)))).scalar() or 0)
     last_backup=(await db.execute(select(BackupJob).where(BackupJob.status=="completed").order_by(BackupJob.created_at.desc()).limit(1))).scalar_one_or_none()
-    gate_raw=await setting_value(db,PRODUCTION_PAYMENTS_GATE_KEY,"0")
-    return {"admin_auth":"password + optional TOTP","mfa_enabled":bool(admin.mfa_enabled),"production_payments_enabled":gate_raw=="1","rbac_roles":["viewer","operator","admin"],"version":APP_VERSION,"active_sessions":active_sessions,"fulfillment_failures_24h":failed_24h,"backup":{"last_success":last_backup.created_at if last_backup else None,"healthy":bool(last_backup and last_backup.created_at>=datetime.utcnow()-timedelta(hours=25))},"ssh_credentials_persisted":False,"node_compose_source":"official Remnawave Panel"}
+    return {"admin_auth":"password + optional TOTP","mfa_enabled":bool(admin.mfa_enabled),"production_payments_enabled":await production_payments_allowed(db),"rbac_roles":["viewer","operator","admin"],"version":APP_VERSION,"active_sessions":active_sessions,"fulfillment_failures_24h":failed_24h,"backup":{"last_success":last_backup.created_at if last_backup else None,"healthy":bool(last_backup and last_backup.created_at>=datetime.utcnow()-timedelta(hours=25))},"ssh_credentials_persisted":False,"node_compose_source":"official Remnawave Panel"}
 
 
 class ProductionGateIn(BaseModel):
@@ -161,6 +160,7 @@ class ProductionGateIn(BaseModel):
 
 @app.post("/api/admin/payments/production-gate")
 async def production_payment_gate(payload:ProductionGateIn, db:AsyncSession=Depends(get_db), admin=Depends(require_permission("security.manage"))):
+    await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1300000013})
     if not payload.enabled:
         await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"0")
         await audit(db,"payments.production_gate.disabled",admin.email,None)
@@ -171,15 +171,11 @@ async def production_payment_gate(payload:ProductionGateIn, db:AsyncSession=Depe
     except Exception: status={}
     if status.get("status")!="passed" or not status.get("full_e2e") or status.get("contract_version")!=2:
         raise HTTPException(409,"Сначала необходимо успешно завершить полный staging E2E: checkout → webhook → fulfillment → duplicate webhook → refund")
-    finished=status.get("finished_at")
-    try:
-        finished_dt=datetime.fromisoformat(str(finished)) if finished else None
-    except ValueError:
-        finished_dt=None
-    if not finished_dt or datetime.utcnow()-finished_dt.replace(tzinfo=None) > timedelta(hours=PRODUCTION_GATE_MAX_AGE_HOURS):
-        raise HTTPException(409,"Результат staging E2E устарел; запустите проверку заново")
+    cfg=await _staging_config(db)
+    if not staging_evidence_valid(status,cfg,datetime.now(timezone.utc),PRODUCTION_GATE_MAX_AGE_HOURS):
+        raise HTTPException(409,"Результат staging E2E устарел либо конфигурация изменилась; запустите проверку заново")
     await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"1")
-    await audit(db,"payments.production_gate.enabled",admin.email,None,{"staging_finished_at":finished})
+    await audit(db,"payments.production_gate.enabled",admin.email,None,{"staging_finished_at":status["finished_at"]})
     await db.commit()
     return {"enabled":True}
 
@@ -190,6 +186,13 @@ STAGING_E2E_LOCK=asyncio.Lock()
 # A new key invalidates a gate enabled by the old runner's false positive.
 PRODUCTION_PAYMENTS_GATE_KEY="payments.production_gate.v20_0_8"
 PRODUCTION_GATE_MAX_AGE_HOURS=24
+
+async def production_payments_allowed(db):
+    if await setting_value(db,PRODUCTION_PAYMENTS_GATE_KEY,"0") != "1": return False
+    try: status=json.loads(await setting_value(db,STAGING_E2E_STATUS_KEY,"{}"))
+    except (TypeError,ValueError): return False
+    cfg=await _staging_config(db)
+    return staging_evidence_valid(status,cfg,datetime.now(timezone.utc),PRODUCTION_GATE_MAX_AGE_HOURS)
 
 class StagingE2EConfigIn(BaseModel):
     public_base_url:str=Field(min_length=8,max_length=2048)
@@ -237,6 +240,7 @@ async def staging_e2e_config(db:AsyncSession=Depends(get_db),admin=Depends(requi
 
 @app.put("/api/admin/staging-e2e/config")
 async def update_staging_e2e_config(payload:StagingE2EConfigIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("staging_e2e.manage"))):
+    await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1300000013})
     # Staging endpoints are administrator-supplied and later contacted by the server/runner.
     # Require globally routable HTTPS targets to prevent SSRF and DNS-rebinding to internal services.
     validate_public_url(payload.public_base_url, allow_empty=False)
@@ -270,7 +274,9 @@ async def update_staging_e2e_config(payload:StagingE2EConfigIn,db:AsyncSession=D
     if "rollypay" in providers and (not str(data.get("rollypay_refund_url") or "").strip() or not str(data.get("rollypay_refund_status_url") or "").strip()):
         raise HTTPException(400,"Укажите публичные HTTPS URL возврата и статуса возврата RollyPay")
     data["providers"]=providers; data["runner_token"]=secrets.token_urlsafe(32)
+    data["revision"]=secrets.token_hex(16)
     await set_setting(db,STAGING_E2E_CONFIG_KEY,encrypt_secret(json.dumps(data,ensure_ascii=False)))
+    await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"never","full_e2e":False,"config_revision":data["revision"]}))
     await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"0")
     await audit(db,"staging_e2e.config.updated",admin.email,None,{"providers":providers,"public_base_url":payload.public_base_url,"remnawave_url":payload.remnawave_url,"plan_id":payload.plan_id})
     await db.commit()
@@ -288,15 +294,19 @@ async def _publish_staging_running(config, started, chunks):
     text=_redact_staging_output("".join(chunks)[-30000:], config)
     try:
         async with AsyncSession(engine,expire_on_commit=False) as db:
-            await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"running","started_at":started,"full_e2e":False,"output":text},ensure_ascii=False))
-            await db.commit()
+            await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1300000013})
+            if await _staging_config_is_current(db, config):
+                await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"running","started_at":started,"full_e2e":False,"config_revision":config["revision"],"output":text},ensure_ascii=False))
+                await db.commit()
     except Exception as exc:
         logger.warning("Staging E2E status update failed: %s", exc)
 
 async def _run_staging_e2e(config, admin_email):
     started=datetime.utcnow().isoformat()
     async with AsyncSession(engine,expire_on_commit=False) as db:
-        await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"running","started_at":started,"provider_results":[],"full_e2e":False,"output":""},ensure_ascii=False)); await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"0"); await db.commit()
+        await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1300000013})
+        if not await _staging_config_is_current(db, config): return
+        await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"running","started_at":started,"provider_results":[],"full_e2e":False,"config_revision":config["revision"],"output":""},ensure_ascii=False)); await set_setting(db,PRODUCTION_PAYMENTS_GATE_KEY,"0"); await db.commit()
     env=os.environ.copy()
     env.update({"STAGING_PUBLIC_BASE_URL":config["public_base_url"],"STAGING_REMNAWAVE_URL":config["remnawave_url"],"STAGING_REMNAWAVE_TOKEN":config["remnawave_token"],"STAGING_USER_BEARER_TOKEN":config["user_bearer_token"],"STAGING_PLAN_ID":str(config["plan_id"]),"STAGING_TIMEOUT_SECONDS":str(config.get("timeout_seconds",1800)),"STAGING_PROVIDERS":",".join(config.get("providers",[])),"STAGING_RUNNER_TOKEN":config["runner_token"]})
     script="/app/staging-e2e.sh"
@@ -323,12 +333,19 @@ async def _run_staging_e2e(config, admin_email):
         # Keep the gate closed until a v2 runner verifies those events end to end.
         full_pass = False
         status="passed" if full_pass else ("awaiting_checkout" if proc.returncode==0 else "failed")
-        result={"status":status,"full_e2e":full_pass,"contract_version":1,"exit_code":proc.returncode,"finished_at":datetime.utcnow().isoformat(),"output":text,"admin":admin_email}
+        result={"status":status,"full_e2e":full_pass,"contract_version":1,"config_revision":config["revision"],"exit_code":proc.returncode,"finished_at":datetime.utcnow().isoformat(),"output":text,"admin":admin_email}
     except Exception as exc:
         partial=_redact_staging_output("".join(chunks)[-30000:], config)
-        result={"status":"failed","full_e2e":False,"exit_code":-1,"finished_at":datetime.utcnow().isoformat(),"output":_redact_staging_output((partial+"\n"+str(exc)).strip(), config),"admin":admin_email}
+        result={"status":"failed","full_e2e":False,"config_revision":config["revision"],"exit_code":-1,"finished_at":datetime.utcnow().isoformat(),"output":_redact_staging_output((partial+"\n"+str(exc)).strip(), config),"admin":admin_email}
     async with AsyncSession(engine,expire_on_commit=False) as db:
+        await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1300000013})
+        if not await _staging_config_is_current(db, config):
+            await audit(db,"staging_e2e.discarded",admin_email,None,{"reason":"configuration_changed"}); await db.commit(); return
         await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps(result,ensure_ascii=False)); await audit(db,"staging_e2e.completed",admin_email,None,{"status":result["status"],"exit_code":result["exit_code"]}); await db.commit()
+
+async def _staging_config_is_current(db, config):
+    current=await _staging_config(db)
+    return bool(config.get("revision") and current and current.get("revision")==config["revision"])
 
 async def _require_staging_runner(request:Request, db):
     client_host=request.client.host if request.client else ""
@@ -403,17 +420,20 @@ async def internal_staging_remnawave(request:Request,db:AsyncSession=Depends(get
 @app.post("/api/admin/staging-e2e/run")
 async def run_staging_e2e(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("staging_e2e.manage"))):
     if STAGING_E2E_LOCK.locked(): raise HTTPException(409,"Staging E2E уже выполняется")
+    await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1300000013})
     cfg=await _staging_config(db)
     if not cfg: raise HTTPException(400,"Сначала сохраните конфигурацию staging E2E")
+    if not cfg.get("revision"): raise HTTPException(409,"Сохраните конфигурацию staging E2E заново перед запуском")
     status_raw=await setting_value(db,STAGING_E2E_STATUS_KEY,"{}")
     try: status=json.loads(status_raw)
     except Exception: status={}
-    if status.get("status")=="running": raise HTTPException(409,"Staging E2E уже выполняется")
+    if status.get("status") in {"queued","running"}: raise HTTPException(409,"Staging E2E уже выполняется")
     async def guarded():
         async with STAGING_E2E_LOCK: await _run_staging_e2e(cfg,admin.email)
-    asyncio.create_task(guarded())
+    await set_setting(db,STAGING_E2E_STATUS_KEY,json.dumps({"status":"queued","full_e2e":False,"config_revision":cfg["revision"]}))
     await audit(db,"staging_e2e.started",admin.email,None,{"providers":cfg.get("providers",[])})
     await db.commit()
+    asyncio.create_task(guarded())
     return {"started":True}
 
 @app.get("/api/admin/staging-e2e/status")

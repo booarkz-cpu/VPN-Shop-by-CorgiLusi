@@ -224,7 +224,7 @@ async def auto_renew_scheduler():
                 # production gate and payments feature flag as interactive checkout.
                 if await maintenance_enabled(db): continue
                 if await feature_enabled(db, "payments", True) is False: continue
-                if await setting_value(db, PRODUCTION_PAYMENTS_GATE_KEY, "0") != "1": continue
+                if not await production_payments_allowed(db): continue
                 cutoff=datetime.utcnow()+timedelta(days=max(1,min(int(settings.auto_renew_lead_days or 3),14)))
                 rows=(await db.execute(select(User,Subscription,Plan,AutoRenewMethod).join(Subscription,Subscription.user_id==User.id).join(Plan,Plan.id==Subscription.plan_id).join(AutoRenewMethod,AutoRenewMethod.user_id==User.id).where(User.auto_renew_enabled.is_(True),AutoRenewMethod.enabled.is_(True),AutoRenewMethod.status.in_(["active","past_due"]),Subscription.expires_at.is_not(None),Subscription.expires_at<=cutoff,Subscription.expires_at>datetime.utcnow(),((AutoRenewMethod.next_attempt_at.is_(None))|(AutoRenewMethod.next_attempt_at<=datetime.utcnow()))).limit(25))).all()
                 for user,sub,plan,method in rows:
