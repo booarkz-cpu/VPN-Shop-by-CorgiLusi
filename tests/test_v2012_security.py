@@ -1,5 +1,6 @@
 """Regressions for reseller privileges, backup member types and mobile proof."""
 import io
+import ast
 import sys
 import tarfile
 from pathlib import Path
@@ -10,11 +11,24 @@ from fastapi import HTTPException
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from app.main import _validate_tar_safety
 from app.marketplace_api import router
 from app.mobile_auth import require_mobile_proof
 from app.security import PERMISSIONS
 from app.config import settings
+
+
+def _validate_tar_safety(tar):
+    # Extract the real function and its limits without importing app.main, whose
+    # module initialization creates /data/media (unavailable on CI runners).
+    root = Path(__file__).resolve().parents[1] / "backend/app/main_src"
+    source = "".join((root / f"part-{index:02d}").read_text() for index in range(11))
+    tree = ast.parse(source)
+    nodes = [node for node in tree.body if isinstance(node, ast.Assign)
+             and any(isinstance(target, ast.Name) and target.id.startswith("MAX_BACKUP_") for target in node.targets)]
+    nodes += [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "_validate_tar_safety"]
+    namespace = {"tarfile": tarfile, "HTTPException": HTTPException, "pathlib": __import__("pathlib")}
+    exec(compile(ast.fix_missing_locations(ast.Module(body=nodes, type_ignores=[])), str(root), "exec"), namespace)
+    namespace["_validate_tar_safety"](tar)
 
 
 @pytest.mark.parametrize("path,method", [
