@@ -11,12 +11,6 @@ from fastapi import HTTPException
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from app.marketplace_api import router
-from app.mobile_auth import require_mobile_proof
-from app.security import PERMISSIONS
-from app.config import settings
-
-
 def _validate_tar_safety(tar):
     # Extract the real function and its limits without importing app.main, whose
     # module initialization creates /data/media (unavailable on CI runners).
@@ -37,6 +31,9 @@ def _validate_tar_safety(tar):
     ("/api/admin/marketplace/resellers/{reseller_id}/rotate-key", "POST"),
 ])
 def test_reseller_mutations_reject_operator_permission(path, method):
+    from app.marketplace_api import router
+    from app.security import PERMISSIONS
+
     route = next(r for r in router.routes if r.path == path and method in r.methods)
     permissions = [dep.call for dep in route.dependant.dependencies]
     permission = next(fn for fn in permissions if fn.__name__ == "dependency")
@@ -93,6 +90,9 @@ def test_backup_rejects_duplicate_sql_members():
 
 
 def test_missing_mobile_proof_key_is_fail_closed(monkeypatch):
+    from app.config import settings
+    from app.mobile_auth import require_mobile_proof
+
     monkeypatch.setattr(settings, "mobile_require_proof", True)
     monkeypatch.setattr(settings, "mobile_client_key", "")
     request = SimpleNamespace(headers={"x-shop-client": "android-user"}, method="GET", url=SimpleNamespace(path="/api/me"))
