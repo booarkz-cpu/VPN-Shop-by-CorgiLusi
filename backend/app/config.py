@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -286,6 +286,12 @@ class Settings(BaseSettings):
     maintenance_mode: bool = Field(default=False, alias="MAINTENANCE_MODE")
 
     # ---------- Валидаторы ----------
+    @model_validator(mode="after")
+    def _require_secure_production_cookie(self) -> "Settings":
+        if self.app_env.lower() == "production" and not self.cookie_secure:
+            raise ValueError("COOKIE_SECURE must be true when APP_ENV=production")
+        return self
+
     @field_validator("admin_cors_origins", mode="before")
     @classmethod
     def _normalize_cors(cls, v: object) -> object:
