@@ -42,7 +42,7 @@ def test_auto_renew_serializes_with_account_deletion_and_rechecks_state():
     block=MAIN[MAIN.index('async def auto_renew_scheduler'):MAIN.index('async def reconciliation_scheduler')]
     assert 'main._acquire_user_fulfillment_lock' not in block  # same-module call must not be qualified
     assert '_acquire_user_fulfillment_lock(user.id,ttl=900)' in block
-    assert 'select(User).where(User.id==user.id).with_for_update()' in block
+    assert 'select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update()' in block
     assert 'user.deleted_at is not None' in block
     assert 'not user.auto_renew_enabled' in block
 

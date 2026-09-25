@@ -106,7 +106,7 @@ async def current_admin(request: Request, credentials: HTTPAuthorizationCredenti
         raise HTTPException(401, "Admin session is not registered")
     session=(await db.execute(select(AdminSession).where(AdminSession.jti_hash==hashlib.sha256(jti.encode()).hexdigest(), AdminSession.revoked_at.is_(None)))).scalar_one_or_none()
     now = datetime.utcnow()
-    if not session or session.expires_at < now:
+    if not session or session.admin_id != admin.id or session.expires_at < now:
         raise HTTPException(401, "Admin session expired or revoked")
     if session.last_seen_at and session.last_seen_at < now - timedelta(minutes=15):
         session.revoked_at = now

@@ -51,7 +51,7 @@ def test_customer_360_is_server_side_authorized():
 
 def test_critical_paths_still_recheck_user_after_user_lock():
     block=MAIN[MAIN.index('async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str|None = None):'):MAIN.index('async def payment_by_provider')]
-    assert block.index('select(User).where(User.id==user.id).with_for_update()') < block.index('payment_lock, token = await _acquire_payment_side_effect_lock(payment_id)')
+    assert block.index('select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update()') < block.index('payment_lock, token = await _acquire_payment_side_effect_lock(payment_id)')
     assert 'if not user or user.deleted_at is not None' in block
 
 

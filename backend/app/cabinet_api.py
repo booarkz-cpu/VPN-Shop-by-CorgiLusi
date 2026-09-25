@@ -49,7 +49,8 @@ def _normalize_email(value: str) -> str:
 
 
 def _client_ip(request: Request) -> str:
-    return (request.headers.get("x-forwarded-for") or request.client.host if request.client else "")[:64]
+    from .main import _client_ip as trusted_client_ip
+    return trusted_client_ip(request)
 
 
 @router.post("/api/auth/register")
@@ -148,13 +149,17 @@ async def vk_callback(code: str, state: str, request: Request, db: AsyncSession 
     await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1200000000 + (int(hashlib.sha256(vk_user_id.encode()).hexdigest()[:8], 16) % 900000000)})
     user = (await db.execute(select(User).where(User.vk_id == vk_user_id))).scalar_one_or_none()
     if not user and email:
-        user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
-        if user:
-            user.vk_id = vk_user_id
+        existing = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        if existing:
+            # Email registration does not verify ownership. Automatic linking would
+            # preserve an attacker's password and sessions on the victim's VK account.
+            raise HTTPException(409, "Email already registered; automatic account linking is disabled")
     if not user:
         user = User(vk_id=vk_user_id, email=email, username=f"vk_{vk_user_id}", referral_code=secrets.token_urlsafe(8).upper())
         db.add(user)
         await db.flush()
+    if user.deleted_at is not None:
+        raise HTTPException(401, "User account deleted")
     await db.commit()
     await db.refresh(user)
     raw = secrets.token_urlsafe(32)

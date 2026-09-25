@@ -120,12 +120,12 @@ async def privacy_export(request:Request,db:AsyncSession=Depends(get_db)):
 @app.delete("/api/me/privacy/account")
 async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
-    user=(await db.execute(select(User).where(User.id==user.id).with_for_update())).scalar_one()
+    user=(await db.execute(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
     if user.deleted_at is not None:
         raise HTTPException(409,"Account is already anonymized")
     user_lock, user_token = await _acquire_user_fulfillment_lock(user.id)
     try:
-        active=(await db.execute(select(Subscription).where(Subscription.user_id==user.id).with_for_update())).scalar_one_or_none()
+        active=(await db.execute(select(Subscription).where(Subscription.user_id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
         # NULL expiry is an indefinite/unknown active entitlement, not an expired one.
         if active and (active.expires_at is None or active.expires_at>datetime.utcnow()):
             raise HTTPException(409,"Active subscription must expire before account deletion")
@@ -247,8 +247,8 @@ async def reconcile_refund(refund_id:int,db:AsyncSession=Depends(get_db),admin=D
         payment_lock = payment_token = None
         try:
             payment_lock, payment_token = await _acquire_payment_side_effect_lock(p.id)
-            p=(await db.execute(select(Payment).where(Payment.id==p.id).with_for_update())).scalar_one()
-            r=(await db.execute(select(RefundRequest).where(RefundRequest.id==r.id).with_for_update())).scalar_one()
+            p=(await db.execute(select(Payment).where(Payment.id==p.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
+            r=(await db.execute(select(RefundRequest).where(RefundRequest.id==r.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
             r.status="refunded"; r.updated_at=datetime.utcnow(); p.status="refunded"; p.fulfillment_terminal=True
             try:
                 revoke_result=await _safe_revoke_for_refunded_payment(db,p,admin.email,"subscription.revoked.refund.reconciled")

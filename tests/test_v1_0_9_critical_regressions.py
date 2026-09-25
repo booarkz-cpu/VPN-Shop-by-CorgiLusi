@@ -18,7 +18,7 @@ def test_confirm_helper_uses_confirmed_row_variable_and_never_undefined_name():
 def test_fulfill_reloads_user_for_update_even_when_caller_holds_user_lock():
     block = _block('async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str|None = None):', 'async def payment_by_provider')
     lock_idx = block.index('user_token = existing_user_lock_token')
-    reload_idx = block.index('select(User).where(User.id==user.id).with_for_update()')
+    reload_idx = block.index('select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update()')
     assert lock_idx < reload_idx
     assert 'if not existing_user_lock_token:' not in block[block.index('The first User read'):block.index('payment_lock, token = await _acquire_payment_side_effect_lock')]
 

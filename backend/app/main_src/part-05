@@ -141,10 +141,10 @@ async def admin_refunds(db:AsyncSession=Depends(get_db),admin=Depends(require_pe
 @app.post("/api/admin/payments/{payment_id}/refund-request")
 async def request_refund(payment_id:int,payload:RefundIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("payments.reconcile"))):
     # Serialize refund creation on the payment row to avoid duplicate refund requests under concurrent admin actions.
-    p=(await db.execute(select(Payment).where(Payment.id==payment_id).with_for_update())).scalar_one_or_none()
+    p=(await db.execute(select(Payment).where(Payment.id==payment_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
     if not p: raise HTTPException(404,"Payment not found")
     if p.status not in {"paid","fulfilled"}: raise HTTPException(400,"Payment is not refundable in its current state")
-    existing=(await db.execute(select(RefundRequest).where(RefundRequest.payment_id==payment_id).with_for_update())).scalar_one_or_none()
+    existing=(await db.execute(select(RefundRequest).where(RefundRequest.payment_id==payment_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
     if existing: return {"id":existing.id,"status":existing.status}
     r=RefundRequest(payment_id=p.id,user_id=p.user_id,amount=p.amount,reason=payload.reason,status="requested")
     db.add(r); await audit(db,"payment.refund.requested",admin.email,str(p.id),payload.reason); await db.commit(); await db.refresh(r)
@@ -177,8 +177,11 @@ async def _reverse_referral_reward_for_refund(db:AsyncSession, payment:Payment, 
     return {"reversed":True,"amount":str(reward.amount)}
 
 async def _safe_revoke_for_refunded_payment(db:AsyncSession, payment:Payment, admin_email:str, audit_action:str):
-    """Revoke only when no later successfully fulfilled purchase protects the subscription."""
-    sub=(await db.execute(select(Subscription).where(Subscription.user_id==payment.user_id).with_for_update())).scalar_one_or_none()
+    """Reverse the purchased benefit, without touching unrelated subscriptions."""
+    if payment.purpose == "topup":
+        from .refund_accounting import reverse_wallet_topup
+        return await reverse_wallet_topup(db, payment)
+    sub=(await db.execute(select(Subscription).where(Subscription.user_id==payment.user_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
     if not sub or not sub.remnawave_uuid:
         return {"revoked":False,"reason":"no_remote_subscription"}
     later_paid=await db.scalar(select(func.count()).select_from(Payment).where(
@@ -212,8 +215,8 @@ async def execute_refund(refund_id:int,db:AsyncSession=Depends(get_db),admin=Dep
     payment_lock = payment_token = None
     try:
         payment_lock, payment_token = await _acquire_payment_side_effect_lock(p.id)
-        p=(await db.execute(select(Payment).where(Payment.id==p.id).with_for_update())).scalar_one()
-        r=(await db.execute(select(RefundRequest).where(RefundRequest.id==refund_id).with_for_update())).scalar_one()
+        p=(await db.execute(select(Payment).where(Payment.id==p.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
+        r=(await db.execute(select(RefundRequest).where(RefundRequest.id==refund_id).execution_options(populate_existing=True).with_for_update())).scalar_one()
         if r.status not in {"requested","approved","review"} or r.provider_refund_id:
             raise HTTPException(409,"Refund is already processing or completed")
         r.status="processing"; r.updated_at=datetime.utcnow(); await audit(db,"payment.refund.processing",admin.email,str(p.id)); await db.commit()
@@ -259,8 +262,8 @@ async def retry_refund_revoke(refund_id:int,db:AsyncSession=Depends(get_db),admi
     payment_lock = payment_token = None
     try:
         payment_lock, payment_token = await _acquire_payment_side_effect_lock(p.id)
-        p=(await db.execute(select(Payment).where(Payment.id==p.id).with_for_update())).scalar_one()
-        r=(await db.execute(select(RefundRequest).where(RefundRequest.id==r.id).with_for_update())).scalar_one()
+        p=(await db.execute(select(Payment).where(Payment.id==p.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
+        r=(await db.execute(select(RefundRequest).where(RefundRequest.id==r.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
         if r.status != "refunded_pending_revoke" or p.status not in {"refunded","refunded_pending_revoke"}:
             raise HTTPException(409,"Refund is not pending revoke")
         result=await _safe_revoke_for_refunded_payment(db,p,admin.email,"subscription.revoked.refund.retry")
@@ -395,7 +398,7 @@ async def incident_mode_status(db:AsyncSession=Depends(get_db),admin=Depends(req
 
 @app.post("/api/admin/referrals/reconcile")
 async def reconcile_referrals(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("referrals.reconcile"))):
-    users=(await db.execute(select(User).where(User.referral_balance!=None).with_for_update())).scalars().all(); changed=0
+    users=(await db.execute(select(User).where(User.referral_balance!=None).execution_options(populate_existing=True).with_for_update())).scalars().all(); changed=0
     for u in users:
         total=(await db.execute(select(func.coalesce(func.sum(ReferralLedger.amount),0)).where(ReferralLedger.user_id==u.id))).scalar() or Decimal("0")
         if Decimal(str(u.referral_balance or 0)) != Decimal(str(total)):
