@@ -49,8 +49,9 @@ jobs:
             const tag = 'v20.0.13';
             const body = fs.readFileSync('.github/release-v20.0.13.md', 'utf8');
             try {
-              await github.rest.repos.getReleaseByTag({owner: context.repo.owner, repo: context.repo.repo, tag});
-              throw new Error(`${tag} already exists; refusing to overwrite an existing release`);
+              const existing = await github.rest.repos.getReleaseByTag({owner: context.repo.owner, repo: context.repo.repo, tag});
+              core.info(`${tag} already exists at ${existing.data.html_url}; leaving it unchanged`);
+              return;
             } catch (error) {
               if (error.status !== 404) throw error;
             }
