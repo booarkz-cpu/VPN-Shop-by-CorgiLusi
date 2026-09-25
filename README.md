@@ -18,6 +18,14 @@ A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android a
 Песочница разрешена только при `APP_ENV=development`, `test` или `staging`. На `APP_ENV=production` процесс с `PAYMENTS_SANDBOX=true` не стартует. Пока не пройден staging E2E, живые платежи отвечают отказом.
 
 
+## v20.0.11 — исправления платежей и возвратов
+
+- Stripe возвращает деньги по PaymentIntent, связанному с оплаченной Checkout Session. Stripe и PayPal поддерживают повторную сверку статуса возврата и стабильные ключи повторных запросов.
+- Webhook Stripe и PayPal подтверждают заказ через общий путь с блокировками; поздние события не возвращают статус оплаченного или возвращённого платежа назад.
+- Автоматическое подтверждение в песочнице и сверка возвратов записывают финансовые события.
+
+[Заметки релиза](.github/release-v20.0.11.md). Живые платежи требуют отдельного staging E2E.
+
 ## v20.0.10 — подтверждение платежей в песочнице
 
 - Тестовый endpoint подтверждения теперь использует общий путь с блокировками и повторной проверкой статуса. Возвращённый платёж нельзя повторно пометить оплаченным; запись в финансовый журнал выполняется как при webhook.
@@ -821,7 +829,7 @@ cd ../cabinet && npm install && npx vite build
 
 A VPN shop with a Telegram bot, a Mini App, a standalone user cabinet, an admin console, separate Android and iOS apps for buyers and administrators, a FastAPI backend, three payment providers plus a sandbox provider, a tariff constructor, Remnawave node status, abuse scoring, a node agent, provisioning, queues and backups.
 
-Release version: **v20.0.10**. Previous published version: **v20.0.9**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
+Release version: **v20.0.11**. Previous published version: **v20.0.10**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
 
 ### What is in the tree
 
