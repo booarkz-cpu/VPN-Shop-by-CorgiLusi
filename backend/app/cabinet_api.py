@@ -188,7 +188,7 @@ async def public_cabinet_menu(db: AsyncSession = Depends(get_db)):
 
 @router.post("/api/payments/sandbox/complete")
 async def sandbox_complete(payload: dict, request: Request, db: AsyncSession = Depends(get_db)):
-    from .main import user_from_token, fulfill
+    from .main import user_from_token, _confirm_and_fulfill_payment
 
     from .sandbox_mode import payments_sandbox_allowed
     if not payments_sandbox_allowed():
@@ -203,15 +203,15 @@ async def sandbox_complete(payload: dict, request: Request, db: AsyncSession = D
         q = q.where(Payment.order_id == order_id)
     else:
         raise HTTPException(400, "payment_id or order_id required")
-    payment = (await db.execute(q.order_by(Payment.id.desc()).with_for_update())).scalar_one_or_none()
+    payment = (await db.execute(q.order_by(Payment.id.desc()))).scalar_one_or_none()
     if not payment:
         raise HTTPException(404, "Sandbox payment not found")
-    if payment.status != "paid":
-        payment.status = "paid"
-        payment.paid_at = datetime.utcnow()
-        await db.commit()
-    await fulfill(payment.id, db)
-    payment = await db.get(Payment, payment.id)
+    # The common confirmation path locks user then payment and re-reads the
+    # current status. A refund racing this request must never be revived.
+    result = await _confirm_and_fulfill_payment(payment.id, db)
+    if result.get("ignored"):
+        raise HTTPException(409, "Sandbox payment is no longer eligible")
+    await db.refresh(payment)
     return {"ok": True, "payment_id": payment.id, "fulfillment_status": payment.fulfillment_status}
 
 
