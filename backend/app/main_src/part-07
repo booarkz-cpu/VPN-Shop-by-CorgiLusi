@@ -489,6 +489,7 @@ async def create_project_backup(db, actor="system"):
                     parts=set(pathlib.Path(info.name).parts)
                     if parts & {"backups","node_modules","__pycache__",".git"}: return None
                     if not include_env and pathlib.Path(info.name).name == ".env": return None
+                    if not (info.isfile() or info.isdir()): return None
                     return info
                 tar.add(settings.project_dir,arcname="project",filter=_tar_filter)
                 tar.add(dump,arcname="database.sql")
