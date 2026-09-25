@@ -28,7 +28,7 @@ def test_blank_staging_secrets_are_preserved_and_output_is_redacted():
     assert "yookassa_secret_key" in redact
     assert "yookassa_shop_id" not in redact
     assert "platega_merchant_id" not in redact
-    assert '"FULL_E2E_PASS" in text' in main
+    assert "full_pass = False" in main
     assert 'status.get("full_e2e")' in main
 
 
@@ -38,7 +38,7 @@ def test_runner_prints_checkout_and_image_has_curl():
     assert host == image
     for text in (host, image):
         assert "[CHECKOUT]" in text
-        assert "FULL_E2E_PASS" in text
+        assert "[INCOMPLETE]" in text
         assert "startswith('https://')" in text
         assert "awaiting_checkout" in text
         assert "в контейнере backend нет curl" in text
