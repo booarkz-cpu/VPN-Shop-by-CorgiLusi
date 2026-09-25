@@ -35,7 +35,6 @@ jobs:
             }
       - name: Publish v20.0.8
         run: |
-          chmod +x install.sh scripts/build-release.sh scripts/package-source.py scripts/staging-e2e.sh scripts/test-up.sh backend/scripts/staging-e2e.sh
           python3 scripts/package-source.py remnawave_vpn_shop_v20_0_8_full_release.zip
           sha256sum remnawave_vpn_shop_v20_0_8_full_release.zip > remnawave_vpn_shop_v20_0_8_full_release.zip.sha256
       - name: Create release and attach verified source
