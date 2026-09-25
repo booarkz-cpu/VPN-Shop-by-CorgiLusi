@@ -20,7 +20,7 @@ class StripePlatform:
     async def create(self, amount, currency, description, metadata):
         if not settings.stripe_secret_key: raise PlatformProviderError('Stripe is not configured')
         async with _client() as c:
-            data={'mode':'payment','success_url':metadata.get('return_url',settings.public_base_url),'cancel_url':metadata.get('cancel_url',settings.public_base_url),'line_items[0][price_data][currency]':currency.lower(),'line_items[0][price_data][product_data][name]':description,'line_items[0][price_data][unit_amount]':int(Decimal(str(amount))*100),'line_items[0][quantity]':1,'metadata[order_id]':metadata.get('order_id',''),'metadata[user_id]':str(metadata.get('user_id',''))}
+            data={'mode':'payment','success_url':metadata.get('return_url',settings.public_base_url),'cancel_url':metadata.get('cancel_url',settings.public_base_url),'line_items[0][price_data][currency]':currency.lower(),'line_items[0][price_data][product_data][name]':description,'line_items[0][price_data][unit_amount]':int(Decimal(str(amount))*100),'line_items[0][quantity]':1,'metadata[order_id]':metadata.get('order_id',''),'metadata[user_id]':str(metadata.get('user_id','')),'payment_intent_data[metadata][order_id]':metadata.get('order_id','')}
             r=await c.post(f'{settings.stripe_api_url}/v1/checkout/sessions',data=data,headers={'Authorization':f'Bearer {settings.stripe_secret_key}'})
             r.raise_for_status(); x=r.json()
             return {'id':x['id'],'url':x.get('url'),'status':x.get('status')}
@@ -31,10 +31,25 @@ class StripePlatform:
             r=await c.get(f'{settings.stripe_api_url}/v1/payment_intents/{payment_id}',headers={'Authorization':f'Bearer {settings.stripe_secret_key}'})
             r.raise_for_status(); return r.json()
     async def refund(self,payment_id,amount,currency,order_id=None):
+        if not settings.stripe_secret_key: raise PlatformProviderError('Stripe is not configured')
         async with _client() as c:
-            data={'payment_intent':payment_id,'amount':int(Decimal(str(amount))*100)}
-            r=await c.post(f'{settings.stripe_api_url}/v1/refunds',data=data,headers={'Authorization':f'Bearer {settings.stripe_secret_key}'})
+            intent=payment_id
+            if str(payment_id).startswith('cs_'):
+                session=await c.get(f'{settings.stripe_api_url}/v1/checkout/sessions/{payment_id}',headers={'Authorization':f'Bearer {settings.stripe_secret_key}'})
+                session.raise_for_status()
+                details=session.json()
+                if details.get('payment_status')!='paid': raise PlatformProviderError('Stripe checkout is not paid')
+                intent=details.get('payment_intent')
+            if not isinstance(intent,str) or not intent.startswith('pi_'):
+                raise PlatformProviderError('Stripe payment intent is not available for refund')
+            data={'payment_intent':intent,'amount':int(Decimal(str(amount)).quantize(Decimal('0.01'))*100)}
+            refund_key='refund-'+hashlib.sha256(f'{payment_id}:{_money(amount)}:{currency}'.encode()).hexdigest()
+            r=await c.post(f'{settings.stripe_api_url}/v1/refunds',data=data,headers={'Authorization':f'Bearer {settings.stripe_secret_key}','Idempotency-Key':refund_key})
             r.raise_for_status(); return r.json()
+    async def get_refund_status(self,refund_id):
+        async with _client() as c:
+            r=await c.get(f'{settings.stripe_api_url}/v1/refunds/{refund_id}',headers={'Authorization':f'Bearer {settings.stripe_secret_key}'})
+            r.raise_for_status(); return str(r.json().get('status') or '').lower()
     def verify_webhook(self, body:bytes, signature:str):
         if not settings.stripe_webhook_secret: raise PlatformProviderError('Stripe webhook secret is not configured')
         parts=dict(x.split('=',1) for x in signature.split(',') if '=' in x); ts=parts.get('t'); sig=parts.get('v1')
@@ -99,7 +114,8 @@ class PayPalPlatform:
     async def capture(self,order_id):
         token=await self._token()
         async with _client() as c:
-            r=await c.post(f'{settings.paypal_api_url}/v2/checkout/orders/{order_id}/capture',headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'}); r.raise_for_status(); return r.json()
+            request_id='capture-'+hashlib.sha256(str(order_id).encode()).hexdigest()
+            r=await c.post(f'{settings.paypal_api_url}/v2/checkout/orders/{order_id}/capture',headers={'Authorization':f'Bearer {token}','Content-Type':'application/json','PayPal-Request-Id':request_id}); r.raise_for_status(); return r.json()
     async def refund(self,order_id,amount,currency,order_ref=None):
         token=await self._token()
         async with _client() as c:
@@ -108,8 +124,14 @@ class PayPalPlatform:
             capture=((order.get('purchase_units') or [{}])[0].get('payments') or {}).get('captures') or []
             if not capture: raise PlatformProviderError('PayPal capture is not available for refund')
             capture_id=capture[0].get('id')
-            r=await c.post(f'{settings.paypal_api_url}/v2/payments/captures/{capture_id}/refund',json={'amount':{'value':_money(amount),'currency_code':currency}},headers={'Authorization':f'Bearer {token}'})
+            request_id='refund-'+hashlib.sha256(f'{capture_id}:{_money(amount)}:{currency}'.encode()).hexdigest()
+            r=await c.post(f'{settings.paypal_api_url}/v2/payments/captures/{capture_id}/refund',json={'amount':{'value':_money(amount),'currency_code':currency}},headers={'Authorization':f'Bearer {token}','PayPal-Request-Id':request_id})
             r.raise_for_status(); return r.json()
+    async def get_refund_status(self,refund_id):
+        token=await self._token()
+        async with _client() as c:
+            r=await c.get(f'{settings.paypal_api_url}/v2/payments/refunds/{refund_id}',headers={'Authorization':f'Bearer {token}'})
+            r.raise_for_status(); return str(r.json().get('status') or '').lower()
     async def verify_webhook(self,headers,body):
         # PayPal's verification endpoint is used rather than trusting a header locally.
         token=await self._token()

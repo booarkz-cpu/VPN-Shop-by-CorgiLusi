@@ -76,9 +76,9 @@
                 payment_row=(await db.execute(select(Payment).where(Payment.id==payment_row.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
                 payment_row.provider_payment_id=result["id"]; payment_row.checkout_url=result.get("url"); payment_row.fulfillment_terminal=False
                 if candidate=="sandbox" and result.get("status")=="succeeded":
-                    payment_row.status="paid"; payment_row.paid_at=datetime.utcnow(); await db.commit()
+                    payment_row.status="pending"; await db.commit()
                     try:
-                        await fulfill(payment_row.id, db)
+                        await _confirm_and_fulfill_payment(payment_row.id, db)
                     except Exception:
                         logger.exception("Sandbox fulfillment failed for payment %s", payment_row.id)
                     fresh=await db.get(Payment, payment_row.id)

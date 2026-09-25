@@ -168,17 +168,23 @@ async def stripe_webhook(request:Request,db:AsyncSession=Depends(get_db)):
     try: event=StripePlatform().verify_webhook(body,request.headers.get("stripe-signature","") )
     except Exception as exc: raise HTTPException(400,"Invalid Stripe webhook") from exc
     typ=event.get("type",""); obj=(event.get("data") or {}).get("object") or {}; order_id=(obj.get("metadata") or {}).get("order_id")
-    if not order_id and typ.startswith("checkout.session"): order_id=(obj.get("metadata") or {}).get("order_id")
     if typ in {"checkout.session.completed","checkout.session.async_payment_succeeded","payment_intent.succeeded"} and order_id:
         confirmed=StripePlatform().confirmed_amount(event)
-        p=(await db.execute(select(Payment).where(Payment.order_id==order_id).with_for_update())).scalar_one_or_none()
-        if p and confirmed and p.status not in {"refunded","refunded_pending_revoke"}:
+        p=(await db.execute(select(Payment).where(Payment.order_id==order_id,Payment.provider=="stripe"))).scalar_one_or_none()
+        if p and confirmed:
             amount,currency=confirmed
             if currency==str(p.currency or "").upper() and amount==Decimal(str(p.amount)).quantize(Decimal("0.01")):
                 remote_id=p.provider_payment_id or str(obj.get("id") or "")
                 if not remote_id or not await StripePlatform().verify_succeeded(remote_id,Decimal(str(p.amount)),p.currency,p.order_id):
                     raise HTTPException(503,"Payment status verification unavailable")
-                p.status="paid"; p.paid_at=p.paid_at or datetime.utcnow(); await _record_provider_metric(db,"stripe",success=1,gross=Decimal(str(p.amount))); await _issue_invoice(db,p); await db.commit(); await _confirm_and_fulfill_payment(p.id,db)
+                was_paid=p.status=="paid"
+                result=await _confirm_and_fulfill_payment(p.id,db)
+                if not result.get("ignored") and not was_paid:
+                    p=(await db.execute(select(Payment).where(Payment.id==p.id).execution_options(populate_existing=True))).scalar_one()
+                    if p.status=="paid":
+                        await _record_provider_metric(db,"stripe",success=1,gross=Decimal(str(p.amount)))
+                        await _issue_invoice(db,p)
+                        await db.commit()
     if typ in {"charge.dispute.created","charge.dispute.updated","charge.dispute.closed"}:
         did=obj.get("id") or event.get("id"); amount=Decimal(str((obj.get("amount") or 0)))/100; currency=(obj.get("currency") or "usd").upper();
         p=None
@@ -198,22 +204,32 @@ async def paypal_webhook(request:Request,db:AsyncSession=Depends(get_db)):
     typ=event.get("event_type",""); resource=event.get("resource") or {}
     order_id=(resource.get("supplementary_data") or {}).get("related_ids",{}).get("order_id") or resource.get("custom_id")
     if typ=="CHECKOUT.ORDER.APPROVED" and resource.get("id"):
-        # Capture only after server-side verification of the webhook.
-        await PayPalPlatform().capture(resource["id"])
+        # Capture only a locally created, still-pending order. PayPal can redeliver
+        # this webhook after fulfillment or refund.
+        pending=(await db.execute(select(Payment).where(Payment.provider=="paypal",Payment.provider_payment_id==str(resource["id"]),Payment.status=="pending"))).scalar_one_or_none()
+        if pending:
+            await PayPalPlatform().capture(resource["id"])
     if typ in {"PAYMENT.CAPTURE.COMPLETED","CHECKOUT.ORDER.COMPLETED"}:
         if not order_id:
             pu=(resource.get("purchase_units") or [{}])[0]; order_id=pu.get("reference_id")
         confirmed=PayPalPlatform().captured_amount(event)
-        p=(await db.execute(select(Payment).where(Payment.order_id==order_id).with_for_update())).scalar_one_or_none() if order_id else None
+        p=(await db.execute(select(Payment).where(Payment.provider=="paypal",or_(Payment.order_id==order_id,Payment.provider_payment_id==order_id)))).scalar_one_or_none() if order_id else None
         if p and confirmed:
             amount,currency=confirmed
-            if currency==str(p.currency or "").upper() and amount==Decimal(str(p.amount)).quantize(Decimal("0.01")) and p.status not in {"refunded","refunded_pending_revoke"}:
+            if currency==str(p.currency or "").upper() and amount==Decimal(str(p.amount)).quantize(Decimal("0.01")):
                 if not p.provider_payment_id or not await PayPalPlatform().verify_succeeded(p.provider_payment_id,Decimal(str(p.amount)),p.currency,p.order_id):
                     raise HTTPException(503,"Payment status verification unavailable")
-                p.status="paid"; p.paid_at=p.paid_at or datetime.utcnow(); await _record_provider_metric(db,"paypal",success=1,gross=Decimal(str(p.amount))); await _issue_invoice(db,p); await db.commit(); await _confirm_and_fulfill_payment(p.id,db)
+                was_paid=p.status=="paid"
+                result=await _confirm_and_fulfill_payment(p.id,db)
+                if not result.get("ignored") and not was_paid:
+                    p=(await db.execute(select(Payment).where(Payment.id==p.id).execution_options(populate_existing=True))).scalar_one()
+                    if p.status=="paid":
+                        await _record_provider_metric(db,"paypal",success=1,gross=Decimal(str(p.amount)))
+                        await _issue_invoice(db,p)
+                        await db.commit()
     if typ in {"PAYMENT.CAPTURE.DENIED","CHECKOUT.PAYMENT-APPROVAL.REVERSED"} and order_id:
-        p=(await db.execute(select(Payment).where(Payment.order_id==order_id))).scalar_one_or_none()
-        if p: p.status="failed"; await db.commit()
+        p=(await db.execute(select(Payment).where(Payment.provider=="paypal",or_(Payment.order_id==order_id,Payment.provider_payment_id==order_id)).with_for_update())).scalar_one_or_none()
+        if p and p.status in {"creating","pending"}: p.status="failed"; await db.commit()
     return {"received":True}
 
 class MobilePurchaseIn(BaseModel):
