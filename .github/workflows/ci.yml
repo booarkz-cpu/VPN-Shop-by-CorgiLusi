@@ -84,6 +84,29 @@ jobs:
       - name: Tests
         run: python -m pytest -q tests --disable-warnings --maxfail=1
 
+  security:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Python dependencies
+        run: |
+          python -m pip install pip-audit
+          for file in backend/requirements.txt support-pro/app/requirements.txt support-pro/requirements.txt support-pro/requirements-dev.txt; do
+            pip-audit -r "$file"
+          done
+      - name: JavaScript dependencies
+        run: |
+          for dir in admin miniapp cabinet; do
+            (cd "$dir" && npm audit --audit-level=high)
+          done
+
   frontend:
     name: ${{ matrix.app }} • typecheck + build
     runs-on: ubuntu-latest
