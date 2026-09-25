@@ -18,6 +18,10 @@ A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android a
 Песочница разрешена только при `APP_ENV=development`, `test` или `staging`. На `APP_ENV=production` процесс с `PAYMENTS_SANDBOX=true` не стартует. Пока не пройден staging E2E, живые платежи отвечают отказом.
 
 
+## v20.0.13 — защита staging gate и план E2E v2
+
+Приём платежей перепроверяет срок staging-доказательства и его связь с текущей конфигурацией при каждом новом списании. Изменение staging-конфигурации закрывает gate и сбрасывает прежний результат; конкурирующие проверки резервируются через БД. [Подробный changelog](.github/release-v20.0.13.md) · [Пошаговая реализация staging E2E v2](docs/ru/STAGING_E2E_V2_IMPLEMENTATION.md). **Полный runner v2 ещё не реализован; реальные платежи остаются закрытыми.**
+
 ## v20.0.12 — проверка безопасности и запуск на VDS
 
 Исправлены полномочия управления реселлерами, проверка содержимого архивов и конфигурация подписи мобильного клиента. [Подробный changelog](.github/release-v20.0.12.md) · [Пошаговая установка на VDS](docs/ru/VDS_PRODUCTION_V20_0_12.md). Production-приложение запускается с закрытым допуском живых платежей: текущий staging runner не подтверждает полный цикл E2E.
@@ -833,7 +837,7 @@ cd ../cabinet && npm install && npx vite build
 
 A VPN shop with a Telegram bot, a Mini App, a standalone user cabinet, an admin console, separate Android and iOS apps for buyers and administrators, a FastAPI backend, three payment providers plus a sandbox provider, a tariff constructor, Remnawave node status, abuse scoring, a node agent, provisioning, queues and backups.
 
-Release version: **v20.0.12**. Previous published version: **v20.0.11**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
+Release version: **v20.0.13**. Previous published version: **v20.0.12**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
 
 ### What is in the tree
 

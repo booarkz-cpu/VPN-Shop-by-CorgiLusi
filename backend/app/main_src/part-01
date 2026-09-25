@@ -389,7 +389,7 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
     if await maintenance_enabled(db): raise HTTPException(503,"Service is in maintenance mode")
     if not await feature_enabled(db, "payments", True): raise HTTPException(503,"Платежи отключены администратором")
     sandbox_requested=sandbox_checkout_requested(payload.get("provider"))
-    if await setting_value(db,PRODUCTION_PAYMENTS_GATE_KEY,"0") != "1" and not sandbox_requested:
+    if not sandbox_requested and not await production_payments_allowed(db):
         raise HTTPException(503,"Реальные платежи временно заблокированы: требуется успешный staging E2E")
     user=await user_from_token(request,db)
     reseller_id=None

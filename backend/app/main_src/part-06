@@ -319,7 +319,7 @@ async def health_summary(db:AsyncSession=Depends(get_db),admin=Depends(require_p
     try:
         start=asyncio.get_running_loop().time(); await RemnawaveClient().list_nodes(start=0,size=1); checks.append({"name":"Remnawave","status":"ok","latency_ms":round((asyncio.get_running_loop().time()-start)*1000,1)})
     except Exception: checks.append({"name":"Remnawave","status":"error","error":"unavailable"})
-    return {"status":"ok" if all(x["status"]=="ok" for x in checks) else "degraded","checks":checks,"incident_mode":(await setting_value(db,"incident_mode","0"))=="1","payments_paused":(await setting_value(db,PRODUCTION_PAYMENTS_GATE_KEY,"0"))!="1"}
+    return {"status":"ok" if all(x["status"]=="ok" for x in checks) else "degraded","checks":checks,"incident_mode":(await setting_value(db,"incident_mode","0"))=="1","payments_paused":not await production_payments_allowed(db)}
 
 @app.get("/api/admin/gifts")
 async def admin_gifts(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("marketing.read"))):
