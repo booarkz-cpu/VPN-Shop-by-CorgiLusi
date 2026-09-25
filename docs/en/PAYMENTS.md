@@ -1,3 +1,5 @@
+**v20.0.8:** The current runner does not verify webhook delivery or fulfillment. Live payments remain gated. See the [full procedure](STAGING_E2E_20_0_8.md).
+
 # Connecting payment gateways
 
 The shop creates a charge at the provider and grants a subscription only after the provider confirms the same amount, currency and order id. A webhook alone does not grant access until that check succeeds.
