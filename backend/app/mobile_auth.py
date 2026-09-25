@@ -35,8 +35,10 @@ def require_mobile_proof(request) -> None:
     from .config import settings
 
     client = mobile_client_name(request)
-    if not client or not settings.mobile_require_proof or not settings.mobile_client_key:
+    if not client or not settings.mobile_require_proof:
         return
+    if not settings.mobile_client_key:
+        raise HTTPException(503, "Ключ подписи мобильного клиента не настроен")
     timestamp = (request.headers.get("x-shop-time") or "").strip()
     proof = (request.headers.get("x-shop-proof") or "").strip().lower()
     try:

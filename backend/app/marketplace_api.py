@@ -57,7 +57,7 @@ async def list_resellers(admin=Depends(require_permission("referrals.read")), db
 
 
 @router.post("/admin/marketplace/resellers")
-async def create_reseller(payload: ResellerCreate, admin=Depends(require_permission("referrals.read")), db: AsyncSession = Depends(get_db)):
+async def create_reseller(payload: ResellerCreate, admin=Depends(require_permission("referrals.reconcile")), db: AsyncSession = Depends(get_db)):
     existing = await db.scalar(select(Reseller).where(Reseller.slug == payload.slug))
     if existing:
         raise HTTPException(409, "Reseller slug already exists")
@@ -70,7 +70,7 @@ async def create_reseller(payload: ResellerCreate, admin=Depends(require_permiss
 
 
 @router.patch("/admin/marketplace/resellers/{reseller_id}")
-async def update_reseller(reseller_id: int, payload: ResellerUpdate, admin=Depends(require_permission("referrals.read")), db: AsyncSession = Depends(get_db)):
+async def update_reseller(reseller_id: int, payload: ResellerUpdate, admin=Depends(require_permission("referrals.reconcile")), db: AsyncSession = Depends(get_db)):
     row = await db.get(Reseller, reseller_id)
     if not row: raise HTTPException(404, "Reseller not found")
     for key, value in payload.model_dump(exclude_unset=True).items(): setattr(row, key, value)
@@ -78,7 +78,7 @@ async def update_reseller(reseller_id: int, payload: ResellerUpdate, admin=Depen
 
 
 @router.post("/admin/marketplace/resellers/{reseller_id}/rotate-key")
-async def rotate_reseller_key(reseller_id: int, admin=Depends(require_permission("referrals.read")), db: AsyncSession = Depends(get_db)):
+async def rotate_reseller_key(reseller_id: int, admin=Depends(require_permission("referrals.reconcile")), db: AsyncSession = Depends(get_db)):
     row = await db.get(Reseller, reseller_id)
     if not row: raise HTTPException(404, "Reseller not found")
     raw_key = "corgi_rsk_" + secrets.token_urlsafe(32)

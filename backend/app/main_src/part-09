@@ -401,7 +401,7 @@ async def v41_backup_test_restore(backup_id:int,db:AsyncSession=Depends(get_db),
             source=dec
         with tarfile.open(source,"r:gz") as tf:
             _validate_tar_safety(tf); member=next((m for m in tf.getmembers() if m.name=="database.sql"),None)
-            if not member: raise ValueError("database.sql отсутствует в backup")
+            if not member or not member.isfile(): raise ValueError("Обычный файл database.sql отсутствует в backup")
             _safe_extract_members(tf,{"database.sql"},work)
         record.archive_safe=True; await db.commit()
         # Restore into a disposable PostgreSQL database, never into production.

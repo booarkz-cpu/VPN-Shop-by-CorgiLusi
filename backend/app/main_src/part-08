@@ -45,15 +45,18 @@ def _validate_tar_safety(tar:tarfile.TarFile):
     members=tar.getmembers()
     if len(members)>MAX_BACKUP_MEMBERS: raise HTTPException(400,"Backup contains too many files")
     total=0
+    seen=set()
     for m in members:
         posix=pathlib.PurePosixPath(m.name)
         parts=posix.parts
+        if not parts or str(posix) in seen: raise HTTPException(400,"Duplicate or empty backup path")
+        seen.add(str(posix))
         if posix.is_absolute() or ".." in parts: raise HTTPException(400,"Unsafe backup path")
         if len(parts)>MAX_BACKUP_PATH_DEPTH: raise HTTPException(400,"Backup path is too deep")
         if m.size>MAX_BACKUP_FILE_BYTES: raise HTTPException(400,"Backup member is too large")
         if m.isfile(): total += m.size
         if total>MAX_BACKUP_EXTRACTED_BYTES: raise HTTPException(400,"Backup extracted size is too large")
-        if m.issym() or m.islnk(): raise HTTPException(400,"Links are not allowed in backups")
+        if not (m.isfile() or m.isdir()): raise HTTPException(400,"Only regular files and directories are allowed in backups")
 
 def _safe_extract_members(tar:tarfile.TarFile, names:set[str], destination:pathlib.Path):
     root=destination.resolve()
@@ -84,7 +87,7 @@ async def validate_backup_archive(backup_id:int,db:AsyncSession=Depends(get_db),
         with tarfile.open(source,"r:gz") as tar:
             _validate_tar_safety(tar)
             names=[m.name for m in tar.getmembers()]
-            if "database.sql" not in names: raise HTTPException(400,"database.sql not found in backup")
+            if not any(m.name=="database.sql" and m.isfile() for m in tar.getmembers()): raise HTTPException(400,"Regular database.sql not found in backup")
             root=work.resolve()
             for name in names:
                 target=(work/name).resolve()
@@ -135,7 +138,7 @@ async def restore_backup(backup_id:int,confirm:str,otp:str|None=None,db:AsyncSes
         with tarfile.open(source,"r:gz") as tar:
             _validate_tar_safety(tar)
             member=next((m for m in tar.getmembers() if m.name=="database.sql"),None)
-            if not member: raise HTTPException(400,"database.sql not found in backup")
+            if not member or not member.isfile(): raise HTTPException(400,"Regular database.sql not found in backup")
             _safe_extract_members(tar,{"database.sql"},work)
             media_members=[m.name for m in tar.getmembers() if m.name=="media" or m.name.startswith("media/")]
             if media_members:
