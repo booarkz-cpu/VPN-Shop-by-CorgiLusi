@@ -25,7 +25,7 @@ def test_admin_session_persists_last_seen():
 
 def test_staging_gate_requires_full_e2e_marker():
     s=read('backend/app/main.py')
-    assert '"FULL_E2E_PASS" in text' in s
+    assert "full_pass = False" in s
     assert 'status.get("full_e2e")' in s
 
 def test_content_upload_endpoints_and_public_config():

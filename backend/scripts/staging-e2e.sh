@@ -150,4 +150,5 @@ if [[ "$rw_state" != "ok" ]]; then
   exit 1
 fi
 echo '[PASS] staging Remnawave принял токен'
-echo FULL_E2E_PASS
+echo '[INCOMPLETE] Проверены ответы провайдеров и возврат, но webhook, выдача VPN и повторная доставка не подтверждены.'
+echo '[GATE] Production-платежи остаются закрытыми до полного сквозного E2E.'

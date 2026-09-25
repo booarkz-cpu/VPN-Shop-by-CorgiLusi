@@ -18,6 +18,21 @@ A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android a
 Песочница разрешена только при `APP_ENV=development`, `test` или `staging`. На `APP_ENV=production` процесс с `PAYMENTS_SANDBOX=true` не стартует. Пока не пройден staging E2E, живые платежи отвечают отказом.
 
 
+## v20.0.8 — аудит, установка и безопасный staging
+
+| | Русский | English | Українська |
+| --- | --- | --- | --- |
+| Полный регламент staging E2E | [Пошаговая проверка](docs/ru/STAGING_E2E_20_0_8.md) | [Step-by-step check](docs/en/STAGING_E2E_20_0_8.md) | [Покрокова перевірка](docs/uk/STAGING_E2E_20_0_8.md) |
+| Установка, функции и эксплуатация | [Развёртывание](docs/ru/DEPLOYMENT.md), [функции](docs/ru/FUNCTION_GUIDE.md), [операции](OPERATIONS_RUNBOOK_RU.md) | [Deployment](docs/en/DEPLOYMENT.md), [features](docs/en/README.md), [payments](docs/en/PAYMENTS.md) | [Розгортання](docs/uk/DEPLOYMENT.md), [функції](docs/uk/README.md), [платежі](docs/uk/PAYMENTS.md) |
+
+**Русский.** Образы закреплены digest; Python и JavaScript зависимости проверяются до публикации контейнеров. Пароль Support Pro передаётся отдельной переменной и безопасно собирается в URL. При `APP_ENV=production` значение `COOKIE_SECURE=false` останавливает backend. Для ручного `DATABASE_URL` кодируйте пароль: `urllib.parse.quote(password, safe='')`; `@` превращается в `%40`, `#` — в `%23`. Не вставляйте сырой пароль в URL. Текущий staging runner не проверяет webhook и выдачу; реальные платежи закрыты до реализации полного E2E. Старый допуск v20.0.7 сбрасывается новым ключом.
+
+**English.** Container bases use immutable digests and CI audits Python and JavaScript dependencies before image publishing. Support Pro builds its database URL from separate credentials. Backend refuses `APP_ENV=production` with `COOKIE_SECURE=false`. Percent-encode passwords in a manually supplied `DATABASE_URL` with `urllib.parse.quote(password, safe='')`. The current staging runner does not verify webhook delivery or fulfillment; live payments remain gated until a complete E2E implementation exists. The v20.0.7 gate is invalidated.
+
+**Українська.** Базові образи закріплені digest, а CI перевіряє залежності Python і JavaScript до публікації контейнерів. Support Pro складає URL бази з окремих параметрів. Backend зупиняється за `APP_ENV=production` та `COOKIE_SECURE=false`. Для ручного `DATABASE_URL` закодуйте пароль через `urllib.parse.quote(password, safe='')`. Поточний staging runner не перевіряє webhook і видачу; реальні платежі заблоковані до повного E2E. Старий допуск v20.0.7 скасовано.
+
+[Отчёт аудита v20.0.8](docs/ru/AUDIT_20_0_8.md) · [Заметки релиза](.github/release-v20.0.8.md)
+
 ## Аудит 20.0.7 и актуальные руководства
 
 - [Отчёт аудита и границы проверок](docs/ru/AUDIT_20_0_7.md)
@@ -60,7 +75,7 @@ bash scripts/test-up.sh
 
 Боевой магазин принимает заказы по HTTPS. Нужны Ubuntu или Debian, root по SSH, домен и пять имён на IP сервера: API, админка, Mini App, кабинет и Support Pro. Ещё нужны панель Remnawave и токен бота от @BotFather. Установщик сам открывает SSH, TCP 80, TCP 443 и UDP 443 в файрволе сервера. PostgreSQL, Redis и порт приложения наружу не публикуются. Если у хостера есть отдельный файрвол панели, разрешите в нём те же порты.
 
-Пароли в `.env` — только буквы и цифры. Символы `@ : / #` ломают `DATABASE_URL`.
+Пароль может содержать специальные символы. В ручном `DATABASE_URL` кодируйте его через `urllib.parse.quote(password, safe='')`; Support Pro использует отдельные переменные `POSTGRES_*`.
 
 ```bash
 sudo apt-get update
@@ -107,7 +122,7 @@ docker compose up -d --build
 curl -fsS https://API_DOMAIN/health
 ```
 
-Ответ содержит `"ok": true` и текущую версию из `backend/app/main.py`. Откройте `https://ADMIN_DOMAIN` и войдите почтой из `.env`. Ключи касс можно оставить пустыми: живые платежи закрыты, пока не пройден staging E2E.
+Ответ содержит `"ok": true` и текущую версию из `backend/app/main.py`. Откройте `https://ADMIN_DOMAIN` и войдите почтой из `.env`. Ключи касс можно оставить пустыми: живые платежи закрыты до реализации полного staging E2E v2.
 
 ### Возможности
 
@@ -217,7 +232,7 @@ Stop with `docker compose --env-file .env.test -f docker-compose.test.yml down`.
 
 A live shop takes orders over HTTPS. You need Ubuntu or Debian, root SSH, a domain, and five names pointing at the server: API, admin, Mini App, cabinet, and Support Pro. You also need a Remnawave panel and a bot token from @BotFather. The installer opens SSH, TCP 80, TCP 443 and UDP 443 in the server firewall. PostgreSQL, Redis and the application port stay unpublished. If the hoster has a panel firewall, allow the same ports there.
 
-Keep `.env` passwords to letters and digits. The characters `@ : / #` break `DATABASE_URL`.
+Passwords may contain special characters. Percent-encode the password in a manually supplied `DATABASE_URL` with `urllib.parse.quote(password, safe='')`; Support Pro uses separate `POSTGRES_*` variables.
 
 ```bash
 sudo apt-get update
@@ -264,7 +279,7 @@ docker compose up -d --build
 curl -fsS https://API_DOMAIN/health
 ```
 
-The body contains `"ok": true` and `"version": "20.0.5"`. Open `https://ADMIN_DOMAIN` and sign in with the email from `.env`. Gateway keys can stay empty: live charges stay closed until a staging end-to-end run has passed.
+The body contains `"ok": true` and the current version. Open `https://ADMIN_DOMAIN` and sign in with the email from `.env`. Gateway keys can stay empty: live charges stay closed until a complete staging E2E v2 runner is implemented and passes.
 
 ### Features
 
@@ -374,7 +389,7 @@ bash scripts/test-up.sh
 
 Бойовий магазин приймає замовлення через HTTPS. Потрібні Ubuntu або Debian, root по SSH, домен і п'ять імен на IP сервера: API, адмінка, Mini App, кабінет і Support Pro. Ще потрібні панель Remnawave і токен бота від @BotFather. Встановлювач сам відкриває SSH, TCP 80, TCP 443 і UDP 443 у файрволі сервера. PostgreSQL, Redis і порт застосунку назовні не публікуються. Якщо в хостера є окремий файрвол панелі, дозвольте в ньому ті самі порти.
 
-Паролі в `.env` — лише літери й цифри. Символи `@ : / #` ламають `DATABASE_URL`.
+Пароль може містити спеціальні символи. У ручному `DATABASE_URL` закодуйте його через `urllib.parse.quote(password, safe='')`; Support Pro використовує окремі змінні `POSTGRES_*`.
 
 ```bash
 sudo apt-get update
@@ -787,7 +802,7 @@ cd ../cabinet && npm install && npx vite build
 
 A VPN shop with a Telegram bot, a Mini App, a standalone user cabinet, an admin console, separate Android and iOS apps for buyers and administrators, a FastAPI backend, three payment providers plus a sandbox provider, a tariff constructor, Remnawave node status, abuse scoring, a node agent, provisioning, queues and backups.
 
-Latest published tag: **v20.0.6**. Audit candidate: **v20.0.7**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
+Latest published tag before this change: **v20.0.7**. Audit candidate: **v20.0.8**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
 
 ### What is in the tree
 
@@ -1006,4 +1021,4 @@ cd ../cabinet && npm install && npx vite build
 
 ### 20.0.6
 
-Ниже сохранена история релизов. Как пройти staging E2E — [PAYMENTS.md](docs/ru/PAYMENTS.md). How to pass staging E2E — [PAYMENTS.md](docs/en/PAYMENTS.md). Як пройти staging E2E — [PAYMENTS.md](docs/uk/PAYMENTS.md). Маркер `FULL_E2E_PASS` появляется только после всех проверок.
+Ниже сохранена история релизов. Как пройти staging E2E — [PAYMENTS.md](docs/ru/PAYMENTS.md). How to pass staging E2E — [PAYMENTS.md](docs/en/PAYMENTS.md). Як пройти staging E2E — [PAYMENTS.md](docs/uk/PAYMENTS.md). Исторический маркер `FULL_E2E_PASS` больше не выдаётся текущим runner: см. раздел v20.0.8.

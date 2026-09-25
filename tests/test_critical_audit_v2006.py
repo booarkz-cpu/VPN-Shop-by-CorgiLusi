@@ -19,13 +19,13 @@ def test_live_version_is_20_0_6():
     assert builder.index('VERSION="20.0.6"') < builder.index('VERSION="20.0.5"')
     assert builder.index('VERSION="3.1.6"') < builder.index('VERSION="3.1.5"')
     first = main.index('APP_VERSION = "')
-    assert main[first:first + len('APP_VERSION = "20.0.7"')] == 'APP_VERSION = "20.0.7"'
+    assert main[first:first + len('APP_VERSION = "20.0.8"')] == 'APP_VERSION = "20.0.8"'
 
 
 def test_full_pass_requires_its_own_line_and_localhost_checks():
     main = (ROOT / "backend/app/main.py").read_text()
-    assert '"FULL_E2E_PASS" in text' in main
-    assert 'any(line.strip()=="FULL_E2E_PASS" for line in text.splitlines())' in main
+    assert "full_pass = False" in main
+    assert 'status.get("contract_version")!=2' in main
     assert 'client_host not in {"127.0.0.1","::1"}' in main
     for path in ("/api/internal/staging-e2e/verify", "/api/internal/staging-e2e/refund", "/api/internal/staging-e2e/refund-status", "/api/internal/staging-e2e/remnawave"):
         assert path in main
@@ -38,8 +38,8 @@ def test_runner_prints_the_marker_only_as_the_final_line():
     assert host == image
     assert (ROOT / "scripts/staging-e2e.sh").stat().st_mode & 0o111
     lines = [line for line in host.splitlines() if "FULL_E2E_PASS" in line]
-    assert lines == ["echo FULL_E2E_PASS"]
-    assert host.strip().splitlines()[-1] == "echo FULL_E2E_PASS"
+    assert lines == []
+    assert "[INCOMPLETE]" in host
     assert "[CHECKOUT]" in host and "awaiting_checkout" in host
     assert "в контейнере backend нет curl" in host
     assert "/api/internal/staging-e2e/verify" in host

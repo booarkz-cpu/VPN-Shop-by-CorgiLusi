@@ -1,6 +1,6 @@
 services:
   redis:
-    image: ${REDIS_IMAGE:-redis:7.4-alpine}
+    image: ${REDIS_IMAGE:-redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499}
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
     volumes:
@@ -16,7 +16,7 @@ services:
     cpus: 0.50
 
   db:
-    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea}
     restart: unless-stopped
     environment:
       POSTGRES_USER: vpnshop
@@ -39,7 +39,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim}
+        PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -81,7 +81,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim}
+        PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9}
     restart: unless-stopped
     command: ["python", "worker.py"]
     env_file: .env
@@ -116,7 +116,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.bot
       args:
-        PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim}
+        PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9}
     restart: unless-stopped
     env_file: .env
     depends_on:
@@ -134,7 +134,7 @@ services:
     build:
       context: ./admin
       args:
-        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine}
+        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402}
         NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:-nginx:1.29-alpine}
         VITE_API_URL: ""
     restart: unless-stopped
@@ -165,7 +165,7 @@ services:
     build:
       context: ./miniapp
       args:
-        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine}
+        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402}
         NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:-nginx:1.29-alpine}
         VITE_API_URL: ""
     restart: unless-stopped
@@ -196,7 +196,7 @@ services:
     build:
       context: ./cabinet
       args:
-        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine}
+        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402}
         NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:-nginx:1.29-alpine}
         VITE_API_URL: ""
     restart: unless-stopped
@@ -224,7 +224,7 @@ services:
       start_period: 10s
 
   support_db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     restart: unless-stopped
     environment:
       POSTGRES_DB: support
@@ -241,7 +241,7 @@ services:
       - no-new-privileges:true
 
   support_redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -261,7 +261,10 @@ services:
     restart: 'no'
     env_file: ./support-pro/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://support:${SUPPORT_PRO_DB_PASSWORD}@support_db:5432/support
+      POSTGRES_HOST: support_db
+      POSTGRES_USER: support
+      POSTGRES_PASSWORD: ${SUPPORT_PRO_DB_PASSWORD:?set SUPPORT_PRO_DB_PASSWORD in .env}
+      POSTGRES_DB: support
       REDIS_URL: redis://support_redis:6379/0
       SSO_SECRET: ${SUPPORT_PRO_SSO_SECRET:?set SUPPORT_PRO_SSO_SECRET in .env}
       PUBLIC_ORIGIN: ${SUPPORT_PRO_PUBLIC_ORIGIN:-}
@@ -276,7 +279,10 @@ services:
     restart: unless-stopped
     env_file: ./support-pro/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://support:${SUPPORT_PRO_DB_PASSWORD}@support_db:5432/support
+      POSTGRES_HOST: support_db
+      POSTGRES_USER: support
+      POSTGRES_PASSWORD: ${SUPPORT_PRO_DB_PASSWORD:?set SUPPORT_PRO_DB_PASSWORD in .env}
+      POSTGRES_DB: support
       REDIS_URL: redis://support_redis:6379/0
       SSO_SECRET: ${SUPPORT_PRO_SSO_SECRET:?set SUPPORT_PRO_SSO_SECRET in .env}
       PUBLIC_ORIGIN: ${SUPPORT_PRO_PUBLIC_ORIGIN:-}
@@ -309,7 +315,10 @@ services:
     restart: unless-stopped
     env_file: ./support-pro/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://support:${SUPPORT_PRO_DB_PASSWORD}@support_db:5432/support
+      POSTGRES_HOST: support_db
+      POSTGRES_USER: support
+      POSTGRES_PASSWORD: ${SUPPORT_PRO_DB_PASSWORD:?set SUPPORT_PRO_DB_PASSWORD in .env}
+      POSTGRES_DB: support
       REDIS_URL: redis://support_redis:6379/0
       SSO_SECRET: ${SUPPORT_PRO_SSO_SECRET:?set SUPPORT_PRO_SSO_SECRET in .env}
     command: ["python", "-m", "app.worker"]
@@ -327,7 +336,7 @@ services:
       - /tmp
 
   caddy:
-    image: ${CADDY_IMAGE:-caddy:2.10-alpine}
+    image: ${CADDY_IMAGE:-caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d}
     restart: unless-stopped
     environment:
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}

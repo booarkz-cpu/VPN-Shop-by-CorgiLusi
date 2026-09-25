@@ -169,7 +169,7 @@ async def production_payment_gate(payload:ProductionGateIn, db:AsyncSession=Depe
     raw=await setting_value(db,STAGING_E2E_STATUS_KEY,"{}")
     try: status=json.loads(raw)
     except Exception: status={}
-    if status.get("status")!="passed" or not status.get("full_e2e"):
+    if status.get("status")!="passed" or not status.get("full_e2e") or status.get("contract_version")!=2:
         raise HTTPException(409,"Сначала необходимо успешно завершить полный staging E2E: checkout → webhook → fulfillment → duplicate webhook → refund")
     finished=status.get("finished_at")
     try:
@@ -187,7 +187,8 @@ async def production_payment_gate(payload:ProductionGateIn, db:AsyncSession=Depe
 STAGING_E2E_CONFIG_KEY="staging_e2e.config"
 STAGING_E2E_STATUS_KEY="staging_e2e.status"
 STAGING_E2E_LOCK=asyncio.Lock()
-PRODUCTION_PAYMENTS_GATE_KEY="payments.production_gate"
+# A new key invalidates a gate enabled by the old runner's false positive.
+PRODUCTION_PAYMENTS_GATE_KEY="payments.production_gate.v20_0_8"
 PRODUCTION_GATE_MAX_AGE_HOURS=24
 
 class StagingE2EConfigIn(BaseModel):
@@ -318,9 +319,11 @@ async def _run_staging_e2e(config, admin_email):
         # requires an explicit FULL_E2E_PASS marker emitted after checkout/webhook/fulfillment/refund
         # verification. A mention inside a help sentence does not count: the marker must be its own line.
         # This prevents the old false-positive where payment creation alone unlocked production.
-        full_pass = proc.returncode == 0 and "FULL_E2E_PASS" in text and any(line.strip()=="FULL_E2E_PASS" for line in text.splitlines())
+        # The current runner has no evidence of webhook delivery or fulfillment.
+        # Keep the gate closed until a v2 runner verifies those events end to end.
+        full_pass = False
         status="passed" if full_pass else ("awaiting_checkout" if proc.returncode==0 else "failed")
-        result={"status":status,"full_e2e":full_pass,"exit_code":proc.returncode,"finished_at":datetime.utcnow().isoformat(),"output":text,"admin":admin_email}
+        result={"status":status,"full_e2e":full_pass,"contract_version":1,"exit_code":proc.returncode,"finished_at":datetime.utcnow().isoformat(),"output":text,"admin":admin_email}
     except Exception as exc:
         partial=_redact_staging_output("".join(chunks)[-30000:], config)
         result={"status":"failed","full_e2e":False,"exit_code":-1,"finished_at":datetime.utcnow().isoformat(),"output":_redact_staging_output((partial+"\n"+str(exc)).strip(), config),"admin":admin_email}
