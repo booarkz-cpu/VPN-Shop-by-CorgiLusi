@@ -146,3 +146,8 @@ async def test_cors_is_split_and_token_exchange_has_no_cors(modules):
         for path,origin,allowed in [('/api/admin/users','https://admin.example.com',True),('/api/admin/users','https://cabinet.example.com',False),('/api/auth/mobile/token','https://admin.example.com',False)]:
             response=await client.get(path,headers={'Origin':origin})
             assert ('access-control-allow-origin' in response.headers)==allowed
+
+
+def test_example_optional_telegram_id_does_not_block_startup(modules):
+    config = modules.config.Settings(_env_file=None, APP_ENV="test", ADMIN_TELEGRAM_ID="")
+    assert config.admin_telegram_id == 0

@@ -289,6 +289,11 @@ class Settings(BaseSettings):
     maintenance_mode: bool = Field(default=False, alias="MAINTENANCE_MODE")
 
     # ---------- Валидаторы ----------
+    @field_validator("admin_telegram_id", mode="before")
+    @classmethod
+    def _optional_admin_telegram_id(cls, value):
+        return 0 if isinstance(value, str) and not value.strip() else value
+
     @model_validator(mode="after")
     def _require_secure_production_cookie(self) -> "Settings":
         if self.app_env.lower() == "production" and not self.cookie_secure:

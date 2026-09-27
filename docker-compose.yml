@@ -10,6 +10,7 @@ services:
     security_opt: [no-new-privileges:true]
     volumes:
       - media_data:/owned/media
+      - app_packages:/owned/app-packages
       - backup_data:/owned/backups
       - support_uploads:/owned/uploads
       - caddy_data:/owned/caddy-data
@@ -80,6 +81,7 @@ services:
         condition: service_healthy
     volumes:
       - media_data:/data/media
+      - app_packages:/data/app-packages
       - .:/project:ro
       - backup_data:/data/backups
     expose:
@@ -125,6 +127,7 @@ services:
         condition: service_healthy
     volumes:
       - media_data:/data/media
+      - app_packages:/data/app-packages
       - .:/project:ro
       - backup_data:/data/backups
     security_opt:
@@ -431,6 +434,7 @@ volumes:
   backup_data:
   postgres_data:
   media_data:
+  app_packages:
   support_postgres_data:
   support_redis_data:
   support_uploads:
