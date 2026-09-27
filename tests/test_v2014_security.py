@@ -24,6 +24,7 @@ def native(headers=None):
     ({'mobile_client_key':'b7e1c4a09f6d42e8a1c35b77d0e94f12'},'public default'),
     ({'mobile_require_proof':True,'mobile_client_key':'x'*40},'Legacy'),
     ({'redis_password':''},'Redis requires'),
+    ({'support_pro_url':'https://support.example.com','support_pro_sso_secret':'change-me-support-sso'},'Support Pro'),
     ({'rollypay_api_key':'key','rollypay_signing_secret':''},'RollyPay'),
     ({'platega_merchant_id':'merchant','platega_secret':''},'Platega'),
     ({'stripe_secret_key':'key','stripe_webhook_secret':''},'Stripe'),

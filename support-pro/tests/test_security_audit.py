@@ -12,11 +12,11 @@ from app.models import Operator
 
 @pytest.mark.asyncio
 async def test_sso_post_preserves_role_and_rejects_replay(env,monkeypatch):
-    monkeypatch.setenv('SSO_SECRET','secret-for-test')
+    monkeypatch.setenv('SSO_SECRET','secret-for-test-0123456789-abcdefghij')
     now=int(time.time())
     payload={'login':'shop-viewer','role':'viewer','iat':now,'exp':now+60,'jti':'one-use'}
     raw=base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
-    token=raw+'.'+hmac.new(b'secret-for-test',raw.encode(),hashlib.sha256).hexdigest()
+    token=raw+'.'+hmac.new(b'secret-for-test-0123456789-abcdefghij',raw.encode(),hashlib.sha256).hexdigest()
     assert (await env['client'].get('/sso',params={'token':token})).status_code==405
     response=await env['client'].post('/sso',data={'token':token})
     assert response.status_code==303
@@ -28,10 +28,10 @@ async def test_sso_post_preserves_role_and_rejects_replay(env,monkeypatch):
 
 @pytest.mark.asyncio
 async def test_sso_does_not_inherit_existing_admin_role(env,monkeypatch):
-    monkeypatch.setenv('SSO_SECRET','secret-for-test')
+    monkeypatch.setenv('SSO_SECRET','secret-for-test-0123456789-abcdefghij')
     now=int(time.time())
     raw=base64.urlsafe_b64encode(json.dumps({'login':'admin','role':'viewer','iat':now,'exp':now+60,'jti':'mismatch'}).encode()).decode().rstrip('=')
-    token=raw+'.'+hmac.new(b'secret-for-test',raw.encode(),hashlib.sha256).hexdigest()
+    token=raw+'.'+hmac.new(b'secret-for-test-0123456789-abcdefghij',raw.encode(),hashlib.sha256).hexdigest()
     assert (await env['client'].post('/sso',data={'token':token})).status_code==403
 
 @pytest.mark.asyncio
@@ -58,3 +58,12 @@ async def test_webhook_transport_connects_validated_literal_without_second_looku
     await transport.connect_tcp('allowed.example.com',443)
     assert len(lookups)==1
     assert connect.call_args.args[0]=='8.8.8.8'
+
+
+@pytest.mark.asyncio
+async def test_sso_rejects_public_placeholder_secret(env, monkeypatch):
+    monkeypatch.setenv('SSO_SECRET', 'change-me-support-sso')
+    now = int(time.time())
+    raw = base64.urlsafe_b64encode(json.dumps({'login':'attacker','role':'admin','iat':now,'exp':now+60,'jti':'forged'}).encode()).decode().rstrip('=')
+    token = raw + '.' + hmac.new(b'change-me-support-sso', raw.encode(), hashlib.sha256).hexdigest()
+    assert (await env['client'].post('/sso', data={'token':token})).status_code == 403

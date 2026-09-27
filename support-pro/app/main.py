@@ -153,7 +153,7 @@ async def sso_login(request: Request):
     form = await request.form(max_files=0, max_fields=1)
     token = str(form.get('token', ''))
     secret = os.getenv('SSO_SECRET', '')
-    if not secret or not token or '.' not in token:
+    if len(secret) < 32 or secret.startswith('change-me') or not token or '.' not in token:
         raise HTTPException(403, 'SSO недоступен')
     raw, sig = token.rsplit('.', 1)
     expected = hmac.new(secret.encode(), raw.encode(), hashlib.sha256).hexdigest()

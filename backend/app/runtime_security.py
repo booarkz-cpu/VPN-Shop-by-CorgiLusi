@@ -53,6 +53,10 @@ def validate_configuration(settings):
     _origins(settings.cabinet_cors_origins, prod, {settings.cabinet_domain, settings.app_domain, settings.miniapp_domain})
     if not prod:
         return
+    if settings.support_pro_url or settings.support_pro_sso_secret:
+        secret = settings.support_pro_sso_secret
+        if not settings.support_pro_url or len(secret) < 32 or secret.startswith("change-me"):
+            raise ValueError("Support Pro requires a URL and a unique SSO secret of at least 32 characters")
     if settings.mobile_client_key == LEGACY_MOBILE_KEY:
         raise ValueError('Remove the public default MOBILE_CLIENT_KEY; native apps use PKCE')
     if settings.mobile_require_proof and len(settings.mobile_client_key) < 32:
