@@ -2,7 +2,7 @@
 
 ## Mobile 2.14.1 — 2026-09-27
 
-Согласованы версии четырёх native-клиентов, build 2141 и User-Agent; сохранён PKCE-вход для backend 20.0.14. Добавлены сборка и публикация Android APK, iOS unsigned IPA и simulator ZIP, SHA-256 и метаданные происхождения. Release APK больше не подписывается debug-ключом автоматически: без постоянного ключа создаётся отдельный preview package. [Установка](docs/ru/MOBILE_RELEASE_2_14_1.md).
+Согласованы версии четырёх native-клиентов, build 2141 и User-Agent; сохранён PKCE-вход для backend 20.0.14. Добавлены сборка и публикация Android APK, iOS unsigned IPA и simulator ZIP, SHA-256 и метаданные происхождения. Для iOS добавлено описание использования Face ID, необходимое для разблокировки сохранённой сессии. Release APK больше не подписывается debug-ключом автоматически: без постоянного ключа создаётся отдельный preview package. [Установка](docs/ru/MOBILE_RELEASE_2_14_1.md).
 
 ## 20.0.14 — 2026-09-26
 
