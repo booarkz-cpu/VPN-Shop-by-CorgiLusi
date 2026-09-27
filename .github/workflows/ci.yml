@@ -180,7 +180,7 @@ jobs:
           PY
       - name: Build and start services
         run: |
-          docker compose build backend admin miniapp cabinet support_pro support_worker
+          docker compose build backend admin miniapp cabinet support_pro support_worker caddy
           docker compose up -d --wait --wait-timeout 240 backend admin miniapp cabinet support_pro support_worker
       - name: Verify privilege and authentication boundaries
         run: |
