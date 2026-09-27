@@ -320,9 +320,14 @@ services:
     build:
       context: ./support-pro
       dockerfile: app/Dockerfile
+    networks:
+      default: {}
+      ingress:
+        ipv4_address: ${SUPPORT_INGRESS_IP:-172.30.84.4}
     restart: unless-stopped
     env_file: ./support-pro/.env
     environment:
+      TRUSTED_PROXY_CIDRS: ${CADDY_INGRESS_IP:-172.30.84.2}/32
       POSTGRES_HOST: support_db
       POSTGRES_USER: support
       POSTGRES_PASSWORD: ${SUPPORT_PRO_DB_PASSWORD:?set SUPPORT_PRO_DB_PASSWORD in .env}
@@ -398,6 +403,7 @@ services:
       net.ipv4.ip_unprivileged_port_start: "0"
     restart: unless-stopped
     environment:
+      SUPPORT_UPSTREAM: ${SUPPORT_INGRESS_IP:-172.30.84.4}:8000
       BACKEND_UPSTREAM: ${BACKEND_INGRESS_IP:-172.30.84.3}:8000
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
       ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN in .env}

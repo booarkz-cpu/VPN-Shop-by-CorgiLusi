@@ -40,6 +40,12 @@ services:
       db: {condition: service_healthy}
   app:
     <<: *app
+    environment:
+      TRUSTED_PROXY_CIDRS: ${NGINX_INGRESS_IP:-172.30.85.2}/32
+    networks:
+      default: {}
+      ingress:
+        ipv4_address: ${APP_INGRESS_IP:-172.30.85.3}
     restart: unless-stopped
     depends_on:
       migrate: {condition: service_completed_successfully}
@@ -83,6 +89,9 @@ services:
     restart: unless-stopped
     volumes: [clamdata:/var/lib/clamav]
   nginx:
+    networks:
+      ingress:
+        ipv4_address: ${NGINX_INGRESS_IP:-172.30.85.2}
     user: "101:101"
     entrypoint: ["nginx", "-g", "daemon off;"]
     cap_drop: [ALL]
@@ -105,3 +114,10 @@ volumes:
   redisdata: {}
   uploads: {}
   clamdata: {}
+
+networks:
+  ingress:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${INGRESS_SUBNET:-172.30.85.0/29}

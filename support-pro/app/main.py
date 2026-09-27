@@ -1,3 +1,4 @@
+from .client_ip import client_ip
 import asyncio
 import base64
 import hmac
@@ -204,7 +205,7 @@ async def login(request: Request):
 async def login_post(request: Request):
     data = await form_data(request)
     login = text_field(data, 'login', 120, True)
-    ip = request.client.host if request.client else 'unknown'
+    ip = client_ip(request)
     try:
         for value in (ip, 'login:' + login):
             key = 'login-limit:' + hashlib.sha256(value.encode()).hexdigest()

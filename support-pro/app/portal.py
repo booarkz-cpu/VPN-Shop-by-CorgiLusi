@@ -1,4 +1,5 @@
 """Private customer portal and web conversations; notes never leave the operator UI."""
+from .client_ip import client_ip
 import hashlib, secrets
 from datetime import timedelta
 from fastapi import Request, Depends, HTTPException
@@ -36,7 +37,7 @@ async def home(request:Request):
 @app.post('/portal/start')
 async def start(request:Request):
     d=await m.form_data(request)
-    ip=request.client.host if request.client else 'unknown'
+    ip=client_ip(request)
     count=await m.r.incr('portal-start:'+hashlib.sha256(ip.encode()).hexdigest())
     await m.r.expire('portal-start:'+hashlib.sha256(ip.encode()).hexdigest(),3600)
     if count>10:raise HTTPException(429,'Попробуйте позже')

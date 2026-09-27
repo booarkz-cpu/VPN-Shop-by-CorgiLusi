@@ -193,7 +193,7 @@ jobs:
             docker compose exec -T "$service" sh -c 'test "$(awk '\''/^Uid:/ {print $2}'\'' /proc/1/status)" != 0'
           done
           docker compose exec -T backend python -c "from pathlib import Path; p=Path('/data/app-packages/.write-test'); p.write_text('ok'); p.unlink()"
-          docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
+          docker compose run --rm --no-deps --entrypoint caddy caddy validate --config /etc/caddy/Caddyfile
           test "$(docker compose run --rm --no-deps --entrypoint id caddy -u)" = 10001
       - name: Logs on failure
         if: failure()

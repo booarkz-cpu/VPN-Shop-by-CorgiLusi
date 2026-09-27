@@ -67,3 +67,26 @@ async def test_sso_rejects_public_placeholder_secret(env, monkeypatch):
     raw = base64.urlsafe_b64encode(json.dumps({'login':'attacker','role':'admin','iat':now,'exp':now+60,'jti':'forged'}).encode()).decode().rstrip('=')
     token = raw + '.' + hmac.new(b'change-me-support-sso', raw.encode(), hashlib.sha256).hexdigest()
     assert (await env['client'].post('/sso', data={'token':token})).status_code == 403
+
+
+def test_forwarded_address_requires_exact_trusted_proxy(monkeypatch):
+    from starlette.requests import Request
+    from app.client_ip import client_ip
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', '172.30.84.2/32')
+    def request(peer, forwarded):
+        return Request({'type':'http','client':(peer,1234),'headers':[(b'x-forwarded-for',forwarded.encode())]})
+    assert client_ip(request('172.30.84.2','203.0.113.1')) == '203.0.113.1'
+    assert client_ip(request('172.30.84.3','203.0.113.1')) == '172.30.84.3'
+    assert client_ip(request('172.30.84.2','malformed')) == '172.30.84.2'
+
+
+@pytest.mark.asyncio
+async def test_login_limits_do_not_collapse_clients_behind_proxy(env, monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS','127.0.0.1/32')
+    async def attempt(index, ip):
+        return await env['client'].post('/login',headers={'X-Forwarded-For':ip},data={
+            'csrf_token':env['csrf'],'login':f'unknown-{index}','password':'wrong-password','code':'000000'})
+    for index in range(15):
+        assert (await attempt(index,'203.0.113.1')).status_code == 401
+    assert (await attempt(15,'203.0.113.1')).status_code == 429
+    assert (await attempt(16,'203.0.113.2')).status_code == 401
