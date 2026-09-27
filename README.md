@@ -1,8 +1,10 @@
 # VPN Shop by Corgi Lusi
 
+**Мобильные приложения 2.14.1:** [скачать сборки](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/mobile-v2.14.1) · [установка и подпись](docs/ru/MOBILE_RELEASE_2_14_1.md). Android preview APK устанавливаются рядом с основными приложениями; iOS unsigned IPA требует Apple-подписи.
+
 **Релиз 20.0.14 — исправления сводного аудита безопасности.** [Результаты по 19 пунктам](docs/ru/SECURITY_AUDIT_20_0_14.md) · [Обязательная инструкция обновления](docs/ru/SECURITY_UPGRADE_20_0_14.md) · [Changelog](CHANGELOG.md).
 
-Перед обновлением подготовьте новые native-клиенты 2.14.0, пароли Redis и две MFA-учётные записи для restore. В production используются точные CORS origins и доверенный IP Caddy. Полный staging E2E v2 ещё не реализован: реальные платежи остаются закрытыми.
+Перед обновлением подготовьте новые native-клиенты 2.14.1, пароли Redis и две MFA-учётные записи для restore. В production используются точные CORS origins и доверенный IP Caddy. Полный staging E2E v2 ещё не реализован: реальные платежи остаются закрытыми.
 
 Магазин VPN-подписок: кабинет, Mini App, админка, Telegram-бот, приложения Android и iOS, выдача доступа через Remnawave.
 

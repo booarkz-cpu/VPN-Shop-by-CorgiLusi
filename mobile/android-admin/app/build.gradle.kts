@@ -11,9 +11,8 @@ android {
         applicationId = "shop.remnawave.admin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2120
-        versionName = "2.12.0"
-        // Historical compatibility marker: versionName = "2.14.0"
+        versionCode = 2141
+        versionName = "2.14.1"
         // Historical compatibility marker: versionName = "2.9.0"
     }
     buildFeatures { compose = true }
@@ -35,9 +34,13 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+        }
         release {
             isMinifyEnabled = false
-            signingConfig = if (System.getenv("ANDROID_KEYSTORE").isNullOrBlank()) signingConfigs.getByName("debug") else signingConfigs.getByName("shopRelease")
+            signingConfig = signingConfigs.getByName("shopRelease")
         }
     }
 }
