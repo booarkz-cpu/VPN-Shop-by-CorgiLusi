@@ -20,7 +20,7 @@ def test_provider_routing_requires_creation_credentials():
     end = MAIN.index('@app.post("/api/payments/create")', start)
     section = MAIN[start:end]
     assert 'configured = {' in section
-    assert '"yookassa": bool(settings.yookassa_shop_id and settings.yookassa_secret_key)' in section
+    assert '"yookassa": bool(settings.yookassa_shop_id and settings.yookassa_secret_key and settings.yookassa_webhook_ip_allowlist)' in section
     assert '"platega": bool(settings.platega_merchant_id and settings.platega_secret)' in section
-    assert '"rollypay": bool(settings.rollypay_api_key)' in section
+    assert '"rollypay": bool(settings.rollypay_api_key and settings.rollypay_signing_secret)' in section
     assert 'and configured.get(x.provider, False)' in section

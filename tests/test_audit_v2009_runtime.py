@@ -107,10 +107,10 @@ async def pg(shop):
     async with root.begin() as conn:
         await conn.execute(text(f'CREATE SCHEMA {schema}'))
     engine = create_async_engine(url, connect_args={'server_settings': {'search_path': schema}})
-    from app.models import User, Payment, FinancialLedger
+    from app.models import User, Payment, FinancialLedger, AdminUser, AppSetting, AuditLog, PaymentProviderEvent
     try:
         async with engine.begin() as conn:
-            for model in (User, Payment, FinancialLedger):
+            for model in (User, Payment, FinancialLedger, AdminUser, AppSetting, AuditLog, PaymentProviderEvent):
                 await conn.run_sync(model.__table__.create)
         yield engine
     finally:
@@ -213,3 +213,52 @@ async def test_payment_lock_failure_releases_user_lock(shop, monkeypatch):
     with pytest.raises(RuntimeError, match='lock unavailable'):
         await shop._confirm_and_fulfill_payment(1, db)
     release.assert_awaited_once_with('user-lock', 'token')
+
+@pytest.mark.asyncio
+async def test_provider_event_claim_is_atomic_and_failed_event_can_retry(shop, pg):
+    async def claim():
+        async with AsyncSession(pg, expire_on_commit=False) as db:
+            claimed = await shop.register_provider_event(db, 'stripe', 'event-race', None)
+            await db.commit()
+            return claimed
+    assert sorted(await asyncio.gather(claim(), claim())) == [False, True]
+    async with AsyncSession(pg, expire_on_commit=False) as db:
+        await shop.finish_provider_event(db, 'stripe', 'event-race', ok=False, error='transient failure')
+        await db.commit()
+    assert await claim()
+    async with AsyncSession(pg, expire_on_commit=False) as db:
+        await shop.finish_provider_event(db, 'stripe', 'event-race', ok=True)
+        await db.commit()
+    assert not await claim()
+
+
+@pytest.mark.asyncio
+async def test_restore_approval_is_consumed_atomically(shop, pg, monkeypatch, tmp_path):
+    from app import restore_approval as restore
+    from app.models import AdminUser, AppSetting
+    import json
+    monkeypatch.setattr(restore.settings, 'backups_dir', str(tmp_path))
+    monkeypatch.setattr(restore, 'verify_totp', lambda admin, otp: otp == '123456')
+    job = SimpleNamespace(id=1, filename='backup.tgz', sha256='checksum')
+    async with AsyncSession(pg, expire_on_commit=False) as db:
+        first = AdminUser(email='first@example.com', password_hash='unused', role='admin', mfa_enabled=True)
+        second = AdminUser(email='second@example.com', password_hash='unused', role='admin', mfa_enabled=True)
+        db.add_all([first, second])
+        await db.commit()
+        result = await restore.request_approval(db, job, first, '123456')
+        await restore.use_approval(db, job, second, '123456', result['approval_id'], approve=True)
+        uid = first.id
+    async def consume():
+        async with AsyncSession(pg, expire_on_commit=False) as db:
+            admin = await db.get(AdminUser, uid)
+            try:
+                await restore.use_approval(db, job, admin, '123456', result['approval_id'])
+                return True
+            except HTTPException as error:
+                assert error.status_code == 409
+                await db.rollback()
+                return False
+    assert sorted(await asyncio.gather(consume(), consume())) == [False, True]
+    async with AsyncSession(pg) as db:
+        row = await db.get(AppSetting, 'restore.approval:' + result['approval_id'])
+        assert json.loads(row.value)['consumed'] is True

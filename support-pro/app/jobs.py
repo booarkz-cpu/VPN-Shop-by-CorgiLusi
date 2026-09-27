@@ -23,7 +23,7 @@ def validate_rule(event, conditions, actions):
 
 def validate_url(url):
     u = urlsplit(url)
-    # Explicit destination allowlist also prevents DNS-rebinding to arbitrary hosts.
+    # Host allowlist is combined with connect-time public-IP pinning.
     allowed = set(os.getenv('WEBHOOK_ALLOWED_HOSTS','').split(','))
     if u.scheme != 'https' or not u.hostname or u.username or u.password or u.fragment or u.hostname not in allowed:
         raise ValueError('Нужен HTTPS URL с хостом из WEBHOOK_ALLOWED_HOSTS')
@@ -83,7 +83,8 @@ async def tick(session_factory):
             validate_url(endpoint.url)
             body = json.dumps({'id':job.key,'event':job.event,'data':job.payload},sort_keys=True,separators=(',',':')).encode()
             signature = hmac.new(endpoint.secret.encode(),body,hashlib.sha256).hexdigest()
-            async with httpx.AsyncClient(timeout=10,follow_redirects=False,trust_env=False) as client:
+            from .outbound import _pinned_public_http_client
+            async with _pinned_public_http_client(10) as client:
                 response = await client.post(endpoint.url,content=body,headers={'Content-Type':'application/json','X-Support-Signature':'sha256='+signature,'Idempotency-Key':job.key})
             status = response.status_code
             response.raise_for_status()

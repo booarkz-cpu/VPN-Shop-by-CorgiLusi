@@ -5,10 +5,11 @@
 
 Безопасность:
 - YooKassa: проверка IP-адреса отправителя по allowlist.
-- Platega: HMAC-SHA256 подпись вебхука.
+- Platega: X-MerchantId / X-Secret по официальному протоколу + API verification.
 - RollyPay: HMAC-SHA256 + проверка timestamp.
-- Защита от replay-атак (окно 5 минут для RollyPay).
-- Идемпотентность по event_id (YooKassa).
+- Timestamp RollyPay проверяется, но не входит в HMAC тела; replay блокируется
+  идемпотентностью события и платежа в обработчике.
+- Идемпотентность по event_id в обработчиках провайдеров.
 - HTTP-клиент с таймаутами и keep-alive.
 """
 from __future__ import annotations
@@ -413,7 +414,7 @@ class PlategaProvider(BasePaymentProvider):
         response = await client.post(
             f"{settings.platega_api_url}/api/payment",
             headers={
-                "X-Merchant": settings.platega_merchant_id,
+                "X-MerchantId": settings.platega_merchant_id,
                 "X-Secret": settings.platega_secret,
                 "Content-Type": "application/json",
             },
@@ -427,7 +428,7 @@ class PlategaProvider(BasePaymentProvider):
         response = await client.get(
             f"{settings.platega_api_url}/api/payment/{payment_id}",
             headers={
-                "X-Merchant": settings.platega_merchant_id,
+                "X-MerchantId": settings.platega_merchant_id,
                 "X-Secret": settings.platega_secret,
             },
         )
@@ -443,7 +444,7 @@ class PlategaProvider(BasePaymentProvider):
         async with _public_client(10) as client:
             response = await client.get(
                 f"{settings.platega_api_url}/transaction/{payment_id}",
-                headers={"X-Merchant": settings.platega_merchant_id, "X-Secret": settings.platega_secret},
+                headers={"X-MerchantId": settings.platega_merchant_id, "X-Secret": settings.platega_secret},
             )
         if response.status_code >= 400:
             return False
@@ -462,7 +463,7 @@ class PlategaProvider(BasePaymentProvider):
         async with _public_client(20) as client:
             response = await client.post(
                 settings.platega_refund_url,
-                headers={"X-Merchant": settings.platega_merchant_id, "X-Secret": settings.platega_secret, "Idempotence-Key": idem},
+                headers={"X-MerchantId": settings.platega_merchant_id, "X-Secret": settings.platega_secret, "Idempotence-Key": idem},
                 json={"id": payment_id, "amount": _money(amount), "currency": currency, "description": reason[:250]},
             )
         response.raise_for_status()
@@ -474,40 +475,20 @@ class PlategaProvider(BasePaymentProvider):
         if not url:
             raise PaymentError("Platega refund status URL is not configured")
         async with _public_client(10) as client:
-            response = await client.get(url.rstrip("/") + "/" + refund_id, headers={"X-Merchant": settings.platega_merchant_id, "X-Secret": settings.platega_secret})
+            response = await client.get(url.rstrip("/") + "/" + refund_id, headers={"X-MerchantId": settings.platega_merchant_id, "X-Secret": settings.platega_secret})
         response.raise_for_status()
         data = response.json()
         return str(data.get("status") or data.get("Status") or "")
 
-    def verify_webhook(
-        self,
-        headers: Dict[str, str],
-        body: bytes,
-        remote_addr: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Проверка подписи вебхука Platega (HMAC-SHA256)."""
-        signature = (
-            headers.get("X-Signature")
-            or headers.get("x-signature")
-        )
-        if not signature:
-            raise SignatureVerificationError(
-                "Отсутствует заголовок X-Signature"
-            )
-
-        expected = hmac.new(
-            settings.platega_secret.encode(), body, hashlib.sha256
-        ).hexdigest()
-
-        if not hmac.compare_digest(expected, signature):
-            raise SignatureVerificationError(
-                "Неверная подпись Platega"
-            )
-
-        try:
-            return json.loads(body)
-        except json.JSONDecodeError as e:
-            raise PaymentError(f"Невалидный JSON: {e}")
+    def verify_webhook(self, headers, body, remote_addr=None):
+        """Platega's documented callback uses X-MerchantId and X-Secret, not HMAC."""
+        lowered = {k.lower(): v for k, v in headers.items()}
+        if not verify_platega_headers(lowered.get("x-merchantid"), lowered.get("x-secret")):
+            raise SignatureVerificationError("Invalid Platega webhook credentials")
+        data = json.loads(body)
+        if not isinstance(data, dict):
+            raise PaymentError("Invalid Platega event")
+        return data
 
 
 # ============================================================
@@ -608,58 +589,16 @@ class RollyPayProvider(BasePaymentProvider):
         response.raise_for_status()
         return str(response.json().get("status") or "")
 
-    def verify_webhook(
-        self,
-        headers: Dict[str, str],
-        body: bytes,
-        remote_addr: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Проверка подписи вебхука RollyPay (HMAC-SHA256) + timestamp.
-        """
-        signature = (
-            headers.get("X-RollyPay-Signature")
-            or headers.get("x-rollypay-signature")
-        )
-        if not signature:
-            raise SignatureVerificationError(
-                "Отсутствует заголовок X-RollyPay-Signature"
-            )
-
-        expected = hmac.new(
-            settings.rollypay_signing_secret.encode(),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
-
-        if not hmac.compare_digest(expected, signature):
-            raise SignatureVerificationError(
-                "Неверная подпись RollyPay"
-            )
-
-        # Проверка timestamp (защита от replay). Без метки времени подпись можно повторить.
-        ts_header = (
-            headers.get("X-RollyPay-Timestamp")
-            or headers.get("x-rollypay-timestamp")
-        )
-        if not ts_header:
-            raise SignatureVerificationError("Missing RollyPay timestamp")
-        try:
-            ts = int(ts_header)
-        except ValueError:
-            raise SignatureVerificationError(
-                "Неверный формат timestamp"
-            )
-        now = int(time.time())
-        if abs(now - ts) > 300:
-            raise WebhookReplayError(
-                "Подпись RollyPay устарела"
-            )
-
-        try:
-            return json.loads(body)
-        except json.JSONDecodeError as e:
-            raise PaymentError(f"Невалидный JSON: {e}")
+    def verify_webhook(self, headers, body, remote_addr=None):
+        lowered = {k.lower(): v for k, v in headers.items()}
+        stamp = lowered.get("x-timestamp") or lowered.get("x-rollypay-timestamp") or ""
+        signature = lowered.get("x-signature") or lowered.get("x-rollypay-signature") or ""
+        if not verify_rollypay(body, stamp, signature):
+            raise SignatureVerificationError("Invalid RollyPay signature or timestamp")
+        data = json.loads(body)
+        if not isinstance(data, dict):
+            raise PaymentError("Invalid RollyPay event")
+        return data
 
 
 class SandboxProvider:
@@ -780,7 +719,7 @@ async def staging_read_payment(provider: str, creds: Dict[str, Any], payment_id:
         if provider == "yookassa":
             response = await client.get(f"{api_url}/v3/payments/{payment_id}", auth=(str(creds.get("shop_id") or ""), str(creds.get("secret_key") or "")))
         elif provider == "platega":
-            response = await client.get(f"{api_url}/transaction/{payment_id}", headers={"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or "")})
+            response = await client.get(f"{api_url}/transaction/{payment_id}", headers={"X-MerchantId": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or "")})
         elif provider == "rollypay":
             response = await client.get(f"{api_url}/api/v1/payments/{payment_id}", headers={"Authorization": f"Bearer {creds.get('api_key') or ''}"})
         else:
@@ -818,7 +757,7 @@ async def staging_refund_payment(provider: str, creds: Dict[str, Any], payment_i
             )
         elif provider == "platega":
             refund_url = validate_public_url(creds.get("refund_url"), allow_empty=False)
-            response = await client.post(refund_url, headers={"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or ""), "Content-Type": "application/json"}, json={"id": payment_id, "amount": _money(amount), "currency": "RUB"})
+            response = await client.post(refund_url, headers={"X-MerchantId": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or ""), "Content-Type": "application/json"}, json={"id": payment_id, "amount": _money(amount), "currency": "RUB"})
         elif provider == "rollypay":
             refund_url = validate_public_url(creds.get("refund_url"), allow_empty=False)
             body = json.dumps({"payment_id": payment_id, "amount": _money(amount), "currency": "RUB"}).encode()
@@ -841,7 +780,7 @@ async def staging_refund_read(provider: str, creds: Dict[str, Any], refund_id: s
             response = await client.get(f"{api_url}/v3/refunds/{refund_id}", auth=(str(creds.get("shop_id") or ""), str(creds.get("secret_key") or "")))
         elif provider == "platega":
             status_url = validate_public_url(creds.get("refund_status_url") or creds.get("refund_url"), allow_empty=False)
-            response = await client.get(str(status_url).rstrip("/") + "/" + refund_id, headers={"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or "")})
+            response = await client.get(str(status_url).rstrip("/") + "/" + refund_id, headers={"X-MerchantId": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or "")})
         elif provider == "rollypay":
             status_url = validate_public_url(creds.get("refund_status_url") or creds.get("refund_url"), allow_empty=False)
             response = await client.get(str(status_url).rstrip("/") + "/" + refund_id, headers={"Authorization": f"Bearer {creds.get('api_key') or ''}"})
@@ -873,7 +812,7 @@ async def staging_create_payment(provider: str, creds: Dict[str, Any], amount: D
         api_url = validate_public_url(api_url, allow_empty=False)
         payload = {"amount": float(amount), "currency": "RUB", "description": description, "payload": order_id, "return_url": return_url}
         auth = None
-        headers = {"X-Merchant": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or ""), "Content-Type": "application/json"}
+        headers = {"X-MerchantId": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or ""), "Content-Type": "application/json"}
         path = "/api/payment"
     elif provider == "rollypay":
         api_url = creds.get("api_url")

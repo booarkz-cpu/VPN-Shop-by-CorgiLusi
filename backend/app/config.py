@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     tz: str = Field(default="Europe/Moscow", alias="TZ")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
+    trusted_proxy_cidrs: str = Field(default="", alias="TRUSTED_PROXY_CIDRS")
+    cabinet_cors_origins: str = Field(default="", alias="CABINET_CORS_ORIGINS")
+
     # ---------- PostgreSQL ----------
     db_user: str = Field(default="vpnshop", alias="DB_USER")
     db_password: str = Field(default="change-me", alias="DB_PASSWORD")
@@ -198,9 +201,9 @@ class Settings(BaseSettings):
     trial_max_days: int = Field(default=3, alias="TRIAL_MAX_DAYS", ge=1, le=30)
     payments_sandbox: bool = Field(default=False, alias="PAYMENTS_SANDBOX")
     mobile_client_key: str = Field(
-        default="b7e1c4a09f6d42e8a1c35b77d0e94f12", alias="MOBILE_CLIENT_KEY"
+        default="", alias="MOBILE_CLIENT_KEY"
     )
-    mobile_require_proof: bool = Field(default=True, alias="MOBILE_REQUIRE_PROOF")
+    mobile_require_proof: bool = Field(default=False, alias="MOBILE_REQUIRE_PROOF")
     fulfillment_max_attempts: int = Field(
         default=8, alias="FULFILLMENT_MAX_ATTEMPTS"
     )
@@ -312,5 +315,13 @@ class Settings(BaseSettings):
             if o.strip()
         ]
 
+
+    def validate_security(self):
+        from .runtime_security import validate_configuration
+        validate_configuration(self)
+
+    def redis_connection_kwargs(self):
+        from .runtime_security import redis_connection_kwargs
+        return redis_connection_kwargs(self.redis_url, self.redis_password)
 
 settings = Settings()

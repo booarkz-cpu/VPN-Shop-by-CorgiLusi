@@ -160,7 +160,8 @@ async def worker_heartbeat():
         await asyncio.sleep(30)
 
 async def main_worker():
-    main.redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
+    settings.validate_security()
+    main.redis_client = Redis.from_url(settings.redis_url, decode_responses=True, **settings.redis_connection_kwargs())
     await main.redis_client.ping()
     await asyncio.gather(worker_heartbeat(), health_alert_worker(), job_worker(),
         main.backup_scheduler(),

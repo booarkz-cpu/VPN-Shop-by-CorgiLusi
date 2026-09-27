@@ -11,8 +11,8 @@ android {
         applicationId = "shop.remnawave.user"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2100
-        versionName = "2.10.0"
+        versionCode = 2140
+        versionName = "2.14.0"
         // Historical compatibility marker: versionName = "2.9.0"
     }
     buildFeatures { compose = true }

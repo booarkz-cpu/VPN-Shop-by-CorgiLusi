@@ -46,7 +46,6 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import kotlin.concurrent.thread
 
-private const val mobileClientKey = "b7e1c4a09f6d42e8a1c35b77d0e94f12"
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,14 +65,15 @@ private fun shopColors() = darkColorScheme(
 
 private val localHttpHosts = setOf("localhost", "127.0.0.1", "10.0.2.2")
 
-fun shopProof(client: String, method: String, path: String, nowSeconds: Long): Pair<String, String> {
-    val stamp = nowSeconds.toString()
-    val message = "$client\n$stamp\n${method.uppercase()}\n$path"
-    val mac = Mac.getInstance("HmacSHA256")
-    mac.init(SecretKeySpec(mobileClientKey.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-    val hex = mac.doFinal(message.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-    return stamp to hex
+fun pkceVerifier(): String {
+    val bytes = ByteArray(32)
+    java.security.SecureRandom().nextBytes(bytes)
+    return android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
 }
+fun pkceChallenge(verifier: String): String = android.util.Base64.encodeToString(
+    java.security.MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),
+    android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+
 
 fun promptUnlock(activity: FragmentActivity, title: String, onResult: (Boolean) -> Unit) {
     val authenticators = BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -136,20 +136,21 @@ class ShopApi(private val base: String, private val token: String, private val l
     fun post(path: String, body: JSONObject): Any = call("POST", path, body)
 
     private fun call(method: String, path: String, body: JSONObject?): Any {
+        val verifier = if (path in setOf("/api/auth/login", "/api/auth/register", "/api/admin/auth/login")) pkceVerifier() else null
         val connection = (URL(base + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             instanceFollowRedirects = false
             connectTimeout = 15000
             readTimeout = 15000
             setRequestProperty("Accept", "application/json")
+            if (verifier != null) setRequestProperty("X-Shop-Code-Challenge", pkceChallenge(verifier))
             setRequestProperty("Accept-Language", lang)
             setRequestProperty("User-Agent", "CorgiLusi-Android-Admin/2.12.0")
             // Historical compatibility marker: CorgiLusi-Android-Admin/2.10.0
             // Historical compatibility marker: CorgiLusi-Android-Admin/2.9.0
             setRequestProperty("X-Shop-Client", "android-admin")
-            val proof = shopProof("android-admin", method, path, System.currentTimeMillis() / 1000)
-            setRequestProperty("X-Shop-Time", proof.first)
-            setRequestProperty("X-Shop-Proof", proof.second)
+
+
             if (token.isNotBlank()) setRequestProperty("Authorization", "Bearer $token")
             if (body != null) {
                 doOutput = true
@@ -161,7 +162,14 @@ class ShopApi(private val base: String, private val token: String, private val l
         val text = (if (code in 200..299) connection.inputStream else connection.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
         if (code !in 200..299) throw IllegalStateException(detailOf(text, code))
         val trimmed = text.trim()
-        return if (trimmed.startsWith("[")) JSONArray(trimmed) else JSONObject(if (trimmed.isBlank()) "{}" else trimmed)
+        val result: Any = if (trimmed.startsWith("[")) JSONArray(trimmed) else JSONObject(if (trimmed.isBlank()) "{}" else trimmed)
+        if (verifier != null && result is JSONObject && result.has("authorization_code")) {
+            val exchanged = post("/api/auth/mobile/token", JSONObject().put("code", result.getString("authorization_code")).put("code_verifier", verifier)) as JSONObject
+            result.remove("authorization_code")
+            result.put("access_token", exchanged.getString("access_token"))
+            result.put("token_type", "bearer")
+        }
+        return result
     }
 }
 

@@ -3,7 +3,13 @@ import logging
 import os
 import redis.asyncio as redis
 
-r = redis.from_url(os.getenv('REDIS_URL', 'redis://redis:6379/0'), decode_responses=True)
+from urllib.parse import urlsplit, unquote
+redis_url = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+redis_password = os.getenv('REDIS_PASSWORD', '')
+embedded_password = unquote(urlsplit(redis_url).password or '')
+if redis_password and embedded_password and redis_password != embedded_password:
+    raise ValueError('REDIS_PASSWORD conflicts with REDIS_URL password')
+r = redis.from_url(redis_url, decode_responses=True, **({'password': redis_password} if redis_password and not embedded_password else {}))
 
 
 async def publish(tid, payload):

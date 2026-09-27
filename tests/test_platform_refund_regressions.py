@@ -12,7 +12,10 @@ import pytest
 @pytest.fixture
 def modules(monkeypatch):
     monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "backend"))
-    return importlib.import_module("app.main"), importlib.import_module("app.payment_platform")
+    shop = importlib.import_module("app.main")
+    monkeypatch.setattr(shop, "register_provider_event", AsyncMock(return_value=True))
+    monkeypatch.setattr(shop, "finish_provider_event", AsyncMock())
+    return shop, importlib.import_module("app.payment_platform")
 
 
 @pytest.mark.asyncio
@@ -65,12 +68,12 @@ async def test_late_provider_webhook_cannot_reactivate_refund(modules, monkeypat
     metric = AsyncMock()
     monkeypatch.setattr(shop, "_record_provider_metric", metric)
     if provider == "stripe":
-        event = {"type": "checkout.session.completed", "data": {"object": {"metadata": {"order_id": "local-order"}, "payment_status": "paid", "amount_total": 1000, "currency": "usd"}}}
+        event = {"id": "evt-test", "type": "checkout.session.completed", "data": {"object": {"metadata": {"order_id": "local-order"}, "payment_status": "paid", "amount_total": 1000, "currency": "usd"}}}
         monkeypatch.setattr(shop.StripePlatform, "verify_webhook", lambda self, body, sig: event)
         monkeypatch.setattr(shop.StripePlatform, "verify_succeeded", AsyncMock(return_value=True))
         handler = shop.stripe_webhook
     else:
-        event = {"event_type": "CHECKOUT.ORDER.COMPLETED", "resource": {"purchase_units": [{"reference_id": "local-order", "amount": {"currency_code": "USD", "value": "10.00"}}]}}
+        event = {"id": "evt-test", "event_type": "CHECKOUT.ORDER.COMPLETED", "resource": {"purchase_units": [{"reference_id": "local-order", "amount": {"currency_code": "USD", "value": "10.00"}}]}}
         monkeypatch.setattr(shop.PayPalPlatform, "verify_webhook", AsyncMock(return_value=event))
         monkeypatch.setattr(shop.PayPalPlatform, "verify_succeeded", AsyncMock(return_value=True))
         handler = shop.paypal_webhook
@@ -78,7 +81,7 @@ async def test_late_provider_webhook_cannot_reactivate_refund(modules, monkeypat
     assert (await handler(request, db))["received"] is True
     confirm.assert_awaited_once_with(payment.id, db)
     assert payment.status == "pending"
-    db.commit.assert_not_awaited()
+    assert db.commit.await_count == 2  # Event claim and completion; no payment mutation.
     metric.assert_not_awaited()
 
 
@@ -86,12 +89,12 @@ async def test_late_provider_webhook_cannot_reactivate_refund(modules, monkeypat
 @pytest.mark.parametrize("payment_status,should_capture", [("pending", True), ("paid", False), ("refunded", False)])
 async def test_paypal_approval_only_captures_pending_local_order(modules, monkeypatch, payment_status, should_capture):
     shop, _ = modules
-    event = {"event_type": "CHECKOUT.ORDER.APPROVED", "resource": {"id": "paypal-order"}}
+    event = {"id": "evt-test", "event_type": "CHECKOUT.ORDER.APPROVED", "resource": {"id": "paypal-order"}}
     monkeypatch.setattr(shop.PayPalPlatform, "verify_webhook", AsyncMock(return_value=event))
     capture = AsyncMock()
     monkeypatch.setattr(shop.PayPalPlatform, "capture", capture)
     pending = SimpleNamespace(status=payment_status) if should_capture else None
-    db = SimpleNamespace(execute=AsyncMock(return_value=Mock(scalar_one_or_none=lambda: pending)))
+    db = SimpleNamespace(execute=AsyncMock(return_value=Mock(scalar_one_or_none=lambda: pending)), commit=AsyncMock(), rollback=AsyncMock())
     request = SimpleNamespace(body=AsyncMock(return_value=b"{}"), headers={})
     assert (await shop.paypal_webhook(request, db))["received"] is True
     assert capture.await_count == int(should_capture)
@@ -124,11 +127,11 @@ async def test_paypal_refund_uses_stable_request_id_and_can_be_reconciled(module
 @pytest.mark.parametrize("status,expected", [("paid", "paid"), ("refunded", "refunded"), ("pending", "failed")])
 async def test_late_paypal_denial_does_not_overwrite_final_payment(modules, monkeypatch, status, expected):
     shop, _ = modules
-    event = {"event_type": "PAYMENT.CAPTURE.DENIED", "resource": {"supplementary_data": {"related_ids": {"order_id": "paypal-order"}}}}
+    event = {"id": "evt-test", "event_type": "PAYMENT.CAPTURE.DENIED", "resource": {"supplementary_data": {"related_ids": {"order_id": "paypal-order"}}}}
     monkeypatch.setattr(shop.PayPalPlatform, "verify_webhook", AsyncMock(return_value=event))
     payment = SimpleNamespace(status=status)
     db = SimpleNamespace(execute=AsyncMock(return_value=Mock(scalar_one_or_none=lambda: payment)), commit=AsyncMock())
     request = SimpleNamespace(body=AsyncMock(return_value=b"{}"), headers={})
     await shop.paypal_webhook(request, db)
     assert payment.status == expected
-    assert db.commit.await_count == int(status == "pending")
+    assert db.commit.await_count == 2 + int(status == "pending")

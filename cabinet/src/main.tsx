@@ -903,13 +903,7 @@ function App() {
               {activeItem?.kind === "custom" && (
                 <>
                   <h2 className="section-title">{activeItem.title || "Пользовательский раздел"}</h2>
-                  {isHtml(activeItem.body) ? (
-                    <div className="custom-body" dangerouslySetInnerHTML={{__html: activeItem.body || ""}} />
-                  ) : (
-                    <p className="custom-body" style={{whiteSpace: "pre-wrap"}}>
-                      {activeItem.body || ""}
-                    </p>
-                  )}
+                  <div className="custom-body" style={{whiteSpace: "pre-wrap"}}>{activeItem.body || ""}</div>
                 </>
               )}
             </section>

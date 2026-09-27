@@ -158,3 +158,78 @@ jobs:
           docker compose -f docker-compose.yml config --quiet
           cp .env.test.example .env.test
           docker compose --env-file .env.test -f docker-compose.test.yml config --quiet
+
+  containers:
+    name: Containers • non-root startup and Redis authentication
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated test configuration
+        run: |
+          cp .env.example .env
+          cp support-pro/.env.example support-pro/.env
+          python3 scripts/harden-env.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import secrets
+          p=Path('.env')
+          p.write_text(p.read_text()+'\nAPP_ENV=test\nAPI_DOMAIN=api.example.test\nADMIN_DOMAIN=admin.example.test\nAPP_DOMAIN=app.example.test\nCABINET_DOMAIN=cabinet.example.test\nAPP_SECRET='+secrets.token_hex(32)+'\n')
+          p=Path('support-pro/.env')
+          p.write_text(p.read_text()+'\nSESSION_SECRET='+secrets.token_hex(32)+'\nBOT_TOKEN=123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi\n')
+          PY
+      - name: Build and start services
+        run: |
+          docker compose build backend admin miniapp cabinet support_pro
+          docker compose up -d --wait --wait-timeout 240 backend admin miniapp cabinet support_pro
+      - name: Verify privilege and authentication boundaries
+        run: |
+          for service in backend admin miniapp cabinet support_pro; do
+            test "$(docker compose exec -T "$service" id -u)" != 0
+          done
+          for service in redis support_redis; do
+            docker compose exec -T "$service" redis-cli ping | grep -q NOAUTH
+            docker compose exec -T "$service" sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping' | grep -qx PONG
+            docker compose exec -T "$service" sh -c 'test "$(awk '\''/^Uid:/ {print $2}'\'' /proc/1/status)" != 0'
+          done
+          docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
+          test "$(docker compose run --rm --no-deps --entrypoint id caddy -u)" = 10001
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+      - name: Stop isolated services
+        if: always()
+        run: docker compose down -v
+
+  android:
+    name: Android • ${{ matrix.app }} PKCE build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [android-user, android-admin]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Compile debug application
+        working-directory: mobile/${{ matrix.app }}
+        run: bash gradlew assembleDebug --no-daemon
+
+  ios:
+    name: iOS • ${{ matrix.app }} PKCE build
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - app: ios-user
+            project: VpnShopUser
+          - app: ios-admin
+            project: VpnShopAdmin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile simulator application
+        working-directory: mobile/${{ matrix.app }}
+        run: xcodebuild -project ${{ matrix.project }}.xcodeproj -scheme ${{ matrix.project }} -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build

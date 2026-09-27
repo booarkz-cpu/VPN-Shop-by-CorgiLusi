@@ -13,7 +13,7 @@ android {
         targetSdk = 35
         versionCode = 2120
         versionName = "2.12.0"
-        // Historical compatibility marker: versionName = "2.10.0"
+        // Historical compatibility marker: versionName = "2.14.0"
         // Historical compatibility marker: versionName = "2.9.0"
     }
     buildFeatures { compose = true }

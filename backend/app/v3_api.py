@@ -198,10 +198,10 @@ async def support_pro_sso(request: Request, admin=Depends(require_permission('su
     payload = {
         "sub": str(admin.id),
         "login": admin.email,
-        "role": "admin",
+        "role": {"admin": "admin", "operator": "operator", "viewer": "viewer"}.get(admin.role, "viewer"),
         "iat": int(_time.time()),
         "exp": int(_time.time()) + 60,
         "jti": str(_uuid.uuid4()),
     }
     token = _support_token(payload)
-    return {"url": f"{url}/sso?token={token}"}
+    return {"url": f"{url}/sso", "method": "POST", "token": token}

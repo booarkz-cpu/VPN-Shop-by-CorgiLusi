@@ -291,3 +291,18 @@ async def admin_cabinet_guide(platform: str, payload: GuideIn, db: AsyncSession 
     await audit(db, "cabinet.guide.updated", admin.email, platform)
     await db.commit()
     return {"ok": True}
+
+
+class MobileTokenIn(BaseModel):
+    code: str = Field(min_length=20, max_length=8192)
+    code_verifier: str = Field(min_length=43, max_length=128)
+
+
+@router.post("/api/auth/mobile/token")
+async def mobile_token(payload: MobileTokenIn, request: Request, response: Response):
+    from .main import redis_client
+    from .mobile_auth import exchange_mobile_code
+    result = await exchange_mobile_code(request, payload.code, payload.code_verifier, redis_client)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return result
