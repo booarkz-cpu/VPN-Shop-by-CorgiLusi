@@ -1,5 +1,9 @@
 # Changelog
 
+## Mobile 2.14.1 — 2026-09-27
+
+Согласованы версии четырёх native-клиентов, build 2141 и User-Agent; сохранён PKCE-вход для backend 20.0.14. Добавлены сборка и публикация Android APK, iOS unsigned IPA и simulator ZIP, SHA-256 и метаданные происхождения. Для iOS добавлено описание использования Face ID, необходимое для разблокировки сохранённой сессии. Release APK больше не подписывается debug-ключом автоматически: без постоянного ключа создаётся отдельный preview package. [Установка](docs/ru/MOBILE_RELEASE_2_14_1.md).
+
 ## 20.0.14 — 2026-09-26
 
 Исправлен сводный аудит из 19 пунктов: native PKCE вместо общего ключа, разделение CORS, Redis AUTH и локальный аварийный rate limit, явный trusted ingress, fail-closed настройки webhook, Stripe/PayPal dedupe, обычный исходный main.py, POST SSO без повышения ролей, непривилегированные web/ingress процессы, текстовый CMS, DNS-pinned Support webhooks и restore с двумя MFA-администраторами.

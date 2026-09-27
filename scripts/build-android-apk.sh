@@ -32,17 +32,17 @@ fi
 for app in android-user android-admin; do
   dir="$ROOT/mobile/$app"
   if [[ "$GRADLE" == "$ROOT/mobile/android-user/gradlew" ]]; then
-    (cd "$dir" && "$dir/gradlew" "$TASK" --no-daemon)
+    (cd "$dir" && bash "$dir/gradlew" "$TASK" --no-daemon)
   else
     (cd "$dir" && "$GRADLE" "$TASK" --no-daemon)
   fi
   src="$dir/app/build/outputs/apk/$KIND/app-$KIND.apk"
-  if [[ "$app" == "android-admin" ]]; then
-    name="remnawave_vpn_shop_android_admin_2_12_0.apk"
-  else
-    name="remnawave_vpn_shop_android_user_2_10_0.apk"
-  fi
+  version="$(sed -n 's/^        versionName = "\([^"]*\)"/\1/p' "$dir/app/build.gradle.kts")"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 1; }
+  suffix="$KIND"
+  [[ "$KIND" != debug ]] || suffix=preview
+  name="corgi_lusi_${app//-/_}_${version//./_}_${suffix}.apk"
   cp "$src" "$OUT/$name"
-  sha256sum "$OUT/$name" > "$OUT/$name.sha256"
+  (cd "$OUT" && sha256sum "$name" > "$name.sha256")
   echo "APK: $OUT/$name"
 done
