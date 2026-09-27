@@ -1,9 +1,9 @@
-"""Bearer sessions for the Android and iOS shop apps.
+"""PKCE-bound native sessions; legacy proof is development-only.
 
-The web cabinet and admin panel keep the JWT in an HttpOnly cookie. Native
-apps send X-Shop-Client and receive the token once in the JSON body instead.
-A mobile client also sends X-Shop-Time and X-Shop-Proof, an HMAC of the
-request, so a bare header is not enough to mint a bearer token.
+Web sessions stay in HttpOnly cookies. Native password/MFA authentication
+returns an encrypted authorization code bound to a per-login S256 verifier.
+A one-use, native-only exchange returns the bearer token. PKCE binds the
+exchange; it does not authenticate the application or replace user credentials.
 """
 from __future__ import annotations
 
@@ -35,6 +35,8 @@ def require_mobile_proof(request) -> None:
     from .config import settings
 
     client = mobile_client_name(request)
+    if client:
+        require_native_transport(request)
     if not client or not settings.mobile_require_proof:
         return
     if not settings.mobile_client_key:
@@ -53,7 +55,54 @@ def require_mobile_proof(request) -> None:
         raise HTTPException(401, "Подпись клиента не принята")
 
 
+def require_native_transport(request):
+    from .config import settings
+    if request.headers.get("origin") is not None or request.headers.get("sec-fetch-site") is not None:
+        raise HTTPException(403, "Native token exchange is unavailable to browser origins")
+    if settings.app_env.lower() == "production" and request.url.hostname != settings.api_domain:
+        raise HTTPException(403, "Use the configured API domain for native authentication")
+
+
+def pkce_challenge(verifier: str) -> str:
+    import base64
+    return base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+
+
 def session_body(request, token: str, body: dict) -> dict:
     if not mobile_client_name(request):
         return body
-    return {**body, "access_token": token, "token_type": "bearer"}
+    require_native_transport(request)
+    import json, re, secrets
+    from .security import encrypt_secret
+    challenge = request.headers.get("x-shop-code-challenge", "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", challenge):
+        raise HTTPException(400, "S256 PKCE code challenge is required; update the native client")
+    payload = {"type": "mobile_exchange", "client": mobile_client_name(request), "challenge": challenge,
+               "token": token, "exp": int(time.time()) + 120, "jti": secrets.token_urlsafe(32)}
+    return {**body, "authorization_code": encrypt_secret(json.dumps(payload)), "expires_in": 120}
+
+
+async def exchange_mobile_code(request, code: str, verifier: str, redis):
+    import json, re
+    from .security import decrypt_secret
+    require_native_transport(request)
+    if not mobile_client_name(request) or not re.fullmatch(r"[A-Za-z0-9._~-]{43,128}", verifier):
+        raise HTTPException(400, "Invalid native client or PKCE verifier")
+    try:
+        data = json.loads(decrypt_secret(code))
+        valid = (data["type"] == "mobile_exchange" and data["exp"] > int(time.time())
+                 and data["client"] == mobile_client_name(request)
+                 and hmac.compare_digest(data["challenge"], pkce_challenge(verifier)))
+    except Exception:
+        valid = False
+    if not valid:
+        raise HTTPException(401, "Invalid or expired authorization code")
+    if redis is None:
+        raise HTTPException(503, "Token exchange temporarily unavailable")
+    try:
+        accepted = await redis.set("mobile-code-used:" + hashlib.sha256(data["jti"].encode()).hexdigest(), "1", ex=120, nx=True)
+    except Exception:
+        raise HTTPException(503, "Token exchange temporarily unavailable")
+    if not accepted:
+        raise HTTPException(401, "Authorization code already used")
+    return {"access_token": data["token"], "token_type": "bearer"}

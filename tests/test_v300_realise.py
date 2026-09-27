@@ -98,8 +98,11 @@ def test_helpers_accept_caddy_and_package_size(monkeypatch, tmp_path):
     sys.path.insert(0, str(ROOT / "backend"))
     from app.main import PACKAGE_UPLOAD_BYTES, _peer_is_trusted_proxy, _request_body_limit
 
-    assert _peer_is_trusted_proxy("127.0.0.1") is True
-    assert _peer_is_trusted_proxy("10.1.2.3") is True
+    from app.config import settings
+    monkeypatch.setattr(settings, "trusted_proxy_cidrs", "172.30.84.2/32")
+    assert _peer_is_trusted_proxy("172.30.84.2") is True
+    assert _peer_is_trusted_proxy("127.0.0.1") is False
+    assert _peer_is_trusted_proxy("10.1.2.3") is False
     assert _peer_is_trusted_proxy("203.0.113.9") is False
     assert _peer_is_trusted_proxy("testclient") is False
     assert _request_body_limit("POST", "/api/admin/apps/android-user/file") == PACKAGE_UPLOAD_BYTES

@@ -1,4 +1,5 @@
 import CryptoKit
+import Security
 import SwiftUI
 
 @main
@@ -9,15 +10,16 @@ struct VpnShopAdminApp: App {
 }
 
 private let localHttpHosts: Set<String> = ["localhost", "127.0.0.1", "10.0.2.2"]
-let mobileClientKey = "b7e1c4a09f6d42e8a1c35b77d0e94f12"
 
-func shopProof(_ client: String, _ method: String, _ path: String, _ now: Int) -> (String, String) {
-    let stamp = String(now)
-    let message = "\(client)\n\(stamp)\n\(method.uppercased())\n\(path)"
-    let key = SymmetricKey(data: Data(mobileClientKey.utf8))
-    let code = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: key)
-    return (stamp, code.map { String(format: "%02x", $0) }.joined())
+func pkceVerifier() throws -> String {
+    var bytes = [UInt8](repeating: 0, count: 32)
+    guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { throw URLError(.unknown) }
+    return Data(bytes).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
 }
+func pkceChallenge(_ verifier: String) -> String {
+    Data(SHA256.hash(data: Data(verifier.utf8))).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+}
+
 
 func normalizeBase(_ raw: String) throws -> String {
     let value = raw.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -83,7 +85,9 @@ final class ShopClient: NSObject, URLSessionTaskDelegate {
     }
 
     func call(_ method: String, _ path: String, body: [String: Any]? = nil) throws -> Any {
+        let verifier: String? = try (["/api/auth/login", "/api/auth/register", "/api/admin/auth/login"].contains(path) ? pkceVerifier() : nil)
         var request = URLRequest(url: URL(string: base + path)!)
+        if let verifier { request.setValue(pkceChallenge(verifier), forHTTPHeaderField: "X-Shop-Code-Challenge") }
         request.httpMethod = method
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -92,9 +96,8 @@ final class ShopClient: NSObject, URLSessionTaskDelegate {
         // Historical compatibility marker: CorgiLusi-iOS-Admin/2.10.0
         // Historical compatibility marker: CorgiLusi-iOS-Admin/2.9.0
         request.setValue("ios-admin", forHTTPHeaderField: "X-Shop-Client")
-        let proof = shopProof("ios-admin", method, path, Int(Date().timeIntervalSince1970))
-        request.setValue(proof.0, forHTTPHeaderField: "X-Shop-Time")
-        request.setValue(proof.1, forHTTPHeaderField: "X-Shop-Proof")
+
+
         if !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -114,7 +117,15 @@ final class ShopClient: NSObject, URLSessionTaskDelegate {
         if let failure { throw failure }
         if !(200...299).contains(status) { throw NSError(domain: "shop", code: status, userInfo: [NSLocalizedDescriptionKey: detailOf(payload, status)]) }
         if payload.isEmpty { return [String: Any]() }
-        return try JSONSerialization.jsonObject(with: payload)
+        let decoded = try JSONSerialization.jsonObject(with: payload)
+        if let verifier, var result = decoded as? [String: Any], let code = result["authorization_code"] as? String {
+            let exchanged = try call("POST", "/api/auth/mobile/token", body: ["code": code, "code_verifier": verifier]) as? [String: Any]
+            result.removeValue(forKey: "authorization_code")
+            result["access_token"] = exchanged?["access_token"]
+            result["token_type"] = "bearer"
+            return result
+        }
+        return decoded
     }
 
     func bytes(_ path: String) throws -> Data {

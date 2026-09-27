@@ -11,12 +11,12 @@
 
     encode zstd gzip
     handle /api/* {
-        reverse_proxy backend:8000 {
+        reverse_proxy {$BACKEND_UPSTREAM:backend:8000} {
             header_up X-Forwarded-For {remote_host}
         }
     }
     handle /media/* {
-        reverse_proxy backend:8000 {
+        reverse_proxy {$BACKEND_UPSTREAM:backend:8000} {
             header_up X-Forwarded-For {remote_host}
         }
     }
@@ -38,12 +38,12 @@
 
     encode zstd gzip
     handle /api/* {
-        reverse_proxy backend:8000 {
+        reverse_proxy {$BACKEND_UPSTREAM:backend:8000} {
             header_up X-Forwarded-For {remote_host}
         }
     }
     handle /media/* {
-        reverse_proxy backend:8000 {
+        reverse_proxy {$BACKEND_UPSTREAM:backend:8000} {
             header_up X-Forwarded-For {remote_host}
         }
     }
@@ -65,12 +65,12 @@
 
     encode zstd gzip
     handle /api/* {
-        reverse_proxy backend:8000 {
+        reverse_proxy {$BACKEND_UPSTREAM:backend:8000} {
             header_up X-Forwarded-For {remote_host}
         }
     }
     handle /media/* {
-        reverse_proxy backend:8000 {
+        reverse_proxy {$BACKEND_UPSTREAM:backend:8000} {
             header_up X-Forwarded-For {remote_host}
         }
     }
@@ -91,7 +91,7 @@
     }
 
     encode zstd gzip
-    reverse_proxy backend:8000 {
+    reverse_proxy {$BACKEND_UPSTREAM:backend:8000} {
             header_up X-Forwarded-For {remote_host}
         }
 }
@@ -107,7 +107,7 @@
         Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors https://{$ADMIN_DOMAIN}; object-src 'none'; img-src 'self' https: data:; connect-src 'self' https:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com"
     }
     encode zstd gzip
-    reverse_proxy support_pro:8000 {
+    reverse_proxy {$SUPPORT_UPSTREAM:support_pro:8000} {
         header_up X-Forwarded-For {remote_host}
     }
 }

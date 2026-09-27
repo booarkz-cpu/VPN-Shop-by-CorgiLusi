@@ -18,7 +18,7 @@ def test_sandbox_is_refused_in_production_and_works_without_gateways():
     assert "sandbox://local/" in main
     assert "Тестовый месяц" in main
     assert 'event_id = data.get("event")' not in payments
-    assert "Missing RollyPay timestamp" in payments
+    assert "Invalid RollyPay signature or timestamp" in payments
     assert "payments_sandbox_allowed" in payments
     assert "payments_sandbox_allowed" in cabinet
     assert "Telegram polling stays idle outside production" in bot

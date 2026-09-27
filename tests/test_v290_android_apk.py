@@ -21,6 +21,6 @@ def test_v290_apk_script_notes_and_clients():
     assert "externalUrlAllowed" in user
     assert "private let localHttpHosts" not in ios_user
     assert "localHttpHosts" in (ROOT / "mobile/ios-user/VpnShopUser/ContentView.swift").read_text()
-    assert 'versionName = "2.10.0"' in (ROOT / "mobile/android-user/app/build.gradle.kts").read_text()
-    assert 'versionName = "2.10.0"' in (ROOT / "mobile/android-admin/app/build.gradle.kts").read_text()
+    assert 'versionName = "2.14.0"' in (ROOT / "mobile/android-user/app/build.gradle.kts").read_text()
+    assert 'versionName = "2.14.0"' in (ROOT / "mobile/android-admin/app/build.gradle.kts").read_text()
     assert "scripts/package-source.py" in (ROOT / "scripts/build-release.sh").read_text()

@@ -12,7 +12,7 @@ def test_v21_contracts():
         'APP_VERSION = "43.1.0-production"','/metrics','/api/admin/payments/reconcile','/api/admin/sessions/revoke-all',
         '/api/me/connection-qr','/api/me/auto-renew','auto_renew_scheduler','reconciliation_scheduler','_safe_extract_members',
         'S3 remote size verification failed','Valid MFA code is required for restore','PaymentProviderEvent','ReferralLedger','AutoRenewMethod'
-    ]: assert x in main or x in models
+    ]: assert x in main or x in models or x in read(ROOT/"backend/app/restore_approval.py")
     assert 'RemnawaveCircuitOpen' in rem and 'remnawave_cb_failures' in read(ROOT/"backend/app/config.py")
     assert 'security.stepup' in sec and 'payments.reconcile' in sec
 

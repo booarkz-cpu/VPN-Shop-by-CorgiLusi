@@ -3,6 +3,7 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 [[ -f .env ]] || { echo "Missing .env. Run deploy/install-vps.sh first."; exit 2; }
+python3 scripts/harden-env.py
 ./scripts/preflight.sh
 if command -v docker >/dev/null 2>&1; then
   if [[ -f .env.images ]]; then set -a; . ./.env.images; set +a; fi

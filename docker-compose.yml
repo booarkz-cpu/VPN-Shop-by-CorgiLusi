@@ -1,12 +1,31 @@
 services:
+  volume_init:
+    image: ${REDIS_IMAGE:-redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499}
+    user: "0:0"
+    restart: "no"
+    entrypoint: ["sh", "-c", "chown -R 10001:10001 /owned"]
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - media_data:/owned/media
+      - app_packages:/owned/app-packages
+      - backup_data:/owned/backups
+      - support_uploads:/owned/uploads
+      - caddy_data:/owned/caddy-data
+      - caddy_config:/owned/caddy-config
+
   redis:
     image: ${REDIS_IMAGE:-redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499}
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    command: ["sh", "-c", 'exec docker-entrypoint.sh redis-server --appendonly yes --save 60 1000 --requirepass "$$REDIS_PASSWORD"']
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -qx PONG']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -40,22 +59,29 @@ services:
       dockerfile: Dockerfile
       args:
         PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9}
+    networks:
+      default: {}
+      ingress:
+        ipv4_address: ${BACKEND_INGRESS_IP:-172.30.84.3}
     restart: unless-stopped
     env_file: .env
     environment:
       MEDIA_DIR: /data/media
       BACKUPS_DIR: /data/backups
       PROJECT_DIR: /project
+      TRUSTED_PROXY_CIDRS: ${CADDY_INGRESS_IP:-172.30.84.2}/32
       SUPPORT_PRO_URL: ${SUPPORT_PRO_URL:-}
       SUPPORT_PRO_SSO_SECRET: ${SUPPORT_PRO_SSO_SECRET:-}
       SUPPORT_PRO_TIMEOUT_SECONDS: ${SUPPORT_PRO_TIMEOUT_SECONDS:-4}
     depends_on:
+      volume_init: {condition: service_completed_successfully}
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
       - media_data:/data/media
+      - app_packages:/data/app-packages
       - .:/project:ro
       - backup_data:/data/backups
     expose:
@@ -90,7 +116,9 @@ services:
       MEDIA_DIR: /data/media
       BACKUPS_DIR: /data/backups
       PROJECT_DIR: /project
+      TRUSTED_PROXY_CIDRS: ${CADDY_INGRESS_IP:-172.30.84.2}/32
     depends_on:
+      volume_init: {condition: service_completed_successfully}
       db:
         condition: service_healthy
       redis:
@@ -99,6 +127,7 @@ services:
         condition: service_healthy
     volumes:
       - media_data:/data/media
+      - app_packages:/data/app-packages
       - .:/project:ro
       - backup_data:/data/backups
     security_opt:
@@ -137,6 +166,10 @@ services:
         NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402}
         NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:-nginx:1.29-alpine}
         VITE_API_URL: ""
+    user: "101:101"
+    cap_drop: [ALL]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
     restart: unless-stopped
     depends_on:
       backend:
@@ -168,6 +201,10 @@ services:
         NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402}
         NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:-nginx:1.29-alpine}
         VITE_API_URL: ""
+    user: "101:101"
+    cap_drop: [ALL]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
     restart: unless-stopped
     depends_on:
       backend:
@@ -199,6 +236,10 @@ services:
         NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402}
         NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:-nginx:1.29-alpine}
         VITE_API_URL: ""
+    user: "101:101"
+    cap_drop: [ALL]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
     restart: unless-stopped
     depends_on:
       backend:
@@ -243,11 +284,13 @@ services:
   support_redis:
     image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    environment:
+      REDIS_PASSWORD: ${SUPPORT_REDIS_PASSWORD:?set SUPPORT_REDIS_PASSWORD in .env}
+    command: ["sh", "-c", 'exec docker-entrypoint.sh redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
     volumes:
       - support_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -qx PONG']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -266,6 +309,7 @@ services:
       POSTGRES_PASSWORD: ${SUPPORT_PRO_DB_PASSWORD:?set SUPPORT_PRO_DB_PASSWORD in .env}
       POSTGRES_DB: support
       REDIS_URL: redis://support_redis:6379/0
+      REDIS_PASSWORD: ${SUPPORT_REDIS_PASSWORD:?set SUPPORT_REDIS_PASSWORD in .env}
       SSO_SECRET: ${SUPPORT_PRO_SSO_SECRET:?set SUPPORT_PRO_SSO_SECRET in .env}
       PUBLIC_ORIGIN: ${SUPPORT_PRO_PUBLIC_ORIGIN:-}
     command: ["python", "-m", "app.migrate"]
@@ -276,14 +320,20 @@ services:
     build:
       context: ./support-pro
       dockerfile: app/Dockerfile
+    networks:
+      default: {}
+      ingress:
+        ipv4_address: ${SUPPORT_INGRESS_IP:-172.30.84.4}
     restart: unless-stopped
     env_file: ./support-pro/.env
     environment:
+      TRUSTED_PROXY_CIDRS: ${CADDY_INGRESS_IP:-172.30.84.2}/32
       POSTGRES_HOST: support_db
       POSTGRES_USER: support
       POSTGRES_PASSWORD: ${SUPPORT_PRO_DB_PASSWORD:?set SUPPORT_PRO_DB_PASSWORD in .env}
       POSTGRES_DB: support
       REDIS_URL: redis://support_redis:6379/0
+      REDIS_PASSWORD: ${SUPPORT_REDIS_PASSWORD:?set SUPPORT_REDIS_PASSWORD in .env}
       SSO_SECRET: ${SUPPORT_PRO_SSO_SECRET:?set SUPPORT_PRO_SSO_SECRET in .env}
       PUBLIC_ORIGIN: ${SUPPORT_PRO_PUBLIC_ORIGIN:-}
       COOKIE_SECURE: "true"
@@ -292,6 +342,7 @@ services:
     expose:
       - "8000"
     depends_on:
+      volume_init: {condition: service_completed_successfully}
       support_migrate: {condition: service_completed_successfully}
       support_redis: {condition: service_healthy}
     healthcheck:
@@ -320,11 +371,13 @@ services:
       POSTGRES_PASSWORD: ${SUPPORT_PRO_DB_PASSWORD:?set SUPPORT_PRO_DB_PASSWORD in .env}
       POSTGRES_DB: support
       REDIS_URL: redis://support_redis:6379/0
+      REDIS_PASSWORD: ${SUPPORT_REDIS_PASSWORD:?set SUPPORT_REDIS_PASSWORD in .env}
       SSO_SECRET: ${SUPPORT_PRO_SSO_SECRET:?set SUPPORT_PRO_SSO_SECRET in .env}
     command: ["python", "-m", "app.worker"]
     volumes:
       - support_uploads:/data/uploads
     depends_on:
+      volume_init: {condition: service_completed_successfully}
       support_migrate: {condition: service_completed_successfully}
       support_redis: {condition: service_healthy}
     security_opt:
@@ -336,15 +389,29 @@ services:
       - /tmp
 
   caddy:
-    image: ${CADDY_IMAGE:-caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d}
+    build:
+      context: ./deploy/caddy
+      args:
+        CADDY_BASE_IMAGE: ${CADDY_IMAGE:-caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d}
+    networks:
+      default: {}
+      ingress:
+        ipv4_address: ${CADDY_INGRESS_IP:-172.30.84.2}
+    user: "10001:10001"
+    cap_drop: [ALL]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
     restart: unless-stopped
     environment:
+      SUPPORT_UPSTREAM: ${SUPPORT_INGRESS_IP:-172.30.84.4}:8000
+      BACKEND_UPSTREAM: ${BACKEND_INGRESS_IP:-172.30.84.3}:8000
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
       ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN in .env}
       APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
       CABINET_DOMAIN: ${CABINET_DOMAIN:?set CABINET_DOMAIN in .env}
       SUPPORT_PRO_DOMAIN: ${SUPPORT_PRO_DOMAIN:?set SUPPORT_PRO_DOMAIN in .env}
     depends_on:
+      volume_init: {condition: service_completed_successfully}
       backend:
         condition: service_healthy
       admin:
@@ -376,8 +443,16 @@ volumes:
   backup_data:
   postgres_data:
   media_data:
+  app_packages:
   support_postgres_data:
   support_redis_data:
   support_uploads:
   caddy_data:
   caddy_config:
+
+networks:
+  ingress:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${INGRESS_SUBNET:-172.30.84.0/29}

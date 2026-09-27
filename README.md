@@ -1,5 +1,9 @@
 # VPN Shop by Corgi Lusi
 
+**Релиз 20.0.14 — исправления сводного аудита безопасности.** [Результаты по 19 пунктам](docs/ru/SECURITY_AUDIT_20_0_14.md) · [Обязательная инструкция обновления](docs/ru/SECURITY_UPGRADE_20_0_14.md) · [Changelog](CHANGELOG.md).
+
+Перед обновлением подготовьте новые native-клиенты 2.14.0, пароли Redis и две MFA-учётные записи для restore. В production используются точные CORS origins и доверенный IP Caddy. Полный staging E2E v2 ещё не реализован: реальные платежи остаются закрытыми.
+
 Магазин VPN-подписок: кабинет, Mini App, админка, Telegram-бот, приложения Android и iOS, выдача доступа через Remnawave.
 
 A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android and iOS apps, and Remnawave fulfillment.
@@ -776,7 +780,7 @@ The test stack binds TCP 18080–18083 to localhost only. The VDS installer open
 - **Release APK.** `remnawave_vpn_shop_android_user_2_10_0.apk` и `remnawave_vpn_shop_android_admin_2_10_0.apk`, `versionCode` 2100. Сертификат и контрольные суммы — в `RELEASE_NOTES_V2_10_0.md`. Пакеты 2.9.0 были debug-подписаны, перед 2.10.0 их удаляют один раз. Закрытый ключ в релиз не входит.
 - **Один шаг подключения.** QR `GET /api/me/connection-qr` и кнопки Happ, v2rayNG, Streisand для `https://` ссылки подписки.
 - **Устройства, трафик, подарок и пополнение.** Список устройств без `device_key` и `last_ip`. Трафик с запасным лимитом из снимка. Подарок и пополнение кошелька, включая sandbox при `PAYMENTS_SANDBOX=true`.
-- **Подпись клиента и биометрия.** HMAC `X-Shop-Proof`. Сохранённый токен закрывается биометрией или PIN. `MOBILE_REQUIRE_PROOF=false` оставляет рабочими приложения 2.9.0.
+- **Вход клиента и биометрия.** Native 2.14.0 использует одноразовый PKCE S256 exchange. Сохранённый токен закрывается биометрией или PIN. Старый общий HMAC ключ больше не поддерживается в production.
 - **Telegram.** Срок подписки, пополнение и успешная оплата. Ошибка отправки не откатывает платёж.
 - **Дежурство в приложении администратора.** Включение тарифа, карточка платежа без текста ошибки провайдера, признак устаревшего агента.
 - **iOS.** Исходники с `MARKETING_VERSION` 2.10.0. IPA собирается в Xcode на macOS. В релизе IPA нет.
@@ -890,7 +894,7 @@ cd ../cabinet && npm install && npx vite build
 
 A VPN shop with a Telegram bot, a Mini App, a standalone user cabinet, an admin console, separate Android and iOS apps for buyers and administrators, a FastAPI backend, three payment providers plus a sandbox provider, a tariff constructor, Remnawave node status, abuse scoring, a node agent, provisioning, queues and backups.
 
-Release version: **v20.0.13**. Previous published version: **v20.0.12**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
+Release version: **v20.0.14**. Previous published version: **v20.0.13**. Earlier series: **3.1.5**, **3.1.4**, **3.1.3**, **3.1.2**, **3.1.1**, **3.1.0**, **3.0.1**, **3.0.0-realise**, **2.13.0**, **2.12.0**, **2.11.0**, **2.10.0**, **2.9.0**, **2.8.0**, **2.7.0**, **2.6.0**, **2.5.0** and **2.4.0**. Read `INSTALL_STEPS.md`, sections 9.20, 9.19, 9.18, 9.17, 9.16 and 9.15 of `INSTRUCTION.md`, `MOBILE.md`, `MODULES.md`, `SECURITY.md` and `PRODUCTION_CHECKLIST.md` before production. The license is `LICENSE`.
 
 ### What is in the tree
 
@@ -1012,7 +1016,7 @@ Release-signed sideload APKs `remnawave_vpn_shop_android_user_2_10_0.apk` and `r
 
 The buyer app shows a subscription QR from `GET /api/me/connection-qr` and opens Happ, v2rayNG and Streisand for an `https://` subscription URL. The device list omits `device_key` and `last_ip`. Traffic falls back to the subscription snapshot limit. Gift redeem and wallet top-up work, including provider `sandbox` when `PAYMENTS_SANDBOX=true`.
 
-Mobile calls send HMAC `X-Shop-Proof`. A saved token is locked with biometrics or the device PIN. `MOBILE_REQUIRE_PROOF=false` keeps 2.9.0 apps working. Telegram notices cover expiry, top-up and a successful payment. A send failure does not roll back the payment.
+Native 2.14.0 login uses one-use PKCE S256 exchange. A saved token is locked with biometrics or the device PIN. Older native clients must be rebuilt. Telegram notices cover expiry, top-up and a successful payment. A send failure does not roll back the payment.
 
 The administrator app can enable a plan, open a payment card without the provider error text, and see a stale agent. iOS sources use `MARKETING_VERSION` 2.10.0. The IPA is built in Xcode on macOS. This release has no IPA.
 

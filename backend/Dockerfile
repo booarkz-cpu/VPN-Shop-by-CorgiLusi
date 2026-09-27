@@ -13,5 +13,6 @@ COPY worker.py ./worker.py
 COPY scripts/staging-e2e.sh ./staging-e2e.sh
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod 0555 ./entrypoint.sh ./staging-e2e.sh
+RUN mkdir -p /data/media /data/backups /data/app-packages && chown -R 10001:10001 /data
 USER 10001:10001
 ENTRYPOINT ["./entrypoint.sh"]

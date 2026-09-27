@@ -16,6 +16,7 @@ if [ "$(pwd -P)" != "$(cd "$APP" && pwd -P)" ]; then
 fi
 cd "$APP"
 mkdir -p nginx/certbot/www nginx/certs backups
+chown 10001:10001 backups
 cp .env.example .env
 chmod 600 .env
 read -rp 'BOT_TOKEN: ' SUPPORT_BOT_TOKEN
@@ -27,7 +28,7 @@ import os,re,secrets
 from pathlib import Path
 values={'BOT_TOKEN':os.environ['SUPPORT_BOT_TOKEN'],'DOMAIN':os.environ['SUPPORT_DOMAIN'],
         'LETSENCRYPT_EMAIL':os.environ['SUPPORT_EMAIL'],'POSTGRES_PASSWORD':secrets.token_hex(32),
-        'SESSION_SECRET':secrets.token_hex(32),'ADMIN_PASSWORD':secrets.token_urlsafe(24),
+        'REDIS_PASSWORD':secrets.token_hex(32),'SESSION_SECRET':secrets.token_hex(32),'ADMIN_PASSWORD':secrets.token_urlsafe(24),
         'PUBLIC_ORIGIN':'https://'+os.environ['SUPPORT_DOMAIN']}
 if not re.fullmatch(r'[A-Za-z0-9.-]+',values['DOMAIN']): raise SystemExit('Некорректный домен')
 if not re.fullmatch(r'[0-9]+:[A-Za-z0-9_-]+',values['BOT_TOKEN']): raise SystemExit('Некорректный токен')
@@ -41,7 +42,7 @@ docker compose run --rm --no-deps app python -m app.cli init
 docker compose up -d app worker bot backup nginx
 certbot certonly --webroot -w "$APP/nginx/certbot/www" -d "$SUPPORT_DOMAIN" --email "$SUPPORT_EMAIL" --agree-tos --non-interactive
 install -m 644 "/etc/letsencrypt/live/$SUPPORT_DOMAIN/fullchain.pem" nginx/certs/fullchain.pem
-install -m 600 "/etc/letsencrypt/live/$SUPPORT_DOMAIN/privkey.pem" nginx/certs/privkey.pem
+install -m 640 -g 101 "/etc/letsencrypt/live/$SUPPORT_DOMAIN/privkey.pem" nginx/certs/privkey.pem
 python3 - <<'PY'
 import os
 from pathlib import Path

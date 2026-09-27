@@ -1,3 +1,4 @@
+from .client_ip import client_ip
 import asyncio
 import base64
 import hmac
@@ -147,11 +148,13 @@ async def error_page(request, exc):
     return tpl.TemplateResponse(request=request, name='error.html', context={'detail': exc.detail, 'code': exc.status_code}, status_code=exc.status_code)
 
 
-@app.get('/sso')
-async def sso_login(request: Request, token: str = ''):
+@app.post('/sso')
+async def sso_login(request: Request):
     """Trusted SSO bridge from VPN Shop by Corgi admin. Tokens are HMAC signed, 60s TTL and one-time via Redis."""
+    form = await request.form(max_files=0, max_fields=1)
+    token = str(form.get('token', ''))
     secret = os.getenv('SSO_SECRET', '')
-    if not secret or not token or '.' not in token:
+    if len(secret) < 32 or secret.startswith('change-me') or not token or '.' not in token:
         raise HTTPException(403, 'SSO недоступен')
     raw, sig = token.rsplit('.', 1)
     expected = hmac.new(secret.encode(), raw.encode(), hashlib.sha256).hexdigest()
@@ -160,13 +163,13 @@ async def sso_login(request: Request, token: str = ''):
     try:
         padded = raw + '=' * (-len(raw) % 4)
         payload = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
-        if int(payload.get('exp', 0)) < int(time.time()):
+        if not (int(payload.get('iat', 0)) <= int(time.time()) < int(payload.get('exp', 0)) <= int(payload.get('iat', 0)) + 60):
             raise HTTPException(403, 'SSO токен истёк')
         jti = str(payload.get('jti', ''))
         if not jti or not await r.set(f'sso-used:{hashlib.sha256(jti.encode()).hexdigest()}', '1', ex=120, nx=True):
             raise HTTPException(403, 'SSO токен уже использован')
         login = str(payload.get('login', ''))[:120]
-        role = str(payload.get('role', 'admin'))
+        role = str(payload.get('role', ''))
         if role not in ROLES:
             raise HTTPException(403, 'Недопустимая роль')
     except HTTPException:
@@ -181,6 +184,8 @@ async def sso_login(request: Request, token: str = ''):
             await s.flush()
         elif not op.active:
             raise HTTPException(403, 'Оператор деактивирован')
+        elif op.role != role:
+            raise HTTPException(403, 'Роль SSO не соответствует локальному оператору; требуется сверка администратора')
         sid = secrets.token_urlsafe(32)
         s.add(LoginSession(id=sid, operator_id=op.id, device='VPN Shop by Corgi SSO'))
         audit(s, op, 'sso-login from VPN Shop by Corgi')
@@ -200,7 +205,7 @@ async def login(request: Request):
 async def login_post(request: Request):
     data = await form_data(request)
     login = text_field(data, 'login', 120, True)
-    ip = request.client.host if request.client else 'unknown'
+    ip = client_ip(request)
     try:
         for value in (ip, 'login:' + login):
             key = 'login-limit:' + hashlib.sha256(value.encode()).hexdigest()

@@ -10,7 +10,7 @@ from urllib.parse import quote, urlparse
 LOCAL_HTTP_HOSTS = frozenset({"localhost", "127.0.0.1", "10.0.2.2"})
 NODE_FIELDS = ("name", "country", "status", "users_online")
 MOBILE_CLIENTS = frozenset({"android-user", "android-admin", "ios-user", "ios-admin"})
-MOBILE_CLIENT_KEY = "b7e1c4a09f6d42e8a1c35b77d0e94f12"
+MOBILE_CLIENT_KEY = ""  # Legacy test helper only; native apps use PKCE.
 IMPORT_SCHEMES = ("happ", "v2rayng", "streisand")
 
 
