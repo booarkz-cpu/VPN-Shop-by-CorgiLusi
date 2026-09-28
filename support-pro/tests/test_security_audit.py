@@ -90,3 +90,32 @@ async def test_login_limits_do_not_collapse_clients_behind_proxy(env, monkeypatc
         assert (await attempt(index,'203.0.113.1')).status_code == 401
     assert (await attempt(15,'203.0.113.1')).status_code == 429
     assert (await attempt(16,'203.0.113.2')).status_code == 401
+
+@pytest.mark.parametrize('value', ['', 'short', 'change-me-' + 'x'*40])
+def test_weak_session_signing_key_is_rejected(value):
+    from app.security import session_secret
+    with pytest.raises(ValueError): session_secret(value)
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('wrong_owner,expired', [(True,False),(False,True)])
+async def test_session_owner_and_absolute_lifetime(env, wrong_owner, expired):
+    from app import main
+    from app.models import LoginSession, now
+    from datetime import timedelta
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    async with env['session']() as db:
+        op = await db.scalar(select(Operator).where(Operator.login=='admin'))
+        db.add(LoginSession(id='binding-test',operator_id=op.id,device='test',
+                            created_at=now()-timedelta(hours=9 if expired else 0)))
+        await db.commit()
+        op_id, version = op.id, op.auth_version
+        if wrong_owner:
+            # Valid signed identity of one operator must not use another's session.
+            other = Operator(login='other-owner',password_hash='unused',role='admin',active=True)
+            db.add(other); await db.commit()
+            op_id, version = other.id, other.auth_version
+    request = SimpleNamespace(session={'operator':{'id':op_id,'version':version,'sid':'binding-test'}},
+                              method='GET',query_params={},url=SimpleNamespace(path='/'))
+    with pytest.raises(HTTPException) as exc: await main.current_operator(request)
+    assert exc.value.status_code == 303

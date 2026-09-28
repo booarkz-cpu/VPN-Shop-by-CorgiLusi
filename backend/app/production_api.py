@@ -104,11 +104,13 @@ async def operations(request: Request, db: AsyncSession = Depends(get_db), admin
     }
 
 @router.post('/api/admin/v15/deployments/{deployment_id}/rollback')
-async def rollback(deployment_id: int, request: Request, db: AsyncSession = Depends(get_db), admin=Depends(require_permission('write'))):
-    row = await db.get(Deployment, deployment_id)
+async def rollback(deployment_id: int, request: Request, db: AsyncSession = Depends(get_db), admin=Depends(require_permission('security.manage'))):
+    row = await db.scalar(select(Deployment).where(Deployment.id == deployment_id).with_for_update())
     if not row:
         raise HTTPException(404, 'Deployment not found')
     row.status = 'rolled_back'; row.traffic_percent = 0; row.rollback_reason = 'Manual emergency rollback'; row.updated_at = datetime.utcnow()
+    from .main import audit
+    await audit(db, 'deployment.rollback_recorded', admin.email, str(row.id))
     await db.commit()
     return {'ok': True, 'deployment_id': row.id, 'status': row.status}
 

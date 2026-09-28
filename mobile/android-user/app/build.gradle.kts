@@ -11,8 +11,8 @@ android {
         applicationId = "shop.remnawave.user"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2141
-        versionName = "2.14.1"
+        versionCode = 2150
+        versionName = "2.15.0"
         // Historical compatibility marker: versionName = "2.9.0"
     }
     buildFeatures { compose = true }
@@ -40,7 +40,7 @@ android {
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("shopRelease")
+            if (!System.getenv("ANDROID_KEYSTORE").isNullOrBlank()) signingConfig = signingConfigs.getByName("shopRelease")
         }
     }
 }

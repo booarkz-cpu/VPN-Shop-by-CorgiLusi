@@ -262,3 +262,24 @@ async def test_restore_approval_is_consumed_atomically(shop, pg, monkeypatch, tm
     async with AsyncSession(pg) as db:
         row = await db.get(AppSetting, 'restore.approval:' + result['approval_id'])
         assert json.loads(row.value)['consumed'] is True
+
+
+@pytest.mark.asyncio
+async def test_concurrent_email_registration_returns_conflict_not_500(shop, pg, monkeypatch):
+    from app.cabinet_api import auth_register, EmailAuthIn
+    from fastapi import Response
+    from app.models import User
+    monkeypatch.setattr(shop, 'create_user_session', AsyncMock(return_value='session'))
+    monkeypatch.setattr(shop, 'audit', AsyncMock())
+    payload = EmailAuthIn(email='same@example.com', password='long-password')
+    request = Request({'type':'http','method':'POST','path':'/api/auth/register','headers':[]})
+    async def register():
+        async with AsyncSession(pg, expire_on_commit=False) as db:
+            try:
+                await auth_register(payload, request, Response(), db)
+                return 200
+            except HTTPException as error:
+                return error.status_code
+    assert sorted(await asyncio.gather(register(), register())) == [200, 409]
+    async with AsyncSession(pg) as db:
+        assert len((await db.scalars(select(User).where(User.email == 'same@example.com'))).all()) == 1

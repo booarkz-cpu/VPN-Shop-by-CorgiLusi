@@ -1,5 +1,11 @@
 # VPN Shop by Corgi Lusi
 
+**Актуальный релиз 20.0.15:** [скачать](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.15) · [аудит](docs/ru/AUDIT_20_0_15.md) · [обновление и production-подпись Mobile 2.15.0](docs/ru/PRODUCTION_20_0_15.md). Подписанные APK/IPA публикуются только при наличии постоянных ключей владельца; точный статус — `mobile-production-status.json` в релизе.
+
+Новые клиенты защищают сохранённые токены и требуют повторного входа. Реальные платежи остаются закрытыми до staging E2E v2.
+
+## Предыдущие выпуски
+
 **Мобильные приложения 2.14.1:** [скачать сборки](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/mobile-v2.14.1) · [установка и подпись](docs/ru/MOBILE_RELEASE_2_14_1.md). Android preview APK устанавливаются рядом с основными приложениями; iOS unsigned IPA требует Apple-подписи.
 
 **Релиз 20.0.14 — исправления сводного аудита безопасности.** [Результаты по 19 пунктам](docs/ru/SECURITY_AUDIT_20_0_14.md) · [Обязательная инструкция обновления](docs/ru/SECURITY_UPGRADE_20_0_14.md) · [Changelog](CHANGELOG.md).

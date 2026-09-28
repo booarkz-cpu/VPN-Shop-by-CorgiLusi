@@ -84,6 +84,18 @@ def validate_configuration(settings):
                 raise ValueError('YooKassa allowlist must contain explicit public provider networks')
     if settings.yookassa_shop_id and not settings.trusted_proxy_cidrs:
         raise ValueError('YooKassa behind ingress requires explicit TRUSTED_PROXY_CIDRS')
+    def strong(value, minimum):
+        return len(value) >= minimum and not value.lower().startswith(('change-me', 'changeme', 'replace-me'))
+    if not strong(settings.app_secret, 32):
+        raise ValueError('APP_SECRET must be unique and at least 32 characters')
+    if settings.app_secret_previous and not strong(settings.app_secret_previous, 32):
+        raise ValueError('APP_SECRET_PREVIOUS must be unique and at least 32 characters')
+    if settings.admin_email and not strong(settings.admin_password, 12):
+        raise ValueError('ADMIN_PASSWORD must be unique and at least 12 characters')
+    password = unquote(urlsplit(settings.database_url).password or '')
+    if not strong(password, 16):
+        raise ValueError('DATABASE_URL requires a unique password of at least 16 characters')
+
 
 
 def local_rate_allowed(key, limit, window):

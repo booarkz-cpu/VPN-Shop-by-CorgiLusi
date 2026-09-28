@@ -29,7 +29,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "20.0.14"
+APP_VERSION = "20.0.15"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -264,9 +264,9 @@ from .runtime_security import ScopedCORSMiddleware
 app.add_middleware(ScopedCORSMiddleware, settings=settings)
 
 class LoginIn(BaseModel):
-    email: str
-    password: str
-    otp: str|None = Field(default=None, min_length=6, max_length=8)
+    email: str = Field(min_length=5, max_length=320)
+    password: str = Field(min_length=1, max_length=256)
+    otp: str|None = Field(default=None, min_length=6, max_length=10)
 
 class OtpIn(BaseModel):
     otp: str = Field(min_length=6, max_length=8)
@@ -611,7 +611,9 @@ async def user_logout(request:Request,response: Response,db:AsyncSession=Depends
         try:
             claims=decode_token(token); jti=claims.get("jti")
             if jti: await db.execute(__import__('sqlalchemy').update(UserSession).where(UserSession.jti_hash==hashlib.sha256(jti.encode()).hexdigest()).values(revoked_at=datetime.utcnow())); await db.commit()
-        except Exception: await db.rollback()
+        except Exception as exc:
+            await db.rollback()
+            raise HTTPException(503, "Could not revoke user session") from exc
     response.delete_cookie("rw_user"); response.delete_cookie("rw_csrf"); return {"ok":True}
 
 @app.post("/api/me/security/revoke-all")
@@ -3469,15 +3471,17 @@ async def delete_admin(admin_id:int,db:AsyncSession=Depends(get_db),admin=Depend
 
 @app.post("/api/admin/auth/logout")
 async def admin_logout(request:Request,response:Response,db:AsyncSession=Depends(get_db)):
-    token=request.cookies.get("rw_admin")
+    authorization=request.headers.get("Authorization", "")
+    token=authorization[7:] if authorization.startswith("Bearer ") else request.cookies.get("rw_admin")
     if token:
         try:
             claims=decode_token(token); jti=claims.get("jti")
-            if jti:
+            if claims.get("type") == "admin" and jti:
                 row=(await db.execute(select(AdminSession).where(AdminSession.jti_hash==hashlib.sha256(jti.encode()).hexdigest()))).scalar_one_or_none()
                 if row: row.revoked_at=datetime.utcnow(); await db.commit()
         except Exception as exc:
-            logger.warning("Non-critical operation failed: %s", exc)
+            await db.rollback()
+            raise HTTPException(503, "Could not revoke admin session") from exc
     response.delete_cookie("rw_admin"); response.delete_cookie("rw_csrf"); return {"ok":True}
 
 @app.get("/api/admin/security")
@@ -3828,7 +3832,7 @@ async def create_project_backup(db, actor="system"):
         raise _lock_conflict(exc, "A backup is already running") from exc
     async with BACKUP_LOCK:
         job=BackupJob(status="running",created_at=datetime.utcnow()); db.add(job); await db.commit(); await db.refresh(job)
-        ts=datetime.utcnow().strftime("%Y%m%d-%H%M%S"); work=pathlib.Path("/tmp")/f"vpn-backup-{job.id}-{ts}"; work.mkdir(parents=True,exist_ok=True)
+        ts=datetime.utcnow().strftime("%Y%m%d-%H%M%S"); work=pathlib.Path(__import__("tempfile").mkdtemp(prefix="vpn-backup-"))
         try:
             backups=pathlib.Path(settings.backups_dir); backups.mkdir(parents=True,exist_ok=True); dump=work/"database.sql"; archive=work/f"remnawave-vpn-shop-{ts}.tar.gz"
             dbcli=_database_cli_config()
@@ -4003,7 +4007,7 @@ async def validate_backup_archive(backup_id:int,db:AsyncSession=Depends(get_db),
     path=_backup_path(job.filename)
     if not path.is_file(): raise HTTPException(404,"Backup file not found")
     if path.stat().st_size>MAX_BACKUP_ARCHIVE_BYTES: raise HTTPException(400,"Backup archive is too large")
-    work=pathlib.Path("/tmp")/f"validate-{secrets.token_hex(8)}"; work.mkdir()
+    work=pathlib.Path(__import__("tempfile").mkdtemp(prefix="validate-"))
     try:
         source=path
         if job.encrypted:
@@ -4071,7 +4075,7 @@ async def restore_backup(backup_id:int,payload:RestoreApprovalIn,db:AsyncSession
         logger.warning("Pre-restore snapshot failed: %s", exc)
         await _release_payment_side_effect_lock(maintenance_lock,maintenance_token)
         raise HTTPException(500, "Restore failed") from exc
-    work=pathlib.Path("/tmp")/f"restore-{secrets.token_hex(8)}"; work.mkdir()
+    work=pathlib.Path(__import__("tempfile").mkdtemp(prefix="restore-"))
     restore_ok=False
     try:
         source=path
@@ -4883,7 +4887,7 @@ async def v41_backup_test_restore(backup_id:int,db:AsyncSession=Depends(get_db),
     record=BackupVerification(backup_id=backup_id,status="running",checksum_ok=None,archive_safe=None,restore_tested=False)
     db.add(record); await db.commit(); await db.refresh(record)
     temp_db=f"vpnshop_restore_test_{secrets.token_hex(6)}"
-    work=pathlib.Path("/tmp")/f"backup-test-{secrets.token_hex(8)}"; work.mkdir()
+    work=pathlib.Path(__import__("tempfile").mkdtemp(prefix="backup-test-"))
     try:
         if not path.is_file(): raise FileNotFoundError("Файл backup не найден")
         h=hashlib.sha256()
