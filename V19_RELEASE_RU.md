@@ -1,4 +1,4 @@
-# Corgi Lusi v19
+# VPN Shop v19
 
 ## Marketplace & Remnawave Commerce
 

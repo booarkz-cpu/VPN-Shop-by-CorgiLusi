@@ -1,4 +1,4 @@
-# VPN Shop by Corgi Lusi v17 — Remnawave Shop
+# VPN Shop v17 — Remnawave Shop
 
 ## Продажи подписок из Corgi через Remnawave
 

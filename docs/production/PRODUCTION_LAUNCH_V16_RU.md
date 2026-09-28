@@ -1,4 +1,4 @@
-# VPN Shop by Corgi Lusi v16 — Production Launch
+# VPN Shop v16 — Production Launch
 
 ## Архитектура
 - Corgi Identity

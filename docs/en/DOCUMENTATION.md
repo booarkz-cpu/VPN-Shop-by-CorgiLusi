@@ -1,6 +1,6 @@
 # Shop documentation
 
-How VPN Shop by Corgi Lusi is put together, and the order of a purchase. The product map is in [README.md](README.md).
+How VPN Shop is put together, and the order of a purchase. The product map is in [README.md](README.md).
 
 ## Purchase flow
 
@@ -87,7 +87,7 @@ The application version in code is `20.0.5`. Reconciliation of a YooKassa `creat
 
 ## Audit 20.0.4
 
-The application version in code is `20.0.4`. The public release method no longer answers `16.0.0`. Node registration and failover require `provision_nodes`. The updater and the default installer clone `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
+The application version in code is `20.0.4`. The public release method no longer answers `16.0.0`. Node registration and failover require `provision_nodes`. The updater and the default installer clone the project repository.
 
 ## Audit 20.0.3
 

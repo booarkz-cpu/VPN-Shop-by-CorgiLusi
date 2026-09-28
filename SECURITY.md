@@ -14,8 +14,8 @@
 
 ## Аудит 20.0.4 / 20.0.4 audit
 
-- Живая версия в коде — `20.0.4`. `GET /health` и `GET /api/public/v16/release` отдают её, а не `16.0.0` и не `20.0.0`. `POST /api/admin/v16/nodes/register` и `POST /api/admin/v16/nodes/{node_name}/failover` требуют право `provision_nodes`. Обновление и `install.sh` по умолчанию читают `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
-- The live code version is `20.0.4`. `GET /health` and `GET /api/public/v16/release` return it, not `16.0.0` or `20.0.0`. `POST /api/admin/v16/nodes/register` and `POST /api/admin/v16/nodes/{node_name}/failover` require `provision_nodes`. The updater and the default `install.sh` URL read `booarkz-cpu/VPN-Shop-by-CorgiLusi`.
+- Живая версия в коде — `20.0.4`. `GET /health` и `GET /api/public/v16/release` отдают её, а не `16.0.0` и не `20.0.0`. `POST /api/admin/v16/nodes/register` и `POST /api/admin/v16/nodes/{node_name}/failover` требуют право `provision_nodes`. Обновление и `install.sh` по умолчанию читают репозиторий проекта.
+- The live code version is `20.0.4`. `GET /health` and `GET /api/public/v16/release` return it, not `16.0.0` or `20.0.0`. `POST /api/admin/v16/nodes/register` and `POST /api/admin/v16/nodes/{node_name}/failover` require `provision_nodes`. The updater and the default `install.sh` URL read the project repository.
 
 ## Аудит 20.0.3 / 20.0.3 audit
 

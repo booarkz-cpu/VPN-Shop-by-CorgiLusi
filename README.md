@@ -1,4 +1,4 @@
-# VPN Shop by Corgi Lusi
+# VPN Shop
 
 **Начните здесь:** [пять простых инструкций по отдельным файлам](docs/ru/steps/README.md) · [указатель всей документации](docs/INDEX.md). Для новой установки используйте маршрут 20.0.18; ниже сохранены подробности и заметки прежних версий.
 
@@ -102,8 +102,8 @@ A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android a
 Нужны Docker Engine, плагин Compose и свободные порты 18080–18083.
 
 ```bash
-git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git
-cd VPN-Shop-by-CorgiLusi
+git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+cd vpn-shop-src
 bash scripts/test-up.sh
 ```
 
@@ -312,8 +312,8 @@ The stand runs the API, admin panel, cabinet and Mini App without YooKassa, Plat
 You need Docker Engine, the Compose plugin, and free ports 18080–18083.
 
 ```bash
-git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git
-cd VPN-Shop-by-CorgiLusi
+git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+cd vpn-shop-src
 bash scripts/test-up.sh
 ```
 
@@ -469,8 +469,8 @@ Variable tables are in [docs/en/PAYMENTS.md](docs/en/PAYMENTS.md).
 Потрібні Docker Engine, плагін Compose і вільні порти 18080–18083.
 
 ```bash
-git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git
-cd VPN-Shop-by-CorgiLusi
+git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+cd vpn-shop-src
 bash scripts/test-up.sh
 ```
 
@@ -629,11 +629,11 @@ A lost YooKassa invoice is no longer turned into a second charge. The scheduler 
 
 ### 20.0.4
 
-Версия в коде — `20.0.4`. Её отдают `GET /health` и `GET /api/public/v16/release`. Регистрация узла и failover требуют право `provision_nodes`. Обновление с GitHub читает репозиторий `booarkz-cpu/VPN-Shop-by-CorgiLusi`. Заметки: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
+Версия в коде — `20.0.4`. Её отдают `GET /health` и `GET /api/public/v16/release`. Регистрация узла и failover требуют право `provision_nodes`. Обновление с GitHub читает репозиторий проекта. Заметки: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
 
-The code version is `20.0.4`. `GET /health` and `GET /api/public/v16/release` return it. Node registration and failover require the `provision_nodes` permission. The GitHub updater reads `booarkz-cpu/VPN-Shop-by-CorgiLusi`. Notes: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
+The code version is `20.0.4`. `GET /health` and `GET /api/public/v16/release` return it. Node registration and failover require the `provision_nodes` permission. The GitHub updater reads the project repository. Notes: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
 
-Версія в коді — `20.0.4`. Її віддають `GET /health` і `GET /api/public/v16/release`. Реєстрація вузла і failover потребують права `provision_nodes`. Оновлення з GitHub читає репозиторій `booarkz-cpu/VPN-Shop-by-CorgiLusi`. Нотатки: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
+Версія в коді — `20.0.4`. Її віддають `GET /health` і `GET /api/public/v16/release`. Реєстрація вузла і failover потребують права `provision_nodes`. Оновлення з GitHub читає репозиторій проєкту. Нотатки: [.github/release-v20.0.4.md](.github/release-v20.0.4.md).
 
 ### 20.0.3
 
@@ -813,7 +813,7 @@ The test stack binds TCP 18080–18083 to localhost only. The VDS installer open
 - **Четыре приложения.** `mobile/android-user`, `mobile/android-admin`, `mobile/ios-user`, `mobile/ios-admin`. Покупатель покупает тариф, собирает конструктор, видит серверы и копирует ссылку подписки. Администратор смотрит обзор, платежи, мониторинг и разбирает нарушения.
 - **Язык в приложении.** Переключатель RU/EN. Каталоги `mobile/l10n/user.json` и `mobile/l10n/admin.json`.
 - **Сессия.** Заголовок `X-Shop-Client` получает `access_token` в JSON. Веб-вход остаётся на HttpOnly cookie и токен в JSON не кладёт.
-- **Лицензия приложений.** Тот же файл `LICENSE`, Corgi Lusi VPN Shop Source License 2.0. Разбор функций — `MOBILE.md`.
+- **Лицензия приложений.** Условия описаны в файле `LICENSE`. Разбор функций — `MOBILE.md`.
 
 ### Возможности 2.6.0
 
@@ -822,7 +822,7 @@ The test stack binds TCP 18080–18083 to localhost only. The VDS installer open
 - **Почта и метрики.** Тестовое SMTP-письмо уходит администратору, который нажал кнопку. DKIM выдаёт TXT-запись. `/metrics` добавляет три ряда, дашборд лежит в `deploy/grafana/vpnshop-platform.json`.
 - **Кабинет на домашний экран.** `cabinet/public/manifest.webmanifest`.
 - **Семь тем админки:** dark, light, midnight, graphite, lagoon, amber, paper.
-- **Лицензия.** Corgi Lusi VPN Shop Source License 2.0, файл `LICENSE`, русский и английский текст.
+- **Лицензия.** Файл `LICENSE`, русский и английский текст.
 
 ### Возможности 2.5.0
 
@@ -898,7 +898,7 @@ cd ../cabinet && npm install && npx vite build
 
 ### Лицензия
 
-**Corgi Lusi VPN Shop Source License 2.0.** Бесплатно разрешены свой коммерческий VPN-магазин, внутренние изменения и распространение собранных клиентских приложений своим покупателям. Условия и ограничения на публикацию исходников — в [LICENSE](LICENSE).
+**Лицензия исходного кода проекта.** Бесплатно разрешены свой коммерческий VPN-магазин, внутренние изменения и распространение собранных клиентских приложений своим покупателям. Условия и ограничения на публикацию исходников — в [LICENSE](LICENSE).
 
 ## English
 
@@ -1044,7 +1044,7 @@ Four apps: `mobile/android-user`, `mobile/android-admin`, `mobile/ios-user`, `mo
 
 ### What 2.6.0 added
 
-The **Платформа** tab scores subscription sharing, lists node agents, an HWID blacklist, API keys, outbound webhooks and country counts. A secret is shown once. `scripts/node-agent.py` sends a heartbeat. The node may apply only `throttle` and `clear`, and only when `AGENT_APPLY_TC=1`. The SMTP test sends mail to the administrator who pressed the button. DKIM returns a TXT record. Extra Prometheus lines and `deploy/grafana/vpnshop-platform.json` cover the platform. The cabinet can be installed to the home screen via `cabinet/public/manifest.webmanifest`. Admin themes: dark, light, midnight, graphite, lagoon, amber, paper. The license is Corgi Lusi VPN Shop Source License 2.0.
+The **Платформа** tab scores subscription sharing, lists node agents, an HWID blacklist, API keys, outbound webhooks and country counts. A secret is shown once. `scripts/node-agent.py` sends a heartbeat. The node may apply only `throttle` and `clear`, and only when `AGENT_APPLY_TC=1`. The SMTP test sends mail to the administrator who pressed the button. DKIM returns a TXT record. Extra Prometheus lines and `deploy/grafana/vpnshop-platform.json` cover the platform. The cabinet can be installed to the home screen via `cabinet/public/manifest.webmanifest`. Admin themes: dark, light, midnight, graphite, lagoon, amber, paper. The license terms are in `LICENSE`.
 
 ### What 2.5.0 added
 
@@ -1111,7 +1111,7 @@ cd ../cabinet && npm install && npx vite build
 
 ### License
 
-**Corgi Lusi VPN Shop Source License 2.0.** Your own commercial VPN shop, internal changes, and distribution of built customer apps to your customers are permitted free of charge. See [LICENSE](LICENSE) for the conditions and source redistribution limits.
+**Project source license.** Your own commercial VPN shop, internal changes, and distribution of built customer apps to your customers are permitted free of charge. See [LICENSE](LICENSE) for the conditions and source redistribution limits.
 
 - v20 Payment Platform: see V20_PAYMENT_PLATFORM_RU.md
 

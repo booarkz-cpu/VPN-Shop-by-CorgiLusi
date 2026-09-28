@@ -1,4 +1,4 @@
-# VPN Shop by Corgi Lusi v19 — Marketplace & Remnawave Commerce
+# VPN Shop v19 — Marketplace & Remnawave Commerce
 
 v19 превращает Corgi в коммерческий слой поверх Remnawave.
 

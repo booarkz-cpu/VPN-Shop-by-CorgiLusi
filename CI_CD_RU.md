@@ -1,4 +1,4 @@
-# Corgi Lusi CI/CD
+# VPN Shop CI/CD
 
 После push в `main` GitHub Actions автоматически:
 - запускает backend compile/tests;

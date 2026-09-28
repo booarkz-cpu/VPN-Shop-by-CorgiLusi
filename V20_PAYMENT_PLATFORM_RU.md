@@ -1,4 +1,4 @@
-# Corgi Lusi v20 — Payment Platform
+# VPN Shop v20 — Payment Platform
 
 ## Реализовано
 - Stripe Checkout/PaymentIntent-compatible server flow, webhook verification, refunds and provider metrics.

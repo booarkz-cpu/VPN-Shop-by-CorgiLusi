@@ -50,9 +50,9 @@ The admin **Приложения** tab stores four cards and the `client_logo` f
 
 ## Лицензия
 
-Приложения входят в Remnawave VPN Shop и покрываются **Corgi Lusi VPN Shop Source License 2.0** (`SPDX-License-Identifier: LicenseRef-CorgiLusi-Commercial-Use`). Полный текст — корневой файл `LICENSE`. Краткая отсылка — `mobile/LICENSE`.
+Приложения входят в Remnawave VPN Shop и распространяются на условиях лицензии исходного кода проекта. Полный текст — корневой файл `LICENSE`. Краткая отсылка — `mobile/LICENSE`.
 
-The apps are part of Remnawave VPN Shop and are covered by the Corgi Lusi VPN Shop Source License 2.0. The full text is the root `LICENSE` file. `mobile/LICENSE` is a short pointer.
+The apps are part of Remnawave VPN Shop and are covered by the project source license. The full text is the root `LICENSE` file. `mobile/LICENSE` is a short pointer.
 
 ## Состав
 

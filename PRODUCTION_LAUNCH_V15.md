@@ -1,4 +1,4 @@
-# Corgi Lusi v15 — Production Launch
+# VPN Shop v15 — Production Launch
 
 ## Required before release
 - Provision Android/iOS/desktop signing and OS VPN entitlements.

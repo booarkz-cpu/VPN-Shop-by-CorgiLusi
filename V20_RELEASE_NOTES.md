@@ -1,4 +1,4 @@
-# VPN Shop by Corgi Lusi v20 — Payment Platform R0–R3
+# VPN Shop v20 — Payment Platform R0–R3
 
 ## R0 — Payment foundation
 - Unified payment provider capability registry.

@@ -1,4 +1,4 @@
-# VPN Shop by Corgi Lusi
+# VPN Shop
 
 A subscription shop for VPN access. A buyer picks a plan, pays, and receives a Remnawave subscription link. An operator manages plans, payments, users and the panel.
 

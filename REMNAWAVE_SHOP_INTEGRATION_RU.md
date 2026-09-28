@@ -1,4 +1,4 @@
-# VPN Shop by Corgi Lusi — Remnawave Shop Integration
+# VPN Shop — Remnawave Shop Integration
 
 Corgi работает как коммерческий слой поверх Remnawave:
 

@@ -5,8 +5,8 @@
 1. Скачайте проект и перейдите в каталог:
 
    ```bash
-   git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git
-   cd VPN-Shop-by-CorgiLusi
+   git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+   cd vpn-shop-src
    ```
 
 2. Запустите `bash scripts/test-up.sh`. Дождитесь результата проверки и запишите выведенный одноразовый пароль администратора.
