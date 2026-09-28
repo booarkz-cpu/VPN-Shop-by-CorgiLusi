@@ -128,10 +128,31 @@ jobs:
             const fs = require('fs');
             const args = {owner: context.repo.owner, repo: context.repo.repo};
             const tag = 'v20.0.15';
+            // This workflow may run for later maintenance commits. Only the
+            // release's own source commit can publish assets to its tag.
+            const main = await github.rest.repos.getBranch({...args, branch: 'main'});
+            if (main.data.commit.sha !== context.sha) {
+              core.notice('Main moved; packages remain available as workflow artifacts.');
+              return;
+            }
+            let tagRef;
+            try { tagRef = (await github.rest.git.getRef({...args, ref:`tags/${tag}`})).data; }
+            catch (e) {
+              if (e.status !== 404) throw e;
+              core.notice(`${tag} does not exist; packages remain as workflow artifacts.`);
+              return;
+            }
+            if (tagRef.object.type !== 'commit' || tagRef.object.sha !== context.sha) {
+              core.notice(`${tag} points to another commit; packages remain as workflow artifacts.`);
+              return;
+            }
             let release;
             for (let i = 0; i < 90; i++) {
               const main = await github.rest.repos.getBranch({...args, branch: 'main'});
-              if (main.data.commit.sha !== context.sha) throw new Error('Main moved; refusing stale publication.');
+              if (main.data.commit.sha !== context.sha) {
+                core.notice('Main moved; packages remain as workflow artifacts.');
+                return;
+              }
               const runs = await github.rest.actions.listWorkflowRuns({...args, workflow_id:'ci.yml', head_sha:context.sha, event:'push', per_page:10});
               const run = runs.data.workflow_runs.find(r => r.head_sha === context.sha && r.event === 'push');
               if (run?.status === 'completed' && run.conclusion !== 'success') throw new Error('Main CI failed.');
@@ -143,8 +164,6 @@ jobs:
               await new Promise(resolve => setTimeout(resolve, 10000));
             }
             if (!release || release.draft) throw new Error('Verified source release is not available.');
-            const ref = await github.rest.git.getRef({...args, ref:`tags/${tag}`});
-            if (ref.data.object.type !== 'commit' || ref.data.object.sha !== context.sha) throw new Error('Release tag does not match verified source.');
             const android = fs.readFileSync('dist/mobile/android-status.txt','utf8').trim();
             const ios = fs.readFileSync('dist/mobile/ios-status.txt','utf8').trim();
             const status = {version:'2.15.0', source_commit:context.sha, workflow_run:context.runId,
