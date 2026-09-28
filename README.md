@@ -1,6 +1,6 @@
 # VPN Shop by Corgi Lusi
 
-**Актуальный релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.15).
+**Актуальный релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [подготовка staging VDS и E2E платежей](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.15).
 
 Новые клиенты защищают сохранённые токены и требуют повторного входа. Реальные платежи остаются закрытыми до staging E2E v2.
 
