@@ -113,3 +113,36 @@ async def test_native_admin_logout_revokes_bearer_session(shop, monkeypatch):
     await shop.admin_logout(request, Response(), db)
     assert session.revoked_at is not None
     db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('role', ['user', 'admin'])
+@pytest.mark.parametrize('invalid', ['expired', 'malformed'])
+async def test_logout_clears_invalid_session_cookies(shop, monkeypatch, role, invalid):
+    import jwt
+    token = jwt.encode({'exp': 1}, shop.settings.app_secret, algorithm='HS256') if invalid == 'expired' else 'broken-token'
+    cookie = 'rw_admin' if role == 'admin' else 'rw_user'
+    request = Request({'type':'http','method':'POST','path':'/',
+                       'headers':[(b'cookie', f'{cookie}={token}; rw_csrf=old'.encode())]})
+    db = NS(execute=AsyncMock(), commit=AsyncMock(), rollback=AsyncMock())
+    response = Response()
+    result = await getattr(shop, role + '_logout')(request, response, db)
+    assert result == {'ok': True}
+    cookies = response.headers.getlist('set-cookie')
+    assert any(cookie + '=' in value and 'Max-Age=0' in value for value in cookies)
+    assert any('rw_csrf=' in value and 'Max-Age=0' in value for value in cookies)
+    db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('role', ['user', 'admin'])
+async def test_logout_database_failure_is_not_reported_as_success(shop, monkeypatch, role):
+    monkeypatch.setattr(shop, 'decode_token', lambda token: {'type':role,'jti':'session-id'})
+    request = Request({'type':'http','method':'POST','path':'/',
+                       'headers':[(b'authorization', b'Bearer valid-token')]})
+    db = NS(execute=AsyncMock(side_effect=RuntimeError('database unavailable')),
+            commit=AsyncMock(), rollback=AsyncMock())
+    with pytest.raises(HTTPException) as exc:
+        await getattr(shop, role + '_logout')(request, Response(), db)
+    assert exc.value.status_code == 503
+    db.rollback.assert_awaited_once()

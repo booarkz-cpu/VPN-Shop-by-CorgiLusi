@@ -609,7 +609,12 @@ async def user_logout(request:Request,response: Response,db:AsyncSession=Depends
     token=token[7:] if token.startswith("Bearer ") else request.cookies.get("rw_user")
     if token:
         try:
-            claims=decode_token(token); jti=claims.get("jti")
+            claims=decode_token(token)
+        except HTTPException as exc:
+            if exc.status_code != 401: raise
+            claims={}
+        try:
+            jti=claims.get("jti")
             if jti: await db.execute(__import__('sqlalchemy').update(UserSession).where(UserSession.jti_hash==hashlib.sha256(jti.encode()).hexdigest()).values(revoked_at=datetime.utcnow())); await db.commit()
         except Exception as exc:
             await db.rollback()
@@ -3475,7 +3480,12 @@ async def admin_logout(request:Request,response:Response,db:AsyncSession=Depends
     token=authorization[7:] if authorization.startswith("Bearer ") else request.cookies.get("rw_admin")
     if token:
         try:
-            claims=decode_token(token); jti=claims.get("jti")
+            claims=decode_token(token)
+        except HTTPException as exc:
+            if exc.status_code != 401: raise
+            claims={}
+        try:
+            jti=claims.get("jti")
             if claims.get("type") == "admin" and jti:
                 row=(await db.execute(select(AdminSession).where(AdminSession.jti_hash==hashlib.sha256(jti.encode()).hexdigest()))).scalar_one_or_none()
                 if row: row.revoked_at=datetime.utcnow(); await db.commit()
