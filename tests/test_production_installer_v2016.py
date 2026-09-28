@@ -68,7 +68,7 @@ def test_failed_database_dump_cancels_update_before_copy(tmp_path):
 
 
 def test_release_asset_names_match_current_version():
-    version = "20.0.19"
+    version = (ROOT / "backend/app/main.py").read_text().split('APP_VERSION = "', 1)[1].split('"', 1)[0]
     workflow = (ROOT / ".github/workflows/publish-release.yml").read_text()
     name = f"remnawave_vpn_shop_v{version.replace('.', '_')}_full_release.zip"
     assert workflow.count(name) >= 4

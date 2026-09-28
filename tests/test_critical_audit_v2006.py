@@ -19,7 +19,10 @@ def test_live_version_is_20_0_6():
     assert builder.index('VERSION="20.0.6"') < builder.index('VERSION="20.0.5"')
     assert builder.index('VERSION="3.1.6"') < builder.index('VERSION="3.1.5"')
     first = main.index('APP_VERSION = "')
-    assert main[first:first + len('APP_VERSION = "20.0.19"')] == 'APP_VERSION = "20.0.19"'
+    current = main[first:].split('"', 2)[1]
+    assert tuple(map(int, current.split('.'))) >= (20, 0, 6)
+    assert f'INSTALLER_VERSION="{current}"' in installer
+    assert f'VERSION="{current}"' in builder
 
 
 def test_full_pass_requires_its_own_line_and_localhost_checks():
