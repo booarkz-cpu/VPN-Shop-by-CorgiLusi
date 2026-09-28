@@ -235,7 +235,6 @@ struct UserRootView: View {
             let issued = response?["access_token"] as? String ?? ""
             guard !issued.isEmpty else { throw URLError(.userAuthenticationRequired) }
             try SessionKeychain.save(issued, base: normalized)
-            if issued.isEmpty { throw URLError(.userAuthenticationRequired) }
             DispatchQueue.main.async { base = normalized; token = issued; password = ""; unlocked = scenePhase == .active }
         }
     }

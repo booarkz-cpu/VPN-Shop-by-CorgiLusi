@@ -15,10 +15,13 @@ OUT="$(cd "$OUT" && pwd)"
 WORK="$(mktemp -d)"
 KEYCHAIN="$WORK/signing.keychain-db"
 PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-mkdir -p "$PROFILE_DIR"
+XCODE_PROFILE_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+mkdir -p "$PROFILE_DIR" "$XCODE_PROFILE_DIR"
 cleanup() {
   security delete-keychain "$KEYCHAIN" >/dev/null 2>&1 || true
-  for name in user admin; do rm -f "$PROFILE_DIR/corgi-ci-$name.mobileprovision"; done
+  for name in user admin; do
+    rm -f "$PROFILE_DIR/corgi-ci-$name.mobileprovision" "$XCODE_PROFILE_DIR/corgi-ci-$name.mobileprovision"
+  done
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -38,6 +41,7 @@ for role in user admin; do
   [[ "$role" != admin ]] || { project=VpnShopAdmin; profile="$IOS_ADMIN_PROFILE_BASE64"; }
   path="$PROFILE_DIR/corgi-ci-$role.mobileprovision"
   printf '%s' "$profile" | base64 --decode > "$path"
+  cp "$path" "$XCODE_PROFILE_DIR/corgi-ci-$role.mobileprovision"
   security cms -D -i "$path" > "$WORK/profile.plist"
   UUID="$(python3 - "$WORK/profile.plist" "$IOS_TEAM_ID" "shop.remnawave.$role" <<'PY'
 import datetime, plistlib, sys

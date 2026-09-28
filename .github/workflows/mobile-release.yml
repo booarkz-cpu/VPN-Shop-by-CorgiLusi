@@ -54,10 +54,10 @@ jobs:
             "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > "$apk.package.txt"
             grep -q "versionCode='2150'" "$apk.package.txt"
             grep -q "versionName='2.15.0'" "$apk.package.txt"
-            ! grep -q 'application-debuggable' "$apk.package.txt"
+            if grep -q 'application-debuggable' "$apk.package.txt"; then echo 'Debuggable release rejected'; exit 1; fi
             if [[ "$state" == signed ]]; then
               "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" > "$apk.certificate.txt"
-              ! grep -q 'CN=Android Debug' "$apk.certificate.txt"
+              if grep -q 'CN=Android Debug' "$apk.certificate.txt"; then echo 'Debug signing certificate rejected'; exit 1; fi
             fi
           done
           printf '%s\n' "$state" > dist/mobile/android-status.txt
