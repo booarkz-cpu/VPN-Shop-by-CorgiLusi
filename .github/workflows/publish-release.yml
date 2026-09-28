@@ -39,8 +39,8 @@ jobs:
             }
       - name: Package v20.0.16
         run: |
-          python3 scripts/package-source.py remnawave_vpn_shop_v20_0_15_full_release.zip
-          sha256sum remnawave_vpn_shop_v20_0_15_full_release.zip > remnawave_vpn_shop_v20_0_15_full_release.zip.sha256
+          python3 scripts/package-source.py remnawave_vpn_shop_v20_0_16_full_release.zip
+          sha256sum remnawave_vpn_shop_v20_0_16_full_release.zip > remnawave_vpn_shop_v20_0_16_full_release.zip.sha256
       - name: Create release and attach verified source
         uses: actions/github-script@v7
         with:
@@ -62,8 +62,8 @@ jobs:
               draft: true, prerelease: false
             });
             for (const name of [
-              'remnawave_vpn_shop_v20_0_15_full_release.zip',
-              'remnawave_vpn_shop_v20_0_15_full_release.zip.sha256'
+              'remnawave_vpn_shop_v20_0_16_full_release.zip',
+              'remnawave_vpn_shop_v20_0_16_full_release.zip.sha256'
             ]) {
               const data = fs.readFileSync(name);
               await github.rest.repos.uploadReleaseAsset({
