@@ -37,6 +37,8 @@ def require_mobile_proof(request) -> None:
     client = mobile_client_name(request)
     if client:
         require_native_transport(request)
+        if request.method == "POST" and request.url.path in {"/api/auth/login", "/api/auth/register", "/api/admin/auth/login"}:
+            require_pkce_challenge(request)
     if not client or not settings.mobile_require_proof:
         return
     if not settings.mobile_client_key:
@@ -68,15 +70,21 @@ def pkce_challenge(verifier: str) -> str:
     return base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
 
 
+def require_pkce_challenge(request) -> str:
+    import re
+    challenge = request.headers.get("x-shop-code-challenge", "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", challenge):
+        raise HTTPException(400, "S256 PKCE code challenge is required; update the native client")
+    return challenge
+
+
 def session_body(request, token: str, body: dict) -> dict:
     if not mobile_client_name(request):
         return body
     require_native_transport(request)
     import json, re, secrets
     from .security import encrypt_secret
-    challenge = request.headers.get("x-shop-code-challenge", "")
-    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", challenge):
-        raise HTTPException(400, "S256 PKCE code challenge is required; update the native client")
+    challenge = require_pkce_challenge(request)
     payload = {"type": "mobile_exchange", "client": mobile_client_name(request), "challenge": challenge,
                "token": token, "exp": int(time.time()) + 120, "jti": secrets.token_urlsafe(32)}
     return {**body, "authorization_code": encrypt_secret(json.dumps(payload)), "expires_in": 120}

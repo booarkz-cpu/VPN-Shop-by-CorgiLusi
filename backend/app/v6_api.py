@@ -36,6 +36,32 @@ DEFAULTS={
  'localization':{'languages':['ru','en','de','uk'],'currencies':['EUR','USD','GBP','CHF'],'default_currency':'EUR'},
 }
 
+def checked_config(section, incoming):
+    defaults = DEFAULTS[section]
+    value = {**defaults, **incoming}
+    for key, default in defaults.items():
+        candidate = value[key]
+        if type(candidate) is not type(default):
+            raise HTTPException(422, f'{section}.{key}: invalid type')
+        if isinstance(candidate, str) and len(candidate) > 255:
+            raise HTTPException(422, f'{section}.{key}: too long')
+        if isinstance(candidate, list) and len(candidate) > 100:
+            raise HTTPException(422, f'{section}.{key}: too many items')
+    bounds = {'stale_seconds': (15,86400), 'forecast_days': (1,365), 'history_days': (1,365),
+              'drain_threshold': (1,100), 'recover_threshold': (0,99),
+              'warning_percent': (0,99), 'critical_percent': (1,100), 'refund_threshold': (0,1000000)}
+    for key, (low, high) in bounds.items():
+        if key in defaults and not low <= value[key] <= high:
+            raise HTTPException(422, f'{section}.{key}: out of range')
+    for low, high in [('warning_percent','critical_percent'), ('recover_threshold','drain_threshold')]:
+        if low in defaults and value[low] >= value[high]:
+            raise HTTPException(422, f'{low} must be less than {high}')
+    if section == 'retention':
+        for key in ('expiry_days','winback_days'):
+            if any(type(day) is not int or not 1 <= day <= 365 for day in value[key]):
+                raise HTTPException(422, f'{key}: invalid days')
+    return value
+
 class ConfigIn(BaseModel): value: dict
 class ProvisionIn(BaseModel): provider:str='custom'; region:str; template:str='standard'; name:str; dry_run:bool=True
 class IncidentIn(BaseModel): title:str; severity:str=Field('medium',pattern='^(low|medium|high|critical)$'); details:str=''
@@ -70,9 +96,9 @@ async def get_config(section:str,db:AsyncSession=Depends(get_db),admin=Depends(r
     return await setting(db,f'v6.{section}',DEFAULTS[section])
 
 @router.put('/api/admin/v6/config/{section}')
-async def put_config(section:str,p:ConfigIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission('manage_users'))):
+async def put_config(section:str,p:ConfigIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission('security.manage'))):
     if section not in DEFAULTS: raise HTTPException(404,'Unknown section')
-    value={**DEFAULTS[section],**p.value}; await save_setting(db,f'v6.{section}',value); await event(db,'config.changed',str(admin.id),section,value); await db.commit(); return value
+    value=checked_config(section,p.value); await save_setting(db,f'v6.{section}',value); await event(db,'config.changed',str(admin.id),section,value); await db.commit(); return value
 
 @router.get('/api/admin/v6/capacity')
 async def capacity(db:AsyncSession=Depends(get_db),admin=Depends(require_permission('read'))):
@@ -86,7 +112,7 @@ async def capacity(db:AsyncSession=Depends(get_db),admin=Depends(require_permiss
     return {'config':cfg,'nodes':out,'recommendation':{'add_nodes':sum(1 for x in out if x['state']=='critical'),'note':'Forecast uses current agent telemetry; connect historical metrics for time-series forecasting.'}}
 
 @router.post('/api/admin/v6/orchestrator/evaluate')
-async def orchestrate(db:AsyncSession=Depends(get_db),admin=Depends(require_permission('manage_users'))):
+async def orchestrate(db:AsyncSession=Depends(get_db),admin=Depends(require_permission('provision_nodes'))):
     cfg=await setting(db,'v6.orchestrator',DEFAULTS['orchestrator']); now=datetime.utcnow(); agents=(await db.execute(select(NodeAgent))).scalars().all(); actions=[]
     for a in agents:
         stale=not a.last_seen_at or (now-a.last_seen_at).total_seconds()>cfg['stale_seconds'] or a.xray_ok is False
@@ -97,7 +123,7 @@ async def orchestrate(db:AsyncSession=Depends(get_db),admin=Depends(require_perm
     await event(db,'orchestrator.evaluated',str(admin.id),payload={'actions':actions});await db.commit();return {'actions':actions,'config':cfg}
 
 @router.post('/api/admin/v6/provision')
-async def provision(p:ProvisionIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission('manage_users'))):
+async def provision(p:ProvisionIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission('provision_nodes'))):
     intent={'id':str(uuid.uuid4()),**p.model_dump(),'status':'planned' if p.dry_run else 'pending_provider_credentials','created_at':datetime.utcnow().isoformat()}
     intents=await setting(db,'v6.provision_intents',[]);intents=[intent,*intents][:200];await save_setting(db,'v6.provision_intents',intents);await event(db,'node.provision.requested',str(admin.id),p.name,intent);await db.commit();return intent
 

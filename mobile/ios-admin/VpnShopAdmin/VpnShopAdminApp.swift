@@ -92,7 +92,7 @@ final class ShopClient: NSObject, URLSessionTaskDelegate {
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(lang, forHTTPHeaderField: "Accept-Language")
-        request.setValue("CorgiLusi-iOS-Admin/2.14.1", forHTTPHeaderField: "User-Agent")
+        request.setValue("CorgiLusi-iOS-Admin/2.15.0", forHTTPHeaderField: "User-Agent")
         // Historical compatibility marker: CorgiLusi-iOS-Admin/2.10.0
         // Historical compatibility marker: CorgiLusi-iOS-Admin/2.9.0
         request.setValue("ios-admin", forHTTPHeaderField: "X-Shop-Client")
@@ -163,4 +163,39 @@ func loadStrings(_ lang: String) -> [String: String] {
           let root = try? JSONSerialization.jsonObject(with: data) as? [String: [String: String]],
           let table = root[lang] else { return [:] }
     return table
+}
+
+
+/// Device-only Keychain storage; plaintext UserDefaults sessions are never reused.
+enum SessionKeychain {
+    private static var query: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: (Bundle.main.bundleIdentifier ?? "shop.session") + ".session.v2",
+         kSecAttrAccount as String: "session"]
+    }
+    static func clear() { SecItemDelete(query as CFDictionary) }
+    static func load(baseKey: String, legacyKey: String) -> String {
+        UserDefaults.standard.removeObject(forKey: legacyKey)
+        var lookup = query
+        lookup[kSecReturnData as String] = true
+        lookup[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(lookup as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data,
+              let stored = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              stored["base"] == UserDefaults.standard.string(forKey: baseKey) else { return "" }
+        return stored["token"] ?? ""
+    }
+    static func save(_ token: String, base: String) throws {
+        let data = try JSONSerialization.data(withJSONObject: ["token": token, "base": base])
+        let attributes: [String: Any] = [kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
+        var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            status = SecItemAdd(query.merging(attributes) { _, new in new } as CFDictionary, nil)
+        }
+        guard status == errSecSuccess else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
+    }
 }

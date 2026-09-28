@@ -60,6 +60,9 @@ async def auth_register(payload: EmailAuthIn, request: Request, response: Respon
     require_mobile_proof(request)
 
     email = _normalize_email(payload.email)
+    # Serialize competing registrations before testing the unique email index.
+    lock_key = int.from_bytes(hashlib.sha256(("register:" + email).encode()).digest()[:8], "big", signed=True)
+    await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_key})
     if await db.scalar(select(User.id).where(User.email == email)):
         raise HTTPException(409, "Email already registered")
     user = User(

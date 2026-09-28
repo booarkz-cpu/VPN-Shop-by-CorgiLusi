@@ -23,12 +23,21 @@ OUT="${1:-$ROOT}"
 mkdir -p "$OUT"
 # Historical compatibility marker: remnawave_vpn_shop_android_user_2_9_0.apk
 # Historical compatibility marker: name="remnawave_vpn_shop_${app//-/_}_2_10_0.apk"
+MODE="${ANDROID_BUILD_MODE:-auto}"
 TASK=":app:assembleDebug"
-KIND="debug"
-if [[ -n "${ANDROID_KEYSTORE:-}" ]]; then
-  TASK=":app:assembleRelease"
-  KIND="release"
-fi
+KIND=debug
+SUFFIX=preview
+case "$MODE" in
+  auto) [[ -z "${ANDROID_KEYSTORE:-}" ]] || { TASK=":app:assembleRelease"; KIND=release; SUFFIX=release; } ;;
+  release)
+    : "${ANDROID_KEYSTORE:?Production requires a persistent signing keystore}"
+    : "${ANDROID_KEYSTORE_PASSWORD:?Missing keystore password}"
+    : "${ANDROID_KEY_ALIAS:?Missing key alias}"
+    : "${ANDROID_KEY_PASSWORD:?Missing key password}"
+    TASK=":app:assembleRelease"; KIND=release; SUFFIX=release ;;
+  verify-release) TASK=":app:assembleRelease"; KIND=release; SUFFIX=unsigned ;;
+  *) echo "Unknown ANDROID_BUILD_MODE" >&2; exit 1 ;;
+esac
 for app in android-user android-admin; do
   dir="$ROOT/mobile/$app"
   if [[ "$GRADLE" == "$ROOT/mobile/android-user/gradlew" ]]; then
@@ -39,9 +48,8 @@ for app in android-user android-admin; do
   src="$dir/app/build/outputs/apk/$KIND/app-$KIND.apk"
   version="$(sed -n 's/^        versionName = "\([^"]*\)"/\1/p' "$dir/app/build.gradle.kts")"
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 1; }
-  suffix="$KIND"
-  [[ "$KIND" != debug ]] || suffix=preview
-  name="corgi_lusi_${app//-/_}_${version//./_}_${suffix}.apk"
+  [[ "$SUFFIX" != unsigned ]] || src="$dir/app/build/outputs/apk/release/app-release-unsigned.apk"
+  name="corgi_lusi_${app//-/_}_${version//./_}_${SUFFIX}.apk"
   cp "$src" "$OUT/$name"
   (cd "$OUT" && sha256sum "$name" > "$name.sha256")
   echo "APK: $OUT/$name"

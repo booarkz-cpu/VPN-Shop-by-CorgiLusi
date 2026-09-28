@@ -30,7 +30,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .db import Session, ph, engine
 from .models import Operator, Category, Macro, Client, Ticket, Message, Attachment, TicketRead, Notification, AuditLog, Settings, now
 from .realtime import r, publish
-from .security import csrf, valid_csrf, new_totp
+from .security import csrf, valid_csrf, new_totp, session_secret
 from .services import STATUSES, PRIORITIES, DELIVERY, settings, notify, assign, create_ticket, close_ticket
 from .sla import validate, set_deadlines, utc
 from .access import scope, can_read, ROLES
@@ -40,7 +40,7 @@ from .storage import save_upload, checked_path, safe_name, MAX_BYTES
 
 ROOT = Path(__file__).resolve().parent
 app = FastAPI(title='Support Pro 3.4', docs_url=None, redoc_url=None, openapi_url=None)
-app.add_middleware(SessionMiddleware, secret_key=os.environ['SESSION_SECRET'],
+app.add_middleware(SessionMiddleware, secret_key=session_secret(os.getenv('SESSION_SECRET', '')),
                    https_only=os.getenv('COOKIE_SECURE', 'true').lower() == 'true',
                    same_site='lax', max_age=28800)
 app.mount('/static', StaticFiles(directory=ROOT / 'static'), name='static')
@@ -62,7 +62,8 @@ async def current_operator(request: Request):
     async with Session() as s:
         sid = identity.get('sid')
         login_session = await s.get(LoginSession,sid) if sid else None
-    if not login_session or login_session.revoked:
+    if (not login_session or login_session.revoked or login_session.operator_id != op.id
+            or utc(login_session.created_at) <= now() - timedelta(hours=8)):
         raise HTTPException(303, headers={'Location':'/login'})
     if op.role not in ROLES: raise HTTPException(403,'Неизвестная роль')
     if op.role != 'admin': scope.set((op.team_id,op.id))

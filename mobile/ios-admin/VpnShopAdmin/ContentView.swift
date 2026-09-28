@@ -5,7 +5,9 @@ import UIKit
 struct AdminRootView: View {
     @AppStorage("shop_admin_lang") private var lang = "ru"
     @AppStorage("shop_admin_base") private var base = ""
-    @AppStorage("shop_admin_token") private var token = ""
+    @State private var token = SessionKeychain.load(baseKey: "shop_admin_base", legacyKey: "shop_admin_token")
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var authenticationContext: LAContext?
     @State private var email = ""
     @State private var password = ""
     @State private var otp = ""
@@ -45,11 +47,22 @@ struct AdminRootView: View {
         }
         .background(Color(red: 0.04, green: 0.06, blue: 0.08))
         .preferredColorScheme(.dark)
+        .overlay { if scenePhase != .active { Color.black.ignoresSafeArea() } }
         .onAppear {
             if token.isEmpty { loadPublicLogo() }
             else if !unlocked { unlockSavedSession() }
         }
-        .onChange(of: token) { value in if !value.isEmpty && unlocked { refresh() } }
+        .onChange(of: token) { value in
+            if value.isEmpty { SessionKeychain.clear() }
+            else if unlocked { refresh() }
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .background {
+                authenticationContext?.invalidate()
+                authenticationContext = nil
+                unlocked = false
+            }
+        }
         .onChange(of: unlocked) { value in if value && !token.isEmpty { refresh() } }
         .onChange(of: lang) { _ in if !token.isEmpty && unlocked { refresh() } }
     }
@@ -67,7 +80,7 @@ struct AdminRootView: View {
     private var lock: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button(t("unlock")) { unlockSavedSession() }.buttonStyle(.borderedProminent)
-            Button(t("sign_out")) { token = ""; unlocked = true }
+            Button(t("sign_out")) { signOut() }
         }
     }
 
@@ -81,7 +94,7 @@ struct AdminRootView: View {
                 }
             }
             Button(t("refresh")) { refresh() }.disabled(busy)
-            Button(t("sign_out")) { token = "" }
+            Button(t("sign_out")) { signOut() }
             section
         }
     }
@@ -180,11 +193,14 @@ struct AdminRootView: View {
             if !otp.trimmingCharacters(in: .whitespaces).isEmpty { body["otp"] = otp }
             let response = try ShopClient(base: normalized, token: "", lang: lang).call("POST", "/api/admin/auth/login", body: body) as? [String: Any]
             let issued = response?["access_token"] as? String ?? ""
-            if issued.isEmpty { throw URLError(.userAuthenticationRequired) }
+            guard !issued.isEmpty else { throw URLError(.userAuthenticationRequired) }
+            try SessionKeychain.save(issued, base: normalized)
             DispatchQueue.main.async {
                 base = normalized
                 token = issued
-                unlocked = true
+                password = ""
+                otp = ""
+                unlocked = scenePhase == .active
                 notice = "\(t("role")): \(response?["role"] as? String ?? "")"
             }
         }
@@ -232,17 +248,32 @@ struct AdminRootView: View {
         }
     }
 
+    private func signOut() {
+        let previous = token
+        let origin = base
+        token = ""
+        SessionKeychain.clear()
+        unlocked = false
+        work {
+            if !previous.isEmpty {
+                _ = try ShopClient(base: origin, token: previous, lang: lang).call("POST", "/api/admin/auth/logout")
+            }
+        }
+    }
+
     private func unlockSavedSession() {
+        authenticationContext?.invalidate()
         let context = LAContext()
+        authenticationContext = context
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            unlocked = true
-            refresh()
+            unlocked = false
+            notice = "Set a device passcode, or sign out and sign in again."
             return
         }
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: t("unlock")) { ok, _ in
             DispatchQueue.main.async {
-                if ok { unlocked = true; refresh() }
+                if ok && scenePhase == .active { unlocked = true; refresh() }
             }
         }
     }

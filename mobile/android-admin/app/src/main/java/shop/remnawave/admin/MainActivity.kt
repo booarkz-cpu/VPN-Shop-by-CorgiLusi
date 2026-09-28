@@ -23,6 +23,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,9 +50,50 @@ import javax.crypto.spec.SecretKeySpec
 import kotlin.concurrent.thread
 
 
+
+/** Tokens are encrypted by a non-exportable Android Keystore AES-GCM key.
+ * The API origin is authenticated as AAD. Legacy plaintext sessions are discarded.
+ */
+class SecureTokenStore(private val prefs: android.content.SharedPreferences) {
+    private val alias = "shop.session.v2"
+    init { prefs.edit().remove("token").commit() }
+    private fun key(): javax.crypto.SecretKey {
+        val store = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(alias, null) as? javax.crypto.SecretKey)?.let { return it }
+        val generator = javax.crypto.KeyGenerator.getInstance("AES", "AndroidKeyStore")
+        generator.init(android.security.keystore.KeyGenParameterSpec.Builder(alias,
+            android.security.keystore.KeyProperties.PURPOSE_ENCRYPT or android.security.keystore.KeyProperties.PURPOSE_DECRYPT)
+            .setBlockModes("GCM").setEncryptionPaddings("NoPadding").setKeySize(256).build())
+        return generator.generateKey()
+    }
+    fun clear() { prefs.edit().remove("token").remove("secure_token").commit() }
+    fun read(): String {
+        val encoded = prefs.getString("secure_token", null) ?: return ""
+        return try {
+            val raw = android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
+            require(raw.size > 28)
+            val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, key(), javax.crypto.spec.GCMParameterSpec(128, raw.copyOfRange(0, 12)))
+            cipher.updateAAD((prefs.getString("base", "") ?: "").toByteArray(Charsets.UTF_8))
+            String(cipher.doFinal(raw.copyOfRange(12, raw.size)), Charsets.UTF_8)
+        } catch (_: Exception) { clear(); "" }
+    }
+    fun write(token: String, base: String) {
+        if (token.isBlank()) { clear(); return }
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, key())
+        cipher.updateAAD(base.toByteArray(Charsets.UTF_8))
+        val encoded = android.util.Base64.encodeToString(cipher.iv + cipher.doFinal(token.toByteArray(Charsets.UTF_8)), android.util.Base64.NO_WRAP)
+        check(prefs.edit().putString("base", base).putString("secure_token", encoded).remove("token").commit()) {
+            "Could not securely store the session"
+        }
+    }
+}
+
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         setContent { MaterialTheme(colorScheme = shopColors()) { AdminApp() } }
     }
 }
@@ -79,16 +123,16 @@ fun promptUnlock(activity: FragmentActivity, title: String, onResult: (Boolean) 
     val authenticators = BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
     try {
         if (BiometricManager.from(activity).canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
-            onResult(true)
+            onResult(false)
             return
         }
-        val prompt = BiometricPrompt(activity, Executors.newSingleThreadExecutor(), object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { activity.runOnUiThread { onResult(true) } }
+        val prompt = BiometricPrompt(activity, androidx.core.content.ContextCompat.getMainExecutor(activity), object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { activity.runOnUiThread { onResult(activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) } }
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { activity.runOnUiThread { onResult(false) } }
         })
         prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle(title).setAllowedAuthenticators(authenticators).build())
     } catch (_: Exception) {
-        onResult(true)
+        onResult(false)
     }
 }
 
@@ -145,7 +189,7 @@ class ShopApi(private val base: String, private val token: String, private val l
             setRequestProperty("Accept", "application/json")
             if (verifier != null) setRequestProperty("X-Shop-Code-Challenge", pkceChallenge(verifier))
             setRequestProperty("Accept-Language", lang)
-            setRequestProperty("User-Agent", "CorgiLusi-Android-Admin/2.14.1")
+            setRequestProperty("User-Agent", "CorgiLusi-Android-Admin/2.15.0")
             // Historical compatibility marker: CorgiLusi-Android-Admin/2.10.0
             // Historical compatibility marker: CorgiLusi-Android-Admin/2.9.0
             setRequestProperty("X-Shop-Client", "android-admin")
@@ -191,10 +235,19 @@ private fun AdminApp() {
     val context = LocalContext.current
     val activity = context as FragmentActivity
     val prefs = remember { context.getSharedPreferences("shop_admin", 0) }
+    val tokenStore = remember { SecureTokenStore(prefs) }
     var lang by remember { mutableStateOf(prefs.getString("lang", "ru") ?: "ru") }
     var base by remember { mutableStateOf(prefs.getString("base", "") ?: "") }
-    var token by remember { mutableStateOf(prefs.getString("token", "") ?: "") }
+    var token by remember { mutableStateOf(tokenStore.read()) }
     var unlocked by remember { mutableStateOf(token.isBlank()) }
+    DisposableEffect(activity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) unlocked = false
+        }
+        activity.lifecycle.addObserver(observer)
+        onDispose { activity.lifecycle.removeObserver(observer) }
+    }
+
     var paymentDetail by remember { mutableStateOf(JSONObject()) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -216,6 +269,20 @@ private fun AdminApp() {
     var logo by remember { mutableStateOf<ImageBitmap?>(null) }
     val strings = remember(lang) { loadStrings(context, lang) }
     fun t(key: String) = strings.optString(key, key)
+    fun signOut() {
+        val previous = token
+        val origin = base
+        tokenStore.clear()
+        token = ""
+        unlocked = false
+        thread {
+            try {
+                if (previous.isNotBlank()) ShopApi(origin, previous, lang).post("/api/admin/auth/logout", JSONObject())
+            } catch (_: Exception) {
+                activity.runOnUiThread { notice = "Signed out locally; server session revocation could not be confirmed." }
+            }
+        }
+    }
     fun work(block: () -> Unit) {
         busy = true
         notice = ""
@@ -301,18 +368,21 @@ private fun AdminApp() {
                         val response = ShopApi(normalized, "", lang).post("/api/admin/auth/login", body) as JSONObject
                         val issued = response.optString("access_token")
                         if (issued.isBlank()) throw IllegalStateException("HTTP")
+                        tokenStore.write(issued, normalized)
                         activity.runOnUiThread {
                             base = normalized
                             token = issued
-                            unlocked = true
-                            prefs.edit().putString("base", normalized).putString("token", issued).putString("lang", lang).apply()
+                            password = ""
+                            otp = ""
+                            unlocked = activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                            prefs.edit().putString("lang", lang).apply()
                             notice = "${t("role")}: ${response.optString("role")}"
                         }
                     }
                 }, enabled = !busy) { Text(t("sign_in")) }
             } else if (!unlocked) {
                 Button(onClick = { promptUnlock(activity, t("unlock")) { unlocked = it } }) { Text(t("unlock")) }
-                TextButton(onClick = { prefs.edit().remove("token").apply(); token = ""; unlocked = true }) { Text(t("sign_out")) }
+                TextButton(onClick = { signOut() }) { Text(t("sign_out")) }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("overview", "plans", "payments", "monitoring", "platform", "ops", "support", "broadcast").forEach { key ->
@@ -321,8 +391,7 @@ private fun AdminApp() {
                 }
                 TextButton(onClick = { refresh() }, enabled = !busy) { Text(t("refresh")) }
                 TextButton(onClick = {
-                    prefs.edit().remove("token").apply()
-                    token = ""
+                    signOut()
                 }) { Text(t("sign_out")) }
                 when (tab) {
                     "overview" -> Text("${t("role")} ${overview.optString("role")} · ${t("plans")} ${overview.optInt("plans")} · ${t("payments")} ${overview.optInt("payments")}")
