@@ -95,7 +95,7 @@ def test_missing_mobile_proof_key_is_fail_closed(monkeypatch):
 
     monkeypatch.setattr(settings, "mobile_require_proof", True)
     monkeypatch.setattr(settings, "mobile_client_key", "")
-    request = SimpleNamespace(headers={"x-shop-client": "android-user"}, method="GET", url=SimpleNamespace(path="/api/me"))
+    request = SimpleNamespace(headers={"x-shop-client": "android-user"}, method="GET", url=SimpleNamespace(path="/api/me", hostname=settings.api_domain))
     with pytest.raises(HTTPException) as error:
         require_mobile_proof(request)
     assert error.value.status_code == 503

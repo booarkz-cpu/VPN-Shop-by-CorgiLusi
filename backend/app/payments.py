@@ -51,7 +51,7 @@ def _currency_matches(data: dict, expected: str) -> bool:
 
 def _checkout(data: Dict[str, Any]) -> Dict[str, Any]:
     confirmation = data.get("confirmation") or {}
-    url = confirmation.get("confirmation_url") or data.get("url") or data.get("redirect") or data.get("paymentUrl") or data.get("link")
+    url = confirmation.get("confirmation_url") or data.get("url") or data.get("pay_url") or data.get("redirect") or data.get("paymentUrl") or data.get("link")
     payment_id = data.get("id") or data.get("payment_id") or data.get("transactionId") or data.get("transaction_id")
     return {"id": payment_id, "url": url, "status": data.get("status") or data.get("Status")}
 
@@ -402,17 +402,17 @@ class PlategaProvider(BasePaymentProvider):
     ) -> Dict[str, Any]:
         client = await self._get_client()
         payload = {
-            "amount": amount,
-            "currency": currency,
+            "paymentDetails": {"amount": amount, "currency": currency},
             "description": description,
             "metadata": metadata,
             "payload": metadata.get("payload") or metadata.get("order_id") or "",
-            "return_url": metadata.get(
+            "return": metadata.get(
                 "return_url", settings.public_base_url
             ),
+            "failedUrl": metadata.get("return_url", settings.public_base_url),
         }
         response = await client.post(
-            f"{settings.platega_api_url}/api/payment",
+            f"{settings.platega_api_url.rstrip('/')}/v2/transaction/process",
             headers={
                 "X-MerchantId": settings.platega_merchant_id,
                 "X-Secret": settings.platega_secret,
@@ -426,7 +426,7 @@ class PlategaProvider(BasePaymentProvider):
     async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
         client = await self._get_client()
         response = await client.get(
-            f"{settings.platega_api_url}/api/payment/{payment_id}",
+            f"{settings.platega_api_url.rstrip('/')}/transaction/{payment_id}",
             headers={
                 "X-MerchantId": settings.platega_merchant_id,
                 "X-Secret": settings.platega_secret,
@@ -450,11 +450,12 @@ class PlategaProvider(BasePaymentProvider):
             return False
         d = response.json()
         paid = str(d.get("status") or d.get("Status") or "").upper() in {"CONFIRMED", "SUCCESS", "SUCCEEDED", "PAID"}
-        amount_value = Decimal(str(d.get("amount") or d.get("Amount") or "0"))
+        details = d.get("paymentDetails") or {}
+        amount_value = Decimal(str(details.get("amount") or "0"))
         order = str(d.get("payload") or d.get("Payload") or "")
         if expected_order_id and order != expected_order_id:
             return False
-        return paid and amount_value == Decimal(str(expected_amount)) and _currency_matches(d, currency)
+        return paid and amount_value == Decimal(str(expected_amount)) and _currency_matches(details, currency)
 
     async def refund(self, payment_id: str, amount, currency: str, reason: str = "") -> Dict[str, Any]:
         if not settings.platega_refund_url:
@@ -510,20 +511,21 @@ class RollyPayProvider(BasePaymentProvider):
     ) -> Dict[str, Any]:
         client = await self._get_client()
         payload = {
-            "amount": amount,
-            "currency": currency,
+            "amount": _money(amount),
+            "payment_currency": currency,
             "description": description,
             "metadata": metadata,
-            "return_url": metadata.get(
+            "redirect_url": metadata.get(
                 "return_url", settings.public_base_url
             ),
             "order_id": metadata.get("order_id") or "",
             "test": settings.rollypay_test_mode,
         }
         response = await client.post(
-            f"{settings.rollypay_api_url}/api/v1/payments",
+            f"{settings.rollypay_api_url.rstrip('/')}/api/v1/payments",
             headers={
-                "Authorization": f"Bearer {settings.rollypay_api_key}",
+                "X-API-Key": settings.rollypay_api_key,
+                "X-Nonce": str(uuid.uuid4()),
                 "Content-Type": "application/json",
             },
             json=payload,
@@ -534,9 +536,10 @@ class RollyPayProvider(BasePaymentProvider):
     async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
         client = await self._get_client()
         response = await client.get(
-            f"{settings.rollypay_api_url}/api/v1/payments/{payment_id}",
+            f"{settings.rollypay_api_url.rstrip('/')}/api/v1/payments/{payment_id}",
             headers={
-                "Authorization": f"Bearer {settings.rollypay_api_key}"
+                "X-API-Key": settings.rollypay_api_key,
+                "X-Nonce": str(uuid.uuid4()),
             },
         )
         response.raise_for_status()
@@ -551,7 +554,7 @@ class RollyPayProvider(BasePaymentProvider):
         async with _public_client(10) as client:
             response = await client.get(
                 f"{settings.rollypay_api_url}/api/v1/payments/{payment_id}",
-                headers={"Authorization": f"Bearer {settings.rollypay_api_key}"},
+                headers={"X-API-Key": settings.rollypay_api_key, "X-Nonce": str(uuid.uuid4())},
             )
         if response.status_code >= 400:
             return False
@@ -561,7 +564,7 @@ class RollyPayProvider(BasePaymentProvider):
         order = str(d.get("order_id") or "")
         if expected_order_id and order != expected_order_id:
             return False
-        return paid and amount_value == Decimal(str(expected_amount)) and _currency_matches(d, currency)
+        return paid and amount_value == Decimal(str(expected_amount)) and _currency_matches({"currency": d.get("payment_currency")}, currency)
 
     async def refund(self, payment_id: str, amount, currency: str, reason: str = "") -> Dict[str, Any]:
         if not settings.rollypay_refund_url:
@@ -697,7 +700,7 @@ def verify_rollypay(raw: bytes, timestamp: str, signature: str) -> bool:
         return False
     if abs(int(time.time()) - ts) > 300:
         return False
-    expected = hmac.new(settings.rollypay_signing_secret.encode(), raw, hashlib.sha256).hexdigest()
+    expected = hmac.new(settings.rollypay_signing_secret.encode(), timestamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 
 
@@ -721,23 +724,30 @@ async def staging_read_payment(provider: str, creds: Dict[str, Any], payment_id:
         elif provider == "platega":
             response = await client.get(f"{api_url}/transaction/{payment_id}", headers={"X-MerchantId": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or "")})
         elif provider == "rollypay":
-            response = await client.get(f"{api_url}/api/v1/payments/{payment_id}", headers={"Authorization": f"Bearer {creds.get('api_key') or ''}"})
+            response = await client.get(f"{api_url}/api/v1/payments/{payment_id}", headers={"X-API-Key": str(creds.get("api_key") or ""), "X-Nonce": str(uuid.uuid4())})
         else:
             raise PaymentError(f"Неизвестный провайдер: {provider}")
     if response.status_code >= 400:
         return {"paid": False, "status": f"http_{response.status_code}"}
     data = response.json()
     status = str(data.get("status") or data.get("Status") or "")
-    amount_value = Decimal(str((data.get("amount") or {}).get("value") if isinstance(data.get("amount"), dict) else (data.get("amount") or data.get("Amount") or "0")))
+    details = (data.get("paymentDetails") or {}) if provider == "platega" else {}
+    if provider == "yookassa":
+        amount_raw = (data.get("amount") or {}).get("value")
+    elif provider == "platega":
+        amount_raw = details.get("amount")
+    else:
+        amount_raw = data.get("amount")
+    amount_value = Decimal(str(amount_raw if amount_raw is not None else "0"))
     if provider == "yookassa":
         order = str((data.get("metadata") or {}).get("order_id") or "")
         currency_ok = str((data.get("amount") or {}).get("currency") or "").upper() == "RUB"
     elif provider == "platega":
         order = str(data.get("payload") or data.get("Payload") or "")
-        currency_ok = _currency_matches(data, "RUB")
+        currency_ok = _currency_matches(details or {}, "RUB")
     else:
         order = str(data.get("order_id") or "")
-        currency_ok = _currency_matches(data, "RUB")
+        currency_ok = _currency_matches({"currency": data.get("payment_currency")}, "RUB")
     paid = _staging_paid(status) and amount_value == Decimal(str(expected_amount)) and order == expected_order_id and currency_ok
     return {"paid": paid, "status": status, "amount": str(amount_value), "order_id": order}
 
@@ -810,17 +820,17 @@ async def staging_create_payment(provider: str, creds: Dict[str, Any], amount: D
     elif provider == "platega":
         api_url = creds.get("api_url")
         api_url = validate_public_url(api_url, allow_empty=False)
-        payload = {"amount": float(amount), "currency": "RUB", "description": description, "payload": order_id, "return_url": return_url}
+        payload = {"paymentDetails": {"amount": float(amount), "currency": "RUB"}, "description": description, "payload": order_id, "return": return_url, "failedUrl": return_url}
         auth = None
         headers = {"X-MerchantId": str(creds.get("merchant_id") or ""), "X-Secret": str(creds.get("secret") or ""), "Content-Type": "application/json"}
-        path = "/api/payment"
+        path = "/v2/transaction/process"
     elif provider == "rollypay":
         api_url = creds.get("api_url")
         api_url = validate_public_url(api_url, allow_empty=False)
-        payload = {"amount": float(amount), "currency": "RUB", "description": description, "order_id": order_id, "return_url": return_url}
+        payload = {"amount": _money(amount), "payment_currency": "RUB", "description": description, "order_id": order_id, "redirect_url": return_url}
         payload["test"] = True
         auth = None
-        headers = {"Authorization": f"Bearer {creds.get('api_key') or ''}", "Content-Type": "application/json"}
+        headers = {"X-API-Key": str(creds.get("api_key") or ""), "X-Nonce": str(uuid.uuid4()), "Content-Type": "application/json"}
         path = "/api/v1/payments"
     else:
         raise PaymentError(f"Неизвестный провайдер: {provider}")
