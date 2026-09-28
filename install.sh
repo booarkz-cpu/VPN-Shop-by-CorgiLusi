@@ -51,7 +51,11 @@ else
   if [[ -d "$SOURCE_DIR/.git" ]]; then
     git -C "$SOURCE_DIR" pull --ff-only origin "$BRANCH"
   else
-    rm -rf "$SOURCE_DIR"
+    if [[ -n "$(ls -A "$SOURCE_DIR")" ]]; then
+      echo "$SOURCE_DIR не пуст и не является git checkout; переместите данные вручную." >&2
+      exit 1
+    fi
+    rmdir "$SOURCE_DIR"
     git clone --branch "$BRANCH" "$REPO_URL" "$SOURCE_DIR"
   fi
 fi

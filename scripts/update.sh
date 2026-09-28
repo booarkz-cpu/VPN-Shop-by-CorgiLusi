@@ -3,6 +3,7 @@ set -Eeuo pipefail
 APP_DIR="${APP_DIR:-/opt/vpn-shop}"
 cd "$APP_DIR"
 [[ -f .env ]] || { echo "Missing $APP_DIR/.env" >&2; exit 2; }
+umask 077
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 ROLLBACK_DIR="${ROLLBACK_DIR:-$APP_DIR/.rollback}"
 mkdir -p "$ROLLBACK_DIR"
@@ -11,8 +12,12 @@ DB_DUMP="$ROLLBACK_DIR/pre-update-$STAMP.sql"
 # Never copy environment secrets into rollback archives.
 tar --exclude='./.rollback' --exclude='./.git' --exclude='./.env' --exclude='./.env.*' --exclude='*/.env' --exclude='*/.env.*' --exclude='*/node_modules' -czf "$SNAPSHOT" .
 if docker compose up -d db >/dev/null 2>&1; then
-  docker compose exec -T db pg_dump -U vpnshop -d vpnshop --clean --if-exists --no-owner --no-privileges > "$DB_DUMP" || { rm -f "$DB_DUMP"; echo 'Warning: pre-update DB dump failed' >&2; }
+  docker compose exec -T db pg_dump -U vpnshop -d vpnshop --clean --if-exists --no-owner --no-privileges > "$DB_DUMP" || { rm -f "$DB_DUMP"; echo 'Pre-update DB dump failed; update cancelled' >&2; exit 1; }
+else
+  echo "Database did not start; update cancelled" >&2
+  exit 1
 fi
+[[ -s "$DB_DUMP" ]] || { echo "Database dump is empty; update cancelled" >&2; exit 1; }
 ln -sfn "$(basename "$SNAPSHOT")" "$ROLLBACK_DIR/latest.tar.gz"
 ln -sfn "$(basename "$DB_DUMP")" "$ROLLBACK_DIR/latest.sql" 2>/dev/null || true
 rollback(){
@@ -21,7 +26,12 @@ rollback(){
   docker compose down --remove-orphans || true
   tmp="$(mktemp -d)"
   tar -xzf "$SNAPSHOT" -C "$tmp"
-  find "$APP_DIR" -mindepth 1 -maxdepth 1 ! -name '.env' ! -name '.rollback' -exec rm -rf {} +
+  # Keep secrets and image pins out of the archive, but preserve them on disk.
+  if [[ -f support-pro/.env ]]; then
+    mkdir -p "$tmp/support-pro"
+    cp -p support-pro/.env "$tmp/support-pro/.env"
+  fi
+  find "$APP_DIR" -mindepth 1 -maxdepth 1 ! -name '.env' ! -name '.env.*' ! -name '.git' ! -name '.rollback' -exec rm -rf {} +
   cp -a "$tmp"/. "$APP_DIR"/
   rm -rf "$tmp"
   if [[ -s "$DB_DUMP" ]]; then
