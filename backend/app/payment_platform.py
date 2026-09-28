@@ -233,6 +233,13 @@ class AppleStorePlatform:
         if verified_payload.get('bundleId') != settings.apple_bundle_id: raise PlatformProviderError('Apple bundle id mismatch')
         if str(verified_payload.get('transactionId') or '') != transaction_id: raise PlatformProviderError('Apple transaction id mismatch')
         if verified_payload.get('revocationDate'): raise PlatformProviderError('Apple transaction is revoked')
+        expiry=verified_payload.get('expiresDate')
+        try:
+            # App Store signed transaction dates are Unix milliseconds.
+            if expiry is None or int(expiry) <= int(time.time() * 1000):
+                raise PlatformProviderError('Apple subscription is expired or has no expiry')
+        except (TypeError, ValueError) as exc:
+            raise PlatformProviderError('Invalid Apple subscription expiry') from exc
         return verified_payload
     async def get_transaction(self,transaction_id):
         # Signed API token is generated only when App Store API credentials exist.
@@ -259,6 +266,12 @@ class GooglePlayPlatform:
         items=data.get('lineItems') or []
         product=str((items[0] or {}).get('productId') or '') if items else ''
         if not product: raise PlatformProviderError('Google Play product id is missing')
+        try:
+            expiry=datetime.fromisoformat(str(items[0]['expiryTime']).replace('Z', '+00:00'))
+            if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc):
+                raise PlatformProviderError('Google Play subscription is expired')
+        except (KeyError, TypeError, ValueError) as exc:
+            raise PlatformProviderError('Invalid Google Play subscription expiry') from exc
         data['productId']=product
         return data
 

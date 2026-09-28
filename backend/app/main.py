@@ -5243,7 +5243,10 @@ async def verify_mobile_purchase(payload:MobilePurchaseIn,request:Request,db:Asy
     # One external store transaction grants one shop payment. A missing id must not
     # mint a fresh paid order.
     existing=(await db.execute(select(Payment).where(Payment.provider==payload.provider,Payment.provider_payment_id==external_id))).scalar_one_or_none()
-    if existing: return {"ok":True,"payment_id":existing.id,"status":existing.status,"expires_at":expiry}
+    if existing:
+        if existing.user_id != user.id:
+            raise HTTPException(409,"Store transaction belongs to another account")
+        return {"ok":True,"payment_id":existing.id,"status":existing.status,"expires_at":expiry}
     order=f"{payload.provider}-{external_id}"
     p=Payment(user_id=user.id,plan_id=plan.id,provider=payload.provider,provider_payment_id=external_id,order_id=order,amount=plan.price,original_amount=plan.price,discount_amount=0,duration_days_snapshot=plan.duration_days,traffic_limit_gb_snapshot=plan.traffic_limit_gb,device_limit_snapshot=plan.device_limit,remnawave_profile_id_snapshot=plan.remnawave_profile_id,currency=settings.default_currency,status="paid",fulfillment_status="pending",idempotency_key=hashlib.sha256(order.encode()).hexdigest(),purpose="subscription")
     db.add(p); await db.flush(); await _issue_invoice(db,p); await db.commit(); await _confirm_and_fulfill_payment(p.id,db)
