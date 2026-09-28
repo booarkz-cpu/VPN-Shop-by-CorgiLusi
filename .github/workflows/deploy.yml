@@ -15,7 +15,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy over SSH
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: production
     steps:
       - name: Deploy
