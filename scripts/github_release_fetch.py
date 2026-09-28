@@ -71,16 +71,24 @@ def safe_extract(blob: bytes, destination: Path) -> None:
         fail("Release archive is too large")
     with zipfile.ZipFile(io.BytesIO(blob)) as archive:
         total = 0
+        seen = set()
         for info in archive.infolist():
             name = info.filename.replace("\\", "/")
             mode = (info.external_attr >> 16) & 0xFFFF
-            if stat.S_ISLNK(mode):
-                fail("Release archive contains a symlink")
-            if name.startswith("/") or name.startswith("../") or ".." in Path(name).parts:
+            parts = Path(name).parts
+            if (stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0, stat.S_IFREG, stat.S_IFDIR))):
+                fail("Release archive contains a link or special file")
+            if not name or name.startswith("/") or ".." in parts or "." in parts or ":" in parts[0]:
                 fail("Release archive contains an unsafe path")
+            canonical = name.rstrip("/")
+            if canonical in seen:
+                fail("Release archive contains duplicate paths")
+            seen.add(canonical)
             total += info.file_size
             if total > MAX_ARCHIVE_BYTES:
                 fail("Release archive is too large")
+        for info in archive.infolist():
+            name = info.filename.replace("\\", "/")
             if name.endswith("/") or not name.strip("/"):
                 continue
             target = (destination / name).resolve()
@@ -139,6 +147,12 @@ def main() -> None:
         fail("SHA-256 релиза не совпал")
     stage.mkdir(parents=True, exist_ok=True)
     safe_extract(blob, stage)
+    try:
+        extracted = current_version(stage)
+    except (OSError, ValueError):
+        fail("В архиве нет версии приложения")
+    if extracted != latest:
+        fail("Версия приложения в архиве не совпадает с тегом релиза")
     print(latest)
 
 
