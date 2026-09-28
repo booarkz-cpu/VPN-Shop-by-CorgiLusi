@@ -65,3 +65,12 @@ def test_failed_database_dump_cancels_update_before_copy(tmp_path):
     assert run.returncode != 0
     assert "dump failed" in run.stderr
     assert (tmp_path / "marker").read_text() == "unchanged"
+
+
+def test_release_asset_names_match_current_version():
+    version = "20.0.17"
+    workflow = (ROOT / ".github/workflows/publish-release.yml").read_text()
+    name = f"remnawave_vpn_shop_v{version.replace('.', '_')}_full_release.zip"
+    assert workflow.count(name) >= 4
+    assert f"const tag = 'v{version}'" in workflow
+    assert "remnawave_vpn_shop_v20_0_15_full_release.zip" not in workflow

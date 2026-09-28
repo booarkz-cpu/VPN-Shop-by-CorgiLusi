@@ -1,4 +1,4 @@
-# VPN Shop 20.0.16: установка с нуля на VDS
+# VPN Shop 20.0.17: установка с нуля на VDS
 
 Эта инструкция рассчитана на владельца нового сервера Ubuntu/Debian. Команды вводятся в терминале сервера; строки вида `example.com` заменяются вашими доменами. В результате запустятся магазин, бот, админка, кабинет и Support Pro с HTTPS. **Приём реальных платежей останется закрытым** до отдельного успешного staging E2E v2 и включения допуска по [регламенту платежей](../../README.md). Установка сервера сама по себе этот допуск не открывает.
 
@@ -59,7 +59,7 @@ for name in api admin app cabinet support; do dig +short A "${name}.vpn.example.
 
 ```bash
 cd /opt
-sudo git clone --branch v20.0.16 --depth 1 https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+sudo git clone --branch v20.0.17 --depth 1 https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
 cd /opt/vpn-shop-src
 git rev-parse --short HEAD
 ```
