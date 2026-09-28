@@ -7,6 +7,7 @@
 | Пошаговое начало на русском | [Пять отдельных инструкций](ru/steps/README.md) |
 | Установка с нуля | [VDS 20.0.18](ru/VDS_PRODUCTION_20_0_18.md) |
 | ЮKassa: куда нажимать новичку | [Пошагово по экранам](ru/YOOKASSA_CLICKS_BEGINNER.md) |
+| Все кассы: пошаговая проверка | [Отдельный чек-лист по каждому провайдеру](ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md) |
 | Очень подробный запуск реальных платежей | [С нуля до контрольной покупки](ru/REAL_PAYMENTS_FROM_ZERO.md) |
 | Проверка платежей | [Подготовка staging](ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md), [порядок для новичка](ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) |
 | Текущие границы платежей | [Аудит контрактов](ru/PAYMENT_AUDIT_2026_09_28.md), [контракт E2E v2](ru/STAGING_E2E_V2_IMPLEMENTATION.md) |

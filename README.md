@@ -2,6 +2,8 @@
 
 **Начните здесь:** [пять простых инструкций по отдельным файлам](docs/ru/steps/README.md) · [указатель всей документации](docs/INDEX.md). Для новой установки используйте маршрут 20.0.18; ниже сохранены подробности и заметки прежних версий.
 
+**Проверка всех касс:** [пошаговое руководство для новичка](docs/ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md). В версии 20.0.18 реальные платежи закрыты до полного staging E2E v2.
+
 **Актуальный релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [пошаговый маршрут платежей для новичка](docs/ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) · [аудит платежей](docs/ru/PAYMENT_AUDIT_2026_09_28.md) · [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.15).
 
 Новые клиенты защищают сохранённые токены и требуют повторного входа. Реальные платежи остаются закрытыми до staging E2E v2.
