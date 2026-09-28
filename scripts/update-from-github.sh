@@ -22,6 +22,5 @@ if [[ "$LATEST" == Установлена* ]]; then
   exit 0
 fi
 export UPDATE_STAGE="$STAGE"
-trap - EXIT
 echo "Проверен релиз $LATEST. Снимок текущей установки делает update.sh, затем он заменяет файлы."
-exec bash "$APP_DIR/scripts/update.sh"
+bash "$APP_DIR/scripts/update.sh"

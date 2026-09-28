@@ -98,7 +98,7 @@ env_line() {
 }
 
 # Previous release contract: INSTALLER_VERSION="1.0.0-realise"
-INSTALLER_VERSION="20.0.17"
+INSTALLER_VERSION="20.0.18"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.8"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.7"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.6"
@@ -133,7 +133,7 @@ INSTALLER_VERSION="20.0.17"
 # Previous release contract: INSTALLER_VERSION="45.0.0-enterprise"
 # V44.5 Enterprise legacy contract marker
 # INSTALLER_VERSION="43.1.0-production" legacy regression marker
-log "Remnawave VPN Shop — 20.0.17 production installer"
+log "Remnawave VPN Shop — 20.0.18 production installer"
 # Historical compatibility marker: 3.1.3 русскоязычный production installer
 # Historical compatibility marker: 3.1.2 русскоязычный production installer
 # Historical compatibility marker: 3.1.1 русскоязычный production installer
@@ -326,7 +326,6 @@ umask 077
   env_line CABINET_URL "https://${CABINET_DOMAIN}"
   env_line ADMIN_CORS_ORIGINS "https://${ADMIN_DOMAIN}"
   env_line CABINET_CORS_ORIGINS "https://${CABINET_DOMAIN}"
-  env_line CABINET_CORS_ORIGINS ""
   env_line ADMIN_EMAIL "$ADMIN_EMAIL"
   env_line ADMIN_PASSWORD "$ADMIN_PASSWORD"
   env_line BOT_TOKEN "$BOT_TOKEN"

@@ -29,7 +29,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "20.0.17"
+APP_VERSION = "20.0.18"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -3854,7 +3854,7 @@ async def create_project_backup(db, actor="system"):
             with tarfile.open(archive,"w:gz") as tar:
                 def _tar_filter(info):
                     parts=set(pathlib.Path(info.name).parts)
-                    if parts & {"backups","node_modules","__pycache__",".git"}: return None
+                    if parts & {"backups",".rollback","node_modules","__pycache__",".git"}: return None
                     if not include_env and pathlib.Path(info.name).name == ".env": return None
                     if not (info.isfile() or info.isdir()): return None
                     return info
@@ -4133,11 +4133,8 @@ async def restore_backup(backup_id:int,payload:RestoreApprovalIn,db:AsyncSession
         sql_file=work/"database.sql"
         # Use the configured SQLAlchemy database URL rather than hard-coded deployment
         # credentials. This keeps restore correct for non-default DB hosts/users/passwords.
-        db_url=urllib.parse.urlparse(settings.database_url.replace("postgresql+asyncpg://","postgresql://",1))
-        db_host=db_url.hostname or "db"; db_user=urllib.parse.unquote(db_url.username or "vpnshop")
-        db_name=(db_url.path or "/vpnshop").lstrip("/") or "vpnshop"
-        db_password=urllib.parse.unquote(db_url.password or os.getenv("DB_PASSWORD", ""))
-        proc=await asyncio.create_subprocess_exec("psql","-h",db_host,"-U",db_user,"-d",db_name,"-v","ON_ERROR_STOP=1","-f",str(sql_file),env={**os.environ,"PGPASSWORD":db_password},stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE); out,err=await proc.communicate()
+        dbcli=_database_cli_config()
+        proc=await asyncio.create_subprocess_exec("psql","-h",dbcli["host"],"-p",dbcli["port"],"-U",dbcli["user"],"-d",dbcli["database"],"-v","ON_ERROR_STOP=1","-f",str(sql_file),env={**os.environ,"PGPASSWORD":dbcli["password"]},stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE); out,err=await proc.communicate()
         if proc.returncode!=0:
             logger.warning("Restore failed: %s", err.decode(errors="ignore")[-1000:])
             raise HTTPException(500, "Restore failed")
@@ -4931,8 +4928,6 @@ async def v41_backup_test_restore(backup_id:int,db:AsyncSession=Depends(get_db),
         _,rerr=await restore.communicate()
         if restore.returncode!=0: raise RuntimeError("Изолированный restore завершился ошибкой: "+rerr.decode(errors="ignore")[-1000:])
         check=await asyncio.create_subprocess_exec("psql","-h",dbcli["host"],"-p",dbcli["port"],"-U",dbcli["user"],"-d",temp_db,"-v","ON_ERROR_STOP=1","-tAc","SELECT 1",env=env,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
-        # Fallback because subprocess args above intentionally avoid shell; execute correct check if needed.
-        if check.returncode is None: pass
         out,err=await check.communicate()
         if check.returncode!=0 or out.decode().strip()!="1": raise RuntimeError("Проверка восстановленной БД не пройдена")
         record.restore_tested=True; record.status="passed"; record.finished_at=datetime.utcnow(); await audit(db,"backup.test_restore",admin.email,str(backup_id),{"status":"passed","restore_tested":True}); await db.commit()
