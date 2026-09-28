@@ -63,7 +63,7 @@
 sudo apt-get update
 sudo apt-get install -y git ca-certificates curl
 cd /opt
-sudo git clone --branch v20.0.18 --depth 1 https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+sudo git clone --branch v20.0.18 --depth 1 https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
 cd /opt/vpn-shop-src
 sudo bash deploy/install-vps.sh
 ```

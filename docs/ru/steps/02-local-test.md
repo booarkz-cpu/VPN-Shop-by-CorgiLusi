@@ -5,7 +5,7 @@
 1. Скачайте проект и перейдите в каталог:
 
    ```bash
-   git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+   git clone https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
    cd vpn-shop-src
    ```
 

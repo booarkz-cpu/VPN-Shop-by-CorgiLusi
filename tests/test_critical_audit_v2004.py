@@ -33,9 +33,9 @@ def test_updater_points_at_this_repository():
     update = (ROOT / "backend/app/github_update.py").read_text()
     fetch = (ROOT / "scripts/github_release_fetch.py").read_text()
     installer = (ROOT / "install.sh").read_text()
-    assert 'GITHUB_REPO = "booarkz-cpu/VPN-Shop-by-CorgiLusi"' in update
-    assert 'REPO = "booarkz-cpu/VPN-Shop-by-CorgiLusi"' in fetch
-    assert "https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git" in installer
+    assert 'GITHUB_REPO = "booarkz-cpu/shop-by-boo"' in update
+    assert 'REPO = "booarkz-cpu/shop-by-boo"' in fetch
+    assert "https://github.com/booarkz-cpu/shop-by-boo.git" in installer
     assert "remnawave-vpn-shop" not in update
     assert "remnawave-vpn-shop" not in fetch.split("DOWNLOAD_PREFIX", 1)[0]
 

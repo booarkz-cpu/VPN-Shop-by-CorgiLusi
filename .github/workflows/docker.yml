@@ -48,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_PREFIX }}/vpn-shop-by-corgilusi-${{ matrix.name }}
+          images: ${{ env.IMAGE_PREFIX }}/shop-by-boo-${{ matrix.name }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag

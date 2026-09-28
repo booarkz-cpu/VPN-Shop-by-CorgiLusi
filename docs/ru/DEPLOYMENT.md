@@ -30,7 +30,7 @@ docker compose version
 ## 2. Получить исходники
 
 ```bash
-sudo git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git /opt/vpn-shop
+sudo git clone https://github.com/booarkz-cpu/shop-by-boo.git /opt/vpn-shop
 cd /opt/vpn-shop
 ```
 

@@ -1,6 +1,6 @@
 # Обновление 20.0.15 / production-подпись Mobile 2.15.0
 
-[GitHub Release](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.15) · [Отчёт аудита](AUDIT_20_0_15.md).
+[GitHub Release](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.15) · [Отчёт аудита](AUDIT_20_0_15.md).
 
 ## Обновление сервера
 

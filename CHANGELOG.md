@@ -32,4 +32,4 @@ Production payment gate версии 20.0.13 сохраняется; полны�
 
 Привязка staging gate к конфигурации и свежему доказательству, защита от подмены результата и конкурентного запуска; инструкция будущего staging E2E v2. [Release notes](.github/release-v20.0.13.md).
 
-Предыдущая история: [GitHub Releases](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases).
+Предыдущая история: [GitHub Releases](https://github.com/booarkz-cpu/shop-by-boo/releases).

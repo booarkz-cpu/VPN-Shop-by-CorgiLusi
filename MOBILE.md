@@ -1,12 +1,12 @@
 # Mobile 2.15.0
 
-[Актуальная инструкция production-подписи](docs/ru/PRODUCTION_20_0_15.md) · [релиз 20.0.15](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.15). Установочные production-пакеты доступны только после настройки ключей владельца.
+[Актуальная инструкция production-подписи](docs/ru/PRODUCTION_20_0_15.md) · [релиз 20.0.15](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.15). Установочные production-пакеты доступны только после настройки ключей владельца.
 
 Ниже — сведения прежних выпусков.
 
 # Мобильные клиенты 2.14.1
 
-[Скачать Android и iOS](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/mobile-v2.14.1) · [Актуальная инструкция установки и подписи](docs/ru/MOBILE_RELEASE_2_14_1.md).
+[Скачать Android и iOS](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/mobile-v2.14.1) · [Актуальная инструкция установки и подписи](docs/ru/MOBILE_RELEASE_2_14_1.md).
 
 Для backend 20.0.14 используйте новые PKCE-клиенты. Android preview устанавливается отдельно; iOS unsigned IPA требует Apple-подписи.
 

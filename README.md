@@ -2,13 +2,13 @@
 
 **Начните здесь:** [пять простых инструкций по отдельным файлам](docs/ru/steps/README.md) · [указатель всей документации](docs/INDEX.md). Для новой установки используйте маршрут 20.0.18; ниже сохранены подробности и заметки прежних версий.
 
-**Актуальный релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [пошаговый маршрут платежей для новичка](docs/ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) · [аудит платежей](docs/ru/PAYMENT_AUDIT_2026_09_28.md) · [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/v20.0.15).
+**Актуальный релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [пошаговый маршрут платежей для новичка](docs/ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) · [аудит платежей](docs/ru/PAYMENT_AUDIT_2026_09_28.md) · [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.15).
 
 Новые клиенты защищают сохранённые токены и требуют повторного входа. Реальные платежи остаются закрытыми до staging E2E v2.
 
 ## Предыдущие выпуски
 
-**Мобильные приложения 2.14.1:** [скачать сборки](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/releases/tag/mobile-v2.14.1) · [установка и подпись](docs/ru/MOBILE_RELEASE_2_14_1.md). Android preview APK устанавливаются рядом с основными приложениями; iOS unsigned IPA требует Apple-подписи.
+**Мобильные приложения 2.14.1:** [скачать сборки](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/mobile-v2.14.1) · [установка и подпись](docs/ru/MOBILE_RELEASE_2_14_1.md). Android preview APK устанавливаются рядом с основными приложениями; iOS unsigned IPA требует Apple-подписи.
 
 **Релиз 20.0.14 — исправления сводного аудита безопасности.** [Результаты по 19 пунктам](docs/ru/SECURITY_AUDIT_20_0_14.md) · [Обязательная инструкция обновления](docs/ru/SECURITY_UPGRADE_20_0_14.md) · [Changelog](CHANGELOG.md).
 
@@ -102,7 +102,7 @@ A VPN subscription shop: cabinet, Mini App, admin panel, Telegram bot, Android a
 Нужны Docker Engine, плагин Compose и свободные порты 18080–18083.
 
 ```bash
-git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+git clone https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
 cd vpn-shop-src
 bash scripts/test-up.sh
 ```
@@ -131,7 +131,7 @@ sudo apt-get update
 sudo apt-get install -y ca-certificates curl git openssl
 curl -fsSL https://get.docker.com | sudo sh
 sudo systemctl enable --now docker
-sudo git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git /opt/vpn-shop
+sudo git clone https://github.com/booarkz-cpu/shop-by-boo.git /opt/vpn-shop
 cd /opt/vpn-shop
 sudo bash install.sh
 ```
@@ -312,7 +312,7 @@ The stand runs the API, admin panel, cabinet and Mini App without YooKassa, Plat
 You need Docker Engine, the Compose plugin, and free ports 18080–18083.
 
 ```bash
-git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+git clone https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
 cd vpn-shop-src
 bash scripts/test-up.sh
 ```
@@ -341,7 +341,7 @@ sudo apt-get update
 sudo apt-get install -y ca-certificates curl git openssl
 curl -fsSL https://get.docker.com | sudo sh
 sudo systemctl enable --now docker
-sudo git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git /opt/vpn-shop
+sudo git clone https://github.com/booarkz-cpu/shop-by-boo.git /opt/vpn-shop
 cd /opt/vpn-shop
 sudo bash install.sh
 ```
@@ -469,7 +469,7 @@ Variable tables are in [docs/en/PAYMENTS.md](docs/en/PAYMENTS.md).
 Потрібні Docker Engine, плагін Compose і вільні порти 18080–18083.
 
 ```bash
-git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+git clone https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
 cd vpn-shop-src
 bash scripts/test-up.sh
 ```
@@ -498,7 +498,7 @@ sudo apt-get update
 sudo apt-get install -y ca-certificates curl git openssl
 curl -fsSL https://get.docker.com | sudo sh
 sudo systemctl enable --now docker
-sudo git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git /opt/vpn-shop
+sudo git clone https://github.com/booarkz-cpu/shop-by-boo.git /opt/vpn-shop
 cd /opt/vpn-shop
 sudo bash install.sh
 ```

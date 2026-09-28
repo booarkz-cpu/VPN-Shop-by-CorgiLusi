@@ -8,7 +8,7 @@
 - Временные каталоги backup/restore используют случайные имена и права 0700.
 - Mobile Release проверяет общий CI, tag/commit и подписи. Debug/unsigned пакеты не публикуются как production.
 
-[Отчёт аудита](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/blob/v20.0.15/docs/ru/AUDIT_20_0_15.md) · [Обновление и подпись приложений](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/blob/v20.0.15/docs/ru/PRODUCTION_20_0_15.md).
+[Отчёт аудита](https://github.com/booarkz-cpu/shop-by-boo/blob/v20.0.15/docs/ru/AUDIT_20_0_15.md) · [Обновление и подпись приложений](https://github.com/booarkz-cpu/shop-by-boo/blob/v20.0.15/docs/ru/PRODUCTION_20_0_15.md).
 
 **Статус production-пакетов зависит от ключей владельца.** После завершения Mobile packages точное состояние будет приложено как `mobile-production-status.json`. Отсутствующий ключ блокирует публикацию соответствующих APK/IPA; source ZIP не содержит готовых подписанных приложений.
 

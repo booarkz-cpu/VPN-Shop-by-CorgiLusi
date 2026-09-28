@@ -4,6 +4,6 @@
 - **iOS:** `_unsigned.ipa` — собранные пакеты для физического устройства, требующие вашей Apple-подписи. `_simulator.zip` — готовые приложения для симулятора на Mac. Unsigned IPA нельзя напрямую установить на iPhone; TestFlight/App Store-публикация не выполнена.
 - Рядом опубликованы SHA-256, публичные сертификаты APK, package metadata и `BUILD.txt` с исходным commit/workflow run.
 
-[Установка, подпись и сборка](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/blob/mobile-v2.14.1/docs/ru/MOBILE_RELEASE_2_14_1.md).
+[Установка, подпись и сборка](https://github.com/booarkz-cpu/shop-by-boo/blob/mobile-v2.14.1/docs/ru/MOBILE_RELEASE_2_14_1.md).
 
 В приложении укажите HTTPS-адрес API своей установки. После обновления требуется новый вход. Встроенный VPN forwarding engine не реализован: подписка импортируется во внешний VPN-клиент. Рабочий VDS и вход на реальном устройстве этим выпуском не проверялись.

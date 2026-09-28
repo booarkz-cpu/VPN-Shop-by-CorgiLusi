@@ -11,6 +11,6 @@
 
 **Обновление несовместимо со старым native login:** пересоберите Android/iOS 2.14.0. Потребуются Redis passwords и согласованное обновление служб. ZIP содержит исходники, не подписанные APK/IPA.
 
-[Отчёт по всем 19 пунктам](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/blob/v20.0.14/docs/ru/SECURITY_AUDIT_20_0_14.md) · [Инструкция обновления](https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi/blob/v20.0.14/docs/ru/SECURITY_UPGRADE_20_0_14.md)
+[Отчёт по всем 19 пунктам](https://github.com/booarkz-cpu/shop-by-boo/blob/v20.0.14/docs/ru/SECURITY_AUDIT_20_0_14.md) · [Инструкция обновления](https://github.com/booarkz-cpu/shop-by-boo/blob/v20.0.14/docs/ru/SECURITY_UPGRADE_20_0_14.md)
 
 CI проверяет backend/Support, миграции и конкурентные сценарии PostgreSQL, web builds, зависимости, запуск контейнеров с Redis AUTH, Android debug/iOS simulator builds. Рабочий VDS и реальные provider callbacks не проверялись. Production payment gate остаётся закрытым до полного staging E2E v2.

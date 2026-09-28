@@ -59,7 +59,7 @@ for name in api admin app cabinet support; do dig +short A "${name}.vpn.example.
 
 ```bash
 cd /opt
-sudo git clone --branch v20.0.17 --depth 1 https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git vpn-shop-src
+sudo git clone --branch v20.0.17 --depth 1 https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
 cd /opt/vpn-shop-src
 git rev-parse --short HEAD
 ```

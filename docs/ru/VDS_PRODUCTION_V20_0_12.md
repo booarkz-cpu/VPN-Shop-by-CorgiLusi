@@ -38,7 +38,7 @@ sudo docker compose version
 ## 3. Получите именно проверенный релиз
 
 ```bash
-sudo git clone https://github.com/booarkz-cpu/VPN-Shop-by-CorgiLusi.git /opt/vpn-shop
+sudo git clone https://github.com/booarkz-cpu/shop-by-boo.git /opt/vpn-shop
 cd /opt/vpn-shop
 sudo git fetch --tags origin
 sudo git checkout --detach v20.0.12
