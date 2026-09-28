@@ -13,10 +13,13 @@ import httpx
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-pay = importlib.import_module("app.payments")
+@pytest.fixture
+def pay():
+    # Delay Settings initialization until per-test environment fixtures run.
+    return importlib.import_module("app.payments")
 
 
-def test_rollypay_webhook_signature_binds_timestamp_and_raw_body(monkeypatch):
+def test_rollypay_webhook_signature_binds_timestamp_and_raw_body(monkeypatch, pay):
     monkeypatch.setattr(pay.settings, "rollypay_signing_secret", "test-secret")
     body = b'{"payment_id":"pay-1","status":"paid"}'
     stamp = str(int(time.time()))
@@ -27,7 +30,7 @@ def test_rollypay_webhook_signature_binds_timestamp_and_raw_body(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_rollypay_create_uses_api_key_nonce_and_documented_checkout(monkeypatch):
+async def test_rollypay_create_uses_api_key_nonce_and_documented_checkout(monkeypatch, pay):
     requests = []
 
     def respond(request):
@@ -55,7 +58,7 @@ async def test_rollypay_create_uses_api_key_nonce_and_documented_checkout(monkey
 
 
 @pytest.mark.asyncio
-async def test_platega_create_uses_documented_transaction_schema(monkeypatch):
+async def test_platega_create_uses_documented_transaction_schema(monkeypatch, pay):
     requests = []
 
     def respond(request):
@@ -86,7 +89,7 @@ async def test_platega_create_uses_documented_transaction_schema(monkeypatch):
     ("platega", {"status": "CONFIRMED", "paymentDetails": {"amount": 100, "currency": "RUB"}, "payload": "order-1"}),
     ("rollypay", {"status": "paid", "amount": "100.00", "payment_currency": "RUB", "order_id": "order-1"}),
 ])
-async def test_staging_read_matches_provider_amount_currency_and_order(monkeypatch, provider, response):
+async def test_staging_read_matches_provider_amount_currency_and_order(monkeypatch, provider, response, pay):
     main = importlib.import_module("app.main")
     requests = []
 
