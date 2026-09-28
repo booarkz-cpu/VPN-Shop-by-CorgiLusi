@@ -53,6 +53,8 @@ def validate_configuration(settings):
     _origins(settings.cabinet_cors_origins, prod, {settings.cabinet_domain, settings.app_domain, settings.miniapp_domain})
     if not prod:
         return
+    if settings.rollypay_test_mode:
+        raise ValueError('ROLLYPAY_TEST_MODE must be false in production')
     if settings.support_pro_url or settings.support_pro_sso_secret:
         secret = settings.support_pro_sso_secret
         if not settings.support_pro_url or len(secret) < 32 or secret.startswith("change-me"):

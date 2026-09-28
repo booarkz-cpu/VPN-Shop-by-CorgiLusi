@@ -30,13 +30,13 @@ def shop(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('provider,body', [
-    ('PlategaProvider', {'status': 'CONFIRMED', 'amount': '100', 'payload': 'order'}),
+    ('PlategaProvider', {'status': 'CONFIRMED', 'paymentDetails': {'amount': 100}, 'payload': 'order'}),
     ('RollyPayProvider', {'status': 'paid', 'amount': '100', 'order_id': 'order'}),
 ])
 @pytest.mark.parametrize('currency,accepted', [('RUB', True), ('rub', True), ('USD', False), ('', False), (None, False)])
 async def test_provider_requires_matching_currency(shop, monkeypatch, provider, body, currency, accepted):
     from app import payments
-    body = {**body, 'currency': currency}
+    body = {**body, 'paymentDetails': {**body['paymentDetails'], 'currency': currency}} if provider == 'PlategaProvider' else {**body, 'payment_currency': currency}
     transport = httpx.MockTransport(lambda req: httpx.Response(200, json=body))
     monkeypatch.setattr(payments, '_public_client', lambda _: httpx.AsyncClient(transport=transport))
     assert await getattr(payments, provider)().verify_succeeded('id', Decimal('100'), 'RUB', 'order') is accepted
@@ -44,12 +44,13 @@ async def test_provider_requires_matching_currency(shop, monkeypatch, provider, 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('provider,body', [
-    ('platega', {'status': 'CONFIRMED', 'amount': '100', 'payload': 'order'}),
+    ('platega', {'status': 'CONFIRMED', 'paymentDetails': {'amount': 100}, 'payload': 'order'}),
     ('rollypay', {'status': 'paid', 'amount': '100', 'order_id': 'order'}),
 ])
 async def test_staging_also_rejects_wrong_currency(shop, monkeypatch, provider, body):
     from app.payments import staging_read_payment
-    transport = httpx.MockTransport(lambda req: httpx.Response(200, json={**body, 'currency': 'USD'}))
+    mismatched = {**body, 'paymentDetails': {**body['paymentDetails'], 'currency': 'USD'}} if provider == 'platega' else {**body, 'payment_currency': 'USD'}
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=mismatched))
     monkeypatch.setattr(shop, 'validate_public_url', lambda value, **kw: value)
     monkeypatch.setattr(shop, '_pinned_public_http_client', lambda _: httpx.AsyncClient(transport=transport))
     result = await staging_read_payment(provider, {'api_url': 'https://pay.example'}, 'id', Decimal('100'), 'order')
