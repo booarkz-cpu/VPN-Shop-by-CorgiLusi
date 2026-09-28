@@ -98,6 +98,8 @@ class RecoveryTests(unittest.TestCase):
             (app / ".git" / "head").write_text("git-marker")
             (app / "support-pro").mkdir()
             (app / "support-pro" / ".env").write_text("support-secret")
+            (app / "backend").mkdir()
+            (app / "backend" / ".env.local").write_text("backend-secret")
             (app / "current.txt").write_text("current")
             (app / ".rollback").mkdir()
             old = app / ".rollback" / "old.tar.gz"
@@ -127,6 +129,7 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual((app / ".git" / "head").read_text(), "git-marker")
             self.assertEqual((app / ".env.previous").read_text(), "previous-secret")
             self.assertEqual((app / "support-pro" / ".env").read_text(), "support-secret")
+            self.assertEqual((app / "backend" / ".env.local").read_text(), "backend-secret")
             snapshot = next((app / ".rollback").glob("pre-rollback-*.tar.gz"))
             with tarfile.open(snapshot) as archive:
                 names = archive.getnames()

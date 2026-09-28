@@ -26,11 +26,9 @@ rollback(){
   docker compose down --remove-orphans || true
   tmp="$(mktemp -d)"
   tar -xzf "$SNAPSHOT" -C "$tmp"
-  # Keep secrets and image pins out of the archive, but preserve them on disk.
-  if [[ -f support-pro/.env ]]; then
-    mkdir -p "$tmp/support-pro"
-    cp -p support-pro/.env "$tmp/support-pro/.env"
-  fi
+  # Snapshots omit nested secrets, so carry every installed environment file.
+  find . -path './.rollback' -prune -o -path './.git' -prune -o \
+    -type f \( -name '.env' -o -name '.env.*' \) -exec cp --parents -p -- {} "$tmp" \;
   find "$APP_DIR" -mindepth 1 -maxdepth 1 ! -name '.env' ! -name '.env.*' ! -name '.git' ! -name '.rollback' -exec rm -rf {} +
   cp -a "$tmp"/. "$APP_DIR"/
   rm -rf "$tmp"
