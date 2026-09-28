@@ -6,7 +6,7 @@ cd "$APP_DIR"
 docker compose config >/dev/null
 docker compose ps
 echo
-if docker compose exec -T backend python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=5)' >/dev/null 2>&1; then
+if docker compose exec -T backend python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health/ready", timeout=5)' >/dev/null 2>&1; then
   echo "API health: OK"
 else
   echo "API health: FAILED"; exit 1
