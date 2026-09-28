@@ -7,6 +7,7 @@ DB_ARCHIVE="${2:-$ROLLBACK_DIR/latest.sql}"
 [[ -f "$ARCHIVE" ]] || { echo "Rollback archive not found: $ARCHIVE" >&2; exit 2; }
 [[ -s "$DB_ARCHIVE" ]] || { echo "Database snapshot is required for a safe rollback." >&2; exit 2; }
 tar -tzf "$ARCHIVE" >/dev/null || { echo "Rollback archive is unreadable; installation unchanged." >&2; exit 2; }
+python3 "$(dirname "${BASH_SOURCE[0]}")/validate-rollback-archive.py" "$ARCHIVE"
 cd "$APP_DIR"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$ROLLBACK_DIR"

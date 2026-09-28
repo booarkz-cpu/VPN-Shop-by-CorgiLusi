@@ -1,5 +1,6 @@
 """Recovery and installer regressions exercised without Docker or a live server."""
 import os
+import io
 from pathlib import Path
 import subprocess
 import tarfile
@@ -46,6 +47,45 @@ class RecoveryTests(unittest.TestCase):
             self.assertNotEqual(run.returncode, 0)
             self.assertEqual((app / "current.txt").read_text(), "running")
             self.assertFalse((app / ".rollback").exists())
+
+    def test_rollback_rejects_protected_entry_before_stopping_services(self):
+        with tempfile.TemporaryDirectory() as base:
+            app = Path(base) / "shop"
+            app.mkdir()
+            (app / "current.txt").write_text("running")
+            archive = app / "unsafe.tar.gz"
+            with tarfile.open(archive, "w:gz") as tar:
+                data = b"overwritten-secret"
+                entry = tarfile.TarInfo("./support-pro/.env")
+                entry.size = len(data)
+                tar.addfile(entry, io.BytesIO(data))
+            database = app / "old.sql"
+            database.write_text("SELECT 1;")
+            run = subprocess.run(["bash", str(ROOT / "scripts/rollback.sh"), str(archive), str(database)],
+                                 env={**os.environ, "APP_DIR": str(app)}, capture_output=True, text=True)
+            self.assertNotEqual(run.returncode, 0)
+            self.assertIn("Protected archive entry", run.stderr)
+            self.assertEqual((app / "current.txt").read_text(), "running")
+            self.assertFalse((app / ".rollback").exists())
+
+    def test_rollback_rejects_link_before_stopping_services(self):
+        with tempfile.TemporaryDirectory() as base:
+            app = Path(base) / "shop"
+            app.mkdir()
+            (app / "current.txt").write_text("running")
+            archive = app / "unsafe.tar.gz"
+            with tarfile.open(archive, "w:gz") as tar:
+                entry = tarfile.TarInfo("./redirect")
+                entry.type = tarfile.SYMTYPE
+                entry.linkname = "../outside"
+                tar.addfile(entry)
+            database = app / "old.sql"
+            database.write_text("SELECT 1;")
+            run = subprocess.run(["bash", str(ROOT / "scripts/rollback.sh"), str(archive), str(database)],
+                                 env={**os.environ, "APP_DIR": str(app)}, capture_output=True, text=True)
+            self.assertNotEqual(run.returncode, 0)
+            self.assertIn("Unsafe archive entry", run.stderr)
+            self.assertEqual((app / "current.txt").read_text(), "running")
 
     def test_manual_rollback_keeps_git_and_secrets_out_of_archive(self):
         with tempfile.TemporaryDirectory() as base:
@@ -112,6 +152,36 @@ class RecoveryTests(unittest.TestCase):
                                  capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertFalse(Path((app / "stage_path").read_text()).exists())
+
+    def test_update_does_not_replace_nested_environment_file(self):
+        with tempfile.TemporaryDirectory() as base:
+            base = Path(base)
+            app = base / "shop"
+            (app / "support-pro").mkdir(parents=True)
+            (app / ".env").write_text("APP_ENV=test\n")
+            (app / "support-pro" / ".env").write_text("original-secret\n")
+            stage = base / "release"
+            (stage / "backend" / "app").mkdir(parents=True)
+            (stage / "backend" / "app" / "main.py").write_text("release")
+            (stage / "support-pro").mkdir()
+            (stage / "support-pro" / ".env").write_text("release-secret\n")
+            (stage / "deploy").mkdir()
+            (stage / "scripts").mkdir()
+            for path in (stage / "deploy" / "build-production.sh", stage / "scripts" / "doctor.sh"):
+                path.write_text("#!/bin/sh\nexit 0\n")
+                path.chmod(0o755)
+            fakebin = base / "bin"
+            fakebin.mkdir()
+            docker = fakebin / "docker"
+            docker.write_text('#!/bin/sh\ncase "$*" in *"pg_dump"*) echo "SELECT 1;";; esac\nexit 0\n')
+            docker.chmod(0o755)
+            run = subprocess.run(["bash", str(ROOT / "scripts/update.sh")], cwd=app,
+                                 env={**os.environ, "APP_DIR": str(app), "UPDATE_STAGE": str(stage),
+                                      "PATH": f"{fakebin}:{os.environ['PATH']}"},
+                                 capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual((app / "support-pro" / ".env").read_text(), "original-secret\n")
+            self.assertEqual((app / "backend" / "app" / "main.py").read_text(), "release")
 
 
 if __name__ == "__main__":
