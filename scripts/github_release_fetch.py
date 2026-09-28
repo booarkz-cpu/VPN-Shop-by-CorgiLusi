@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import stat
 import sys
 import urllib.request
@@ -116,20 +117,23 @@ def main() -> None:
     installed = current_version(app_dir)
     payload = fetch_json(API)
     tag = str(payload.get("tag_name") or "")
+    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+        fail("Invalid release tag")
     latest = tag.lstrip("v")
     if version_tuple(latest) <= version_tuple(installed):
         print(f"Установлена актуальная версия {installed}")
         raise SystemExit(0)
     assets = {item.get("name"): item.get("browser_download_url") for item in payload.get("assets") or []}
-    zip_name = next((name for name in assets if str(name).endswith(".zip") and "full_release" in str(name)), "")
-    sha_candidates = []
-    if zip_name:
-        sha_candidates = [zip_name + ".sha256", zip_name.removesuffix(".zip") + ".sha256"]
-    sha_name = next((name for name in sha_candidates if name in assets), "")
-    if not zip_name or not sha_name:
-        fail("В релизе нет zip и sha256")
+    zip_name = f"remnawave_vpn_shop_v{latest.replace('.', '_')}_full_release.zip"
+    sha_name = zip_name + ".sha256"
+    if zip_name not in assets or sha_name not in assets:
+        fail("В релизе нет архива и SHA-256 для указанной версии")
     blob = download(str(assets[zip_name]))
-    digest_line = download(str(assets[sha_name])).decode().strip().split()[0].lower()
+    checksum = download(str(assets[sha_name])).decode("utf-8").strip()
+    match = re.fullmatch(r"([0-9a-fA-F]{64})\s+\*?" + re.escape(zip_name), checksum)
+    if not match:
+        fail("Некорректный SHA-256 или имя архива")
+    digest_line = match.group(1).lower()
     actual = hashlib.sha256(blob).hexdigest()
     if actual != digest_line:
         fail("SHA-256 релиза не совпал")

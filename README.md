@@ -1,5 +1,7 @@
 # VPN Shop
 
+**Актуальный выпуск исходников 20.0.19:** [заметки и границы проверки](.github/release-v20.0.19.md) · [установка на VDS](docs/ru/VDS_PRODUCTION_20_0_18.md) · [изменения](CHANGELOG.md). Перед production проверьте текущий CI и выполните staging E2E v2; реальные платежи остаются закрытыми.
+
 ## Проверка и восстановление — 28 сентября 2026
 
 При ручном откате и аварийном восстановлении обновления сохраняются вложенные файлы окружения всех компонентов. Перед запуском на VDS сделайте резервную копию базы и локальных `.env*`, затем следуйте [инструкции установки и восстановления](docs/ru/VDS_PRODUCTION_20_0_18.md). Изменение и границы проверки указаны в [CHANGELOG.md](CHANGELOG.md). Локально выполнены `compileall`, `bash -n` и восемь тестов восстановления; полный CI, контейнеры, клиенты и интеграции требуют отдельного запуска.
@@ -14,7 +16,7 @@
 
 **Проверка всех касс:** [пошаговое руководство для новичка](docs/ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md). В версии 20.0.18 реальные платежи закрыты до полного staging E2E v2.
 
-**Актуальный релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [пошаговый маршрут платежей для новичка](docs/ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) · [аудит платежей](docs/ru/PAYMENT_AUDIT_2026_09_28.md) · [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.15).
+**Предыдущий релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [пошаговый маршрут платежей для новичка](docs/ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) · [аудит платежей](docs/ru/PAYMENT_AUDIT_2026_09_28.md) · [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.15).
 
 Новые клиенты защищают сохранённые токены и требуют повторного входа. Реальные платежи остаются закрытыми до staging E2E v2.
 
