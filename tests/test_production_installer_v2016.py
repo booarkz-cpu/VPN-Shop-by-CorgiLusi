@@ -26,14 +26,17 @@ def test_installer_produces_both_env_files_without_corrupting_secrets(tmp_path):
         "BOT_DOMAIN", "PANEL_DOMAIN", "YANDEX_CLIENT_ID", "YANDEX_CLIENT_SECRET",
         "VK_CLIENT_ID", "VK_CLIENT_SECRET", "PAYMENTS_SANDBOX", "TRIAL_MAX_DAYS",
         "S3_ENDPOINT_URL", "S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY",
-        "SUPPORT_REDIS_PASSWORD", "INSTALLER_VERSION",
+        "INSTALLER_VERSION",
     )}
     inputs.update(API_DOMAIN="api.example.com", ADMIN_DOMAIN="admin.example.com",
                   CABINET_DOMAIN="cabinet.example.com", SUPPORT_PRO_DOMAIN="support.example.com",
                   BOT_TOKEN="a'long$token", YOOKASSA_SECRET_KEY="configured-key")
     (tmp_path / "support-pro").mkdir()
     env = {**os.environ, **inputs}
-    run = subprocess.run(["bash", "-c", "set -Eeuo pipefail\ndie(){ echo \"$*\" >&2; exit 1; }\n" + functions + writer],
+    env.pop("SUPPORT_REDIS_PASSWORD", None)
+    generation = 'SUPPORT_REDIS_PASSWORD="$(openssl rand -hex 32)"\n'
+    assert generation in script[:script.index("umask 077\n{")]
+    run = subprocess.run(["bash", "-c", "set -Eeuo pipefail\ndie(){ echo \"$*\" >&2; exit 1; }\n" + functions + generation + writer],
                          cwd=tmp_path, env=env, text=True, capture_output=True)
     assert run.returncode == 0, run.stderr
     shop = (tmp_path / ".env").read_text()
@@ -47,6 +50,9 @@ def test_installer_produces_both_env_files_without_corrupting_secrets(tmp_path):
     assert "BOT_TOKEN='a\\'long$token'" in shop
     assert "SESSION_SECRET='value'" in support
     assert "PUBLIC_ORIGIN='https://support.example.com'" in support
+    support_redis = next(line.split("=", 1)[1] for line in shop.splitlines() if line.startswith("SUPPORT_REDIS_PASSWORD="))
+    assert len(support_redis) == 66  # 64 hex digits enclosed in quotes
+    assert f"REDIS_PASSWORD={support_redis}" in support.splitlines()
     assert (tmp_path / ".env").stat().st_mode & 0o777 == 0o600
     assert (tmp_path / "support-pro/.env").stat().st_mode & 0o777 == 0o600
 

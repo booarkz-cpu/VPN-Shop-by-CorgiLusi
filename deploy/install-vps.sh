@@ -98,7 +98,7 @@ env_line() {
 }
 
 # Previous release contract: INSTALLER_VERSION="1.0.0-realise"
-INSTALLER_VERSION="20.0.21"
+INSTALLER_VERSION="20.0.22"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.8"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.7"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.6"
@@ -133,7 +133,7 @@ INSTALLER_VERSION="20.0.21"
 # Previous release contract: INSTALLER_VERSION="45.0.0-enterprise"
 # V44.5 Enterprise legacy contract marker
 # INSTALLER_VERSION="43.1.0-production" legacy regression marker
-log "Remnawave VPN Shop — 20.0.21 production installer"
+log "Remnawave VPN Shop — 20.0.22 production installer"
 # Historical compatibility marker: 3.1.3 русскоязычный production installer
 # Historical compatibility marker: 3.1.2 русскоязычный production installer
 # Historical compatibility marker: 3.1.1 русскоязычный production installer
@@ -288,6 +288,7 @@ SUPPORT_PRO_DB_PASSWORD="$(openssl rand -hex 24)"
 SUPPORT_PRO_SSO_SECRET="$(openssl rand -hex 32)"
 SUPPORT_PRO_SESSION_SECRET="$(openssl rand -hex 32)"
 SUPPORT_PRO_ADMIN_PASSWORD="$(openssl rand -hex 16)"
+SUPPORT_REDIS_PASSWORD="$(openssl rand -hex 32)"
 
 log "Устанавливаю системные зависимости и Docker..."
 apt-get update -y
@@ -315,7 +316,7 @@ umask 077
   env_line DATABASE_URL "postgresql+asyncpg://vpnshop:${DB_PASSWORD}@db:5432/vpnshop"
   env_line REDIS_URL "redis://redis:6379/0"
   env_line REDIS_PASSWORD "$(openssl rand -hex 32)"
-  env_line SUPPORT_REDIS_PASSWORD "$(openssl rand -hex 32)"
+  env_line SUPPORT_REDIS_PASSWORD "$SUPPORT_REDIS_PASSWORD"
   env_line MOBILE_CLIENT_KEY ""
   env_line MOBILE_REQUIRE_PROOF "false"
   env_line TRUSTED_PROXY_CIDRS "172.30.84.2/32"
