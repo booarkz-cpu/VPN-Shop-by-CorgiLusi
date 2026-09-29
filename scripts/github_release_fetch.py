@@ -134,7 +134,8 @@ def main() -> None:
     assets = {item.get("name"): item.get("browser_download_url") for item in payload.get("assets") or []}
     zip_name = f"remnawave_vpn_shop_v{latest.replace('.', '_')}_full_release.zip"
     sha_name = zip_name + ".sha256"
-    if zip_name not in assets or sha_name not in assets:
+    if (assets.get(zip_name) != f"{DOWNLOAD_PREFIX}{tag}/{zip_name}"
+            or assets.get(sha_name) != f"{DOWNLOAD_PREFIX}{tag}/{sha_name}"):
         fail("В релизе нет архива и SHA-256 для указанной версии")
     blob = download(str(assets[zip_name]))
     checksum = download(str(assets[sha_name])).decode("utf-8").strip()

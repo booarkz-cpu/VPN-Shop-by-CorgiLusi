@@ -27,7 +27,7 @@ class ReleaseSelectionTests(unittest.TestCase):
             with zipfile.ZipFile(data, "w") as archive:
                 archive.writestr("backend/app/main.py", 'APP_VERSION = "20.0.19"\n')
             payload = {"tag_name": "v20.0.20", "assets": [
-                {"name": value, "browser_download_url": fetcher.DOWNLOAD_PREFIX + value}
+                {"name": value, "browser_download_url": fetcher.DOWNLOAD_PREFIX + "v20.0.20/" + value}
                 for value in (name, name + ".sha256")
             ]}
             checksum = (hashlib.sha256(data.getvalue()).hexdigest() + "  " + name).encode()
@@ -59,7 +59,7 @@ class ReleaseSelectionTests(unittest.TestCase):
                 archive.writestr("backend/app/main.py", 'APP_VERSION = "20.0.20"\n')
             checksum = (hashlib.sha256(data.getvalue()).hexdigest() + "  " + name).encode()
             payload = {"tag_name": "v20.0.20", "assets": [
-                {"name": value, "browser_download_url": fetcher.DOWNLOAD_PREFIX + value}
+                {"name": value, "browser_download_url": fetcher.DOWNLOAD_PREFIX + "v20.0.20/" + value}
                 for value in (name, name + ".sha256")
             ]}
             stage = root / "stage"
@@ -76,7 +76,7 @@ class ReleaseSelectionTests(unittest.TestCase):
             (app / "backend/app").mkdir(parents=True)
             (app / "backend/app/main.py").write_text('APP_VERSION = "20.0.18"\n')
             payload = {"tag_name": tag, "assets": [
-                {"name": name, "browser_download_url": fetcher.DOWNLOAD_PREFIX + name}
+                {"name": name, "browser_download_url": fetcher.DOWNLOAD_PREFIX + tag + "/" + name}
                 for name in names
             ]}
             with patch.object(fetcher, "fetch_json", return_value=payload), \
@@ -91,6 +91,24 @@ class ReleaseSelectionTests(unittest.TestCase):
         self.run_fetch("v20.0.19", ["remnawave_vpn_shop_v20_0_18_full_release.zip",
                                       "remnawave_vpn_shop_v20_0_18_full_release.zip.sha256"])
 
+    def test_rejects_asset_from_another_release_tag(self):
+        with tempfile.TemporaryDirectory() as base:
+            root = Path(base)
+            app = root / "app"
+            (app / "backend/app").mkdir(parents=True)
+            (app / "backend/app/main.py").write_text('APP_VERSION = "20.0.20"\n')
+            name = "remnawave_vpn_shop_v20_0_21_full_release.zip"
+            payload = {"tag_name": "v20.0.21", "assets": [
+                {"name": value, "browser_download_url": fetcher.DOWNLOAD_PREFIX + "v20.0.20/" + value}
+                for value in (name, name + ".sha256")
+            ]}
+            with patch.object(fetcher, "fetch_json", return_value=payload), \
+                 patch.object(fetcher, "download") as download, \
+                 patch.object(fetcher.sys, "argv", ["fetch", str(app), str(root / "stage")]):
+                with self.assertRaises(SystemExit):
+                    fetcher.main()
+                download.assert_not_called()
+
     def test_rejects_malformed_tag(self):
         self.run_fetch("v20.0.19-unsigned", ["remnawave_vpn_shop_v20_0_19_full_release.zip",
                                                "remnawave_vpn_shop_v20_0_19_full_release.zip.sha256"])
@@ -103,7 +121,7 @@ class ReleaseSelectionTests(unittest.TestCase):
             (app / "backend/app/main.py").write_text('APP_VERSION = "20.0.18"\n')
             name = "remnawave_vpn_shop_v20_0_19_full_release.zip"
             payload = {"tag_name": "v20.0.19", "assets": [
-                {"name": value, "browser_download_url": fetcher.DOWNLOAD_PREFIX + value}
+                {"name": value, "browser_download_url": fetcher.DOWNLOAD_PREFIX + "v20.0.19/" + value}
                 for value in (name, name + ".sha256")
             ]}
             with patch.object(fetcher, "fetch_json", return_value=payload), \

@@ -6,6 +6,8 @@ and applies it. The API process does not extract archives.
 """
 from __future__ import annotations
 
+import re
+
 from fastapi import HTTPException
 
 GITHUB_REPO = "booarkz-cpu/shop-by-boo"
@@ -23,20 +25,24 @@ def version_tuple(value: str) -> tuple:
 
 def release_status(current: str, payload: dict) -> dict:
     tag = str(payload.get("tag_name") or "")
-    assets = []
+    valid_tag = bool(re.fullmatch(r"v\d+\.\d+\.\d+", tag))
+    latest = tag[1:] if valid_tag else ""
+    zip_name = f"remnawave_vpn_shop_v{latest.replace('.', '_')}_full_release.zip"
+    required = {zip_name, zip_name + ".sha256"} if valid_tag else set()
+    available = {}
     for item in payload.get("assets") or []:
         url = str(item.get("browser_download_url") or "")
         name = str(item.get("name") or "")
-        if not url.startswith(DOWNLOAD_PREFIX) or not name:
+        if name not in required or url != f"{DOWNLOAD_PREFIX}{tag}/{name}":
             continue
-        assets.append({"name": name, "url": url})
-    latest = tag.lstrip("v")
+        available[name] = {"name": name, "url": url}
+    assets = [available[name] for name in (zip_name, zip_name + ".sha256") if name in available] if valid_tag else []
     return {
         "repository": GITHUB_REPO,
         "current": current,
         "latest": latest,
         "tag": tag,
-        "update_available": bool(latest) and version_tuple(latest) > version_tuple(current),
+        "update_available": len(assets) == 2 and version_tuple(latest) > version_tuple(current),
         "assets": assets,
         "apply_command": "sudo bash /opt/vpn-shop/scripts/update-from-github.sh",
     }

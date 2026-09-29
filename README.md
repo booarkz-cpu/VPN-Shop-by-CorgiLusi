@@ -1,24 +1,31 @@
 # VPN Shop
 
-**Актуальный выпуск исходников 20.0.20:** [заметки и границы проверки](.github/release-v20.0.20.md) · [установка на VDS](docs/ru/VDS_PRODUCTION_20_0_18.md) · [изменения](CHANGELOG.md). Перед production проверьте текущий CI и выполните staging E2E v2; реальные платежи остаются закрытыми.
+**Актуальный выпуск исходников: v20.0.21.** [Релиз и ZIP с SHA-256](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.21) · [заметки выпуска](.github/release-v20.0.21.md) · [Changelog](CHANGELOG.md). Это выпуск исходников; реальные платежи остаются закрытыми до полного staging E2E v2.
 
-## Проверка и восстановление — 28 сентября 2026
+## Актуальные инструкции
 
-При ручном откате и аварийном восстановлении обновления сохраняются вложенные файлы окружения всех компонентов. Перед запуском на VDS сделайте резервную копию базы и локальных `.env*`, затем следуйте [инструкции установки и восстановления](docs/ru/VDS_PRODUCTION_20_0_18.md). Изменение и границы проверки указаны в [CHANGELOG.md](CHANGELOG.md). Локально выполнены `compileall`, `bash -n` и восемь тестов восстановления; полный CI, контейнеры, клиенты и интеграции требуют отдельного запуска.
+| Задача | Документация |
+| --- | --- |
+| Начать с простых шагов | [Пять последовательных инструкций](docs/ru/steps/README.md) |
+| Установить на VDS с нуля (Termius/SSH) | [Подробная установка v20.0.21](docs/ru/VDS_PRODUCTION_20_0_21.md) |
+| Запустить тестовый стенд | [Проверка без реальных платежей](docs/ru/TESTING.md) |
+| Обновить или восстановить сервер | [Обслуживание](docs/ru/steps/05-operations.md), [раздел в инструкции VDS](docs/ru/VDS_PRODUCTION_20_0_21.md) |
+| Настроить кассы | [Все провайдеры по шагам](docs/ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md), [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) |
+| Проверить допуск живых платежей | [Контракт staging E2E v2](docs/ru/STAGING_E2E_V2_IMPLEMENTATION.md), [аудит интеграций](docs/ru/PAYMENT_AUDIT_2026_09_28.md) |
+| Разобраться в функциях и API | [Руководство функций](docs/ru/FUNCTION_GUIDE.md), [API](API_REFERENCE_RU.md) |
+| Подготовить мобильные клиенты | [Мобильные приложения](docs/ru/MOBILE_GUIDE.md), [сборка и подпись](docs/ru/PRODUCTION_20_0_15.md) |
+| Эксплуатировать Support Pro | [Руководство компонента](support-pro/README.md) |
+| Ознакомиться с результатами проверки | [Отчёт 28 сентября](docs/ru/AUDIT_2026_09_28_REPOSITORY.md), [заметки v20.0.21](.github/release-v20.0.21.md) |
+| Найти другую документацию | [Общий указатель](docs/INDEX.md), [операционный регламент](OPERATIONS_RUNBOOK_RU.md) |
 
-## Диагностика и исправления — 28 сентября 2026
+| | Русский | English | Українська |
+| --- | --- | --- | --- |
+| Возможности | [Описание](docs/ru/README.md) | [Features](docs/en/README.md) | [Можливості](docs/uk/README.md) |
+| Развёртывание | [Руководство](docs/ru/DEPLOYMENT.md) | [Deployment](docs/en/DEPLOYMENT.md) | [Розгортання](docs/uk/DEPLOYMENT.md) |
+| Тестирование | [Инструкция](docs/ru/TESTING.md) | [Testing](docs/en/TESTING.md) | [Тестування](docs/uk/TESTING.md) |
+| Платежи | [Состояние](docs/ru/PAYMENTS.md) | [Payments](docs/en/PAYMENTS.md) | [Платежі](docs/uk/PAYMENTS.md) |
 
-Проверены исходники обновления и отката, выполнены Python `compileall`, проверка синтаксиса shell и восемь регрессионных тестов восстановления. Найдены и исправлены две ошибки: архив ручного отката теперь проверяется **до остановки сервисов** на выход за каталог установки, ссылки и защищённые файлы (`.env*`, `.git`, `.rollback`); обновление исключает вложенные файлы окружения и служебные каталоги из релиза, сохраняя локальные секреты Support Pro. Причины, последствия и тесты перечислены в [актуальном changelog](CHANGELOG.md).
-
-Полная проверка всех функций и production-интеграций не завершена в этой среде: отсутствует `pytest`, а offline npm не имеет всех зависимостей; Docker, Android/iOS и staging E2E v2 не запускались. Перед production-развёртыванием выполните [CI](.github/workflows/ci.yml) и [staging E2E v2](docs/ru/STAGING_E2E_V2_IMPLEMENTATION.md). Реальные платежи остаются закрытыми.
-
-**Начните здесь:** [пять простых инструкций по отдельным файлам](docs/ru/steps/README.md) · [указатель всей документации](docs/INDEX.md). Для новой установки используйте маршрут 20.0.18; ниже сохранены подробности и заметки прежних версий.
-
-**Проверка всех касс:** [пошаговое руководство для новичка](docs/ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md). В версии 20.0.18 реальные платежи закрыты до полного staging E2E v2.
-
-**Предыдущий релиз 20.0.18:** [скачать](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.18) · [установка на VDS с нуля](docs/ru/VDS_PRODUCTION_20_0_18.md) · [пошаговый маршрут платежей для новичка](docs/ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) · [аудит платежей](docs/ru/PAYMENT_AUDIT_2026_09_28.md) · [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) · [изменения](CHANGELOG.md). Исправлены CORS кабинета, резервное копирование и rollback; до реальных платежей нужен полный staging E2E v2. Mobile 2.15.0 и его статус подписи: [релиз 20.0.15](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.15).
-
-Новые клиенты защищают сохранённые токены и требуют повторного входа. Реальные платежи остаются закрытыми до staging E2E v2.
+Магазин VPN-подписок включает кабинет, Mini App, админку, Telegram-бот, Android/iOS и интеграцию Remnawave. Лицензия и условия использования: [LICENSE](LICENSE). CI: [текущие запуски](https://github.com/booarkz-cpu/shop-by-boo/actions/workflows/ci.yml). Перед production проверьте результат на своём VDS и полный staging E2E v2. Исторические инструкции ниже относятся к указанным в них версиям.
 
 ## Предыдущие выпуски
 
