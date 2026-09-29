@@ -1,9 +1,69 @@
 """Exercise the release config writer and the destructive update boundary."""
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_pin_images_can_run_from_non_executable_release_copy(tmp_path):
+    script = (ROOT / "deploy/install-vps.sh").read_text()
+    assert "bash scripts/pin-images.sh" in script
+    for name in ("pin-images.sh", "preflight.sh"):
+        assert (ROOT / "scripts" / name).stat().st_mode & 0o111
+
+    (tmp_path / ".env").write_text("BOT_TOKEN='preserved-secret'\n")
+    pin = tmp_path / "pin-images.sh"
+    shutil.copyfile(ROOT / "scripts/pin-images.sh", pin)
+    pin.chmod(0o644)  # Reproduce the mode in the failing v20.0.22 release.
+    fakebin = tmp_path / "bin"
+    fakebin.mkdir()
+    docker = fakebin / "docker"
+    docker.write_text("#!/bin/sh\ncase \"$*\" in *'image inspect'*) echo 'image@sha256:0123456789abcdef';; esac\n")
+    docker.chmod(0o755)
+    run = subprocess.run(["bash", str(pin)], cwd=tmp_path,
+                         env={**os.environ, "APP_DIR": str(tmp_path), "PATH": f"{fakebin}:{os.environ['PATH']}"},
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    assert "BOT_TOKEN='preserved-secret'" in (tmp_path / ".env").read_text()
+    assert "REDIS_IMAGE=image@sha256:0123456789abcdef" in (tmp_path / ".env.images").read_text()
+
+
+def test_resume_after_pin_preserves_credentials_and_finishes(tmp_path):
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "support-pro").mkdir()
+    shutil.copyfile(ROOT / "scripts/pin-images.sh", tmp_path / "scripts/pin-images.sh")
+    (tmp_path / "scripts/pin-images.sh").chmod(0o644)
+    (tmp_path / ".env").write_text("APP_VERSION='20.0.22'\nBOT_TOKEN='preserved-secret'\n")
+    (tmp_path / "support-pro/.env").write_text("ADMIN_PASSWORD='preserved-admin'\n")
+    (tmp_path / "docker-compose.yml").write_text("services: {}\n")
+    fakebin = tmp_path / "bin"
+    fakebin.mkdir()
+    docker = fakebin / "docker"
+    docker.write_text("#!/bin/sh\ncase \"$*\" in *'image inspect'*) echo 'image@sha256:0123456789abcdef';; esac\n")
+    docker.chmod(0o755)
+    resume = (ROOT / "deploy/resume-vps-after-pin.sh").read_text()
+    # Run the production continuation body with a fake Docker CLI; its root-only
+    # guard is checked separately by the actual script before this point.
+    body = resume[resume.index("umask 077\n"):]
+    command = f'''set -Eeuo pipefail
+ROOT='{tmp_path}'
+APP_DIR="$ROOT"
+export APP_DIR
+cd "$ROOT"
+''' + body
+    for _ in range(2):
+        run = subprocess.run(["bash", "-c", command], cwd=tmp_path,
+                             env={**os.environ, "PATH": f"{fakebin}:{os.environ['PATH']}"},
+                             capture_output=True, text=True)
+        assert run.returncode == 0, run.stderr
+    shop = (tmp_path / ".env").read_text()
+    assert "BOT_TOKEN='preserved-secret'" in shop
+    assert "ADMIN_PASSWORD='preserved-admin'" in (tmp_path / "support-pro/.env").read_text()
+    for key in ("PYTHON_BASE_IMAGE", "NODE_BASE_IMAGE", "NGINX_BASE_IMAGE"):
+        assert shop.count(key + "=") == 1
+    assert (tmp_path / ".env").stat().st_mode & 0o777 == 0o600
 
 
 def test_installer_produces_both_env_files_without_corrupting_secrets(tmp_path):

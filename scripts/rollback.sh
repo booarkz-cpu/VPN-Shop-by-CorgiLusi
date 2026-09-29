@@ -25,7 +25,7 @@ cp -a "$tmp"/. "$APP_DIR"/
 rm -rf "$tmp"
 docker compose up -d db redis
 cat "$DB_ARCHIVE" | docker compose exec -T db psql -U vpnshop -d vpnshop -v ON_ERROR_STOP=1
-./deploy/build-production.sh
-./scripts/doctor.sh
+bash deploy/build-production.sh
+bash scripts/doctor.sh
 rm -f "$ROLLBACK_DIR/RECOVERY_MODE"
 printf 'Rollback completed from %s (database: %s)\n' "$ARCHIVE" "$DB_ARCHIVE"

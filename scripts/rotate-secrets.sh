@@ -21,5 +21,5 @@ p.write_text('\n'.join(lines)+'\n')
 PY
 # Keep old key for at least token TTL; restart is intentionally required.
 docker compose up -d --force-recreate backend worker bot admin miniapp caddy
-./scripts/doctor.sh
+bash scripts/doctor.sh
 printf 'Secrets rotated. Previous APP_SECRET remains available for legacy token/secret decryption; remove APP_SECRET_PREVIOUS only after all old tokens have expired.\n'
