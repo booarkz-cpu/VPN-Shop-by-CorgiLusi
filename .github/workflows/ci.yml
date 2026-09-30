@@ -1,4 +1,5 @@
 name: Corgi Lusi CI
+# CI trigger: verify main after frontend/backend fixes
 
 on:
   pull_request:
