@@ -206,6 +206,7 @@ function App() {
   const [clientLogo, setClientLogo] = useState("");
   const [devices, setDevices] = useState<any[]>([]);
   const [routing, setRouting] = useState<any>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   function flash(text: string, error = false) {
     setMsg(text);
@@ -506,6 +507,7 @@ function App() {
             <span>{brand}</span>
           </div>
           <div className="btn-row">
+            <button type="button" className="drawer-toggle btn-ghost" aria-label="Открыть меню" onClick={() => setDrawerOpen(true)}>☰</button>
             <button type="button" className="btn-ghost" onClick={() => setLang(lang === "ru" ? "en" : "ru")}>
               {lang === "ru" ? "EN" : "RU"}
             </button>
@@ -611,7 +613,8 @@ function App() {
         ) : (
           <>
             <div className="user-layout">
-              <aside className="user-sidebar" aria-label="Навигация кабинета">
+              <div className={`drawer-backdrop ${drawerOpen ? "open" : ""}`} onClick={() => setDrawerOpen(false)} aria-hidden="true" />
+              <aside className={`user-sidebar ${drawerOpen ? "drawer-open" : ""}`} aria-label="Навигация кабинета">
                 <div className="sidebar-heading">
                   <span className="sidebar-kicker">ЛИЧНЫЙ КАБИНЕТ</span>
                   <strong>{dash?.user?.username || brand}</strong>
@@ -623,7 +626,7 @@ function App() {
                       key={item.slug}
                       type="button"
                       className={`side-nav-item ${tab === item.slug ? "active" : ""}`}
-                      onClick={() => setTab(item.slug)}
+                      onClick={() => { setTab(item.slug); setDrawerOpen(false); }}
                     >
                       <span className="side-nav-icon" aria-hidden>
                         {item.kind === "plans" ? "₽" : item.kind === "connection" ? "⌁" : item.kind === "support" ? "?" : item.kind === "servers" ? "◉" : "◆"}
