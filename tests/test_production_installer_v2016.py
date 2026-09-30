@@ -20,14 +20,14 @@ def test_pin_images_can_run_from_non_executable_release_copy(tmp_path):
     fakebin = tmp_path / "bin"
     fakebin.mkdir()
     docker = fakebin / "docker"
-    docker.write_text("#!/bin/sh\ncase \"$*\" in *'image inspect'*) echo 'image@sha256:0123456789abcdef';; esac\n")
+    docker.write_text("#!/bin/sh\ncase \"$*\" in *'image inspect'*) echo 'image@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';; esac\n")
     docker.chmod(0o755)
     run = subprocess.run(["bash", str(pin)], cwd=tmp_path,
                          env={**os.environ, "APP_DIR": str(tmp_path), "PATH": f"{fakebin}:{os.environ['PATH']}"},
                          capture_output=True, text=True)
     assert run.returncode == 0, run.stderr
     assert "BOT_TOKEN='preserved-secret'" in (tmp_path / ".env").read_text()
-    assert "REDIS_IMAGE=image@sha256:0123456789abcdef" in (tmp_path / ".env.images").read_text()
+    assert "REDIS_IMAGE=image@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" in (tmp_path / ".env.images").read_text()
 
 
 def test_resume_after_pin_preserves_credentials_and_finishes(tmp_path):
@@ -41,7 +41,7 @@ def test_resume_after_pin_preserves_credentials_and_finishes(tmp_path):
     fakebin = tmp_path / "bin"
     fakebin.mkdir()
     docker = fakebin / "docker"
-    docker.write_text("#!/bin/sh\ncase \"$*\" in *'image inspect'*) echo 'image@sha256:0123456789abcdef';; esac\n")
+    docker.write_text("#!/bin/sh\ncase \"$*\" in *'image inspect'*) echo 'image@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';; esac\n")
     docker.chmod(0o755)
     resume = (ROOT / "deploy/resume-vps-after-pin.sh").read_text()
     # Run the production continuation body with a fake Docker CLI; its root-only

@@ -17,7 +17,7 @@ resolve_build() {
   local image="$1" digest
   docker pull "$image" >/dev/null
   digest="$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')"
-  [[ "$digest" == *@sha256:* ]] || { echo "No digest for $image" >&2; exit 1; }
+  [[ "$digest" =~ ^[^[:space:]]+@sha256:[0-9a-f]{64}$ ]] || { echo "No digest for $image" >&2; exit 1; }
   printf '%s' "$digest"
 }
 PYTHON_BASE_IMAGE="$(resolve_build python:3.12-slim)"

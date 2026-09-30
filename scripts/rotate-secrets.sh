@@ -12,11 +12,16 @@ from pathlib import Path
 import sys
 p=Path('.env'); s=p.read_text(); old,new=sys.argv[1:]
 lines=[]
+previous_found=False
 for line in s.splitlines():
-    if line.startswith('APP_SECRET_PREVIOUS='): lines.append('APP_SECRET_PREVIOUS='+old)
+    if line.startswith('APP_SECRET_PREVIOUS='):
+        lines.append('APP_SECRET_PREVIOUS='+old)
+        previous_found=True
     elif line.startswith('APP_SECRET='): lines.append('APP_SECRET='+new)
     elif line.startswith('METRICS_TOKEN='): lines.append('METRICS_TOKEN='+__import__('secrets').token_urlsafe(32))
     else: lines.append(line)
+if not previous_found:
+    lines.append('APP_SECRET_PREVIOUS='+old)
 p.write_text('\n'.join(lines)+'\n')
 PY
 # Keep old key for at least token TTL; restart is intentionally required.

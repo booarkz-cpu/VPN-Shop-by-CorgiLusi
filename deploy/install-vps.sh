@@ -98,7 +98,7 @@ env_line() {
 }
 
 # Previous release contract: INSTALLER_VERSION="1.0.0-realise"
-INSTALLER_VERSION="20.0.23"
+INSTALLER_VERSION="20.0.24"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.8"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.7"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.6"
@@ -133,7 +133,7 @@ INSTALLER_VERSION="20.0.23"
 # Previous release contract: INSTALLER_VERSION="45.0.0-enterprise"
 # V44.5 Enterprise legacy contract marker
 # INSTALLER_VERSION="43.1.0-production" legacy regression marker
-log "Remnawave VPN Shop — 20.0.23 production installer"
+log "Remnawave VPN Shop — 20.0.24 production installer"
 # Historical compatibility marker: 3.1.3 русскоязычный production installer
 # Historical compatibility marker: 3.1.2 русскоязычный production installer
 # Historical compatibility marker: 3.1.1 русскоязычный production installer
@@ -464,7 +464,13 @@ systemctl enable --now fail2ban >/dev/null 2>&1 || true
 dpkg-reconfigure -f noninteractive unattended-upgrades >/dev/null 2>&1 || true
 
 log "Фиксирую build-stage image digests..."
-resolve_build(){ local image="$1"; docker pull "$image" >/dev/null; docker image inspect "$image" --format "{{index .RepoDigests 0}}"; }
+resolve_build(){
+  local image="$1" digest
+  docker pull "$image" >/dev/null
+  digest="$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')"
+  [[ "$digest" =~ ^[^[:space:]]+@sha256:[0-9a-f]{64}$ ]] || die "Не получен immutable digest для $image"
+  printf '%s\n' "$digest"
+}
 PYTHON_BASE_IMAGE="$(resolve_build python:3.12-slim)"
 NODE_BASE_IMAGE="$(resolve_build node:22-alpine)"
 NGINX_BASE_IMAGE="$(resolve_build nginx:1.29-alpine)"

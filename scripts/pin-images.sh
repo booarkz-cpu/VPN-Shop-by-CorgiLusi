@@ -5,9 +5,11 @@ cd "$APP_DIR"
 command -v docker >/dev/null || { echo "Docker is required" >&2; exit 2; }
 
 resolve(){
-  local image="$1"
+  local image="$1" digest
   docker pull "$image" >/dev/null
-  docker image inspect "$image" --format '{{index .RepoDigests 0}}'
+  digest="$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')"
+  [[ "$digest" =~ ^[^[:space:]]+@sha256:[0-9a-f]{64}$ ]] || { echo "No immutable digest for $image" >&2; return 1; }
+  printf '%s\n' "$digest"
 }
 REDIS_IMAGE="$(resolve redis:7.4-alpine)"
 POSTGRES_IMAGE="$(resolve postgres:16-alpine)"
