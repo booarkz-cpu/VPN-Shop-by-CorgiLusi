@@ -5,3 +5,15 @@ html[data-theme="light"]{--bg:#f3f6fb;--surface:#fff;--surface2:#e9eef7;--border
 html[data-theme="light"] body{background:var(--bg);color:var(--text)}
 html[data-theme="light"] .sidebar{background:rgba(255,255,255,.94)}
 html[data-theme="light"] .auth-card{background:var(--surface)}
+
+/* Material Design refresh — light by default */
+:root{color-scheme:light;--bg:#f6f7fb;--surface:#fff;--surface2:#f0f2f7;--border:rgba(25,35,55,.12);--text:#172033;--muted:#667085;--accent:#6750a4;--accent2:#006a6a;--danger:#ba1a1a;--shadow:0 2px 6px rgba(20,28,45,.08),0 8px 24px rgba(20,28,45,.06)}
+html,body{background:var(--bg);color:var(--text)}body{background:linear-gradient(180deg,#f8f9fc 0%,#f3f5fa 100%)}
+.sidebar{background:rgba(255,255,255,.96);border-right-color:rgba(25,35,55,.10);box-shadow:4px 0 24px rgba(25,35,55,.05)}
+.nav-item{color:#596579}.nav-item:hover{background:#f1eff8;color:#2d2348}.nav-item.active{background:#ede7f6;color:#3f2b68}
+.topbar{background:rgba(255,255,255,.88);border-bottom-color:rgba(25,35,55,.10)}
+.card,.panel,.form-card,.table-wrap,.stat,.metric,.tile{background:#fff;border-color:rgba(25,35,55,.11);box-shadow:0 2px 7px rgba(25,35,55,.06),0 12px 30px rgba(25,35,55,.045)}
+input,select,textarea{background:#fff!important;color:#172033!important;border-color:rgba(25,35,55,.18)!important}input:focus,select:focus,textarea:focus{outline:none;border-color:#6750a4!important;box-shadow:0 0 0 3px rgba(103,80,164,.14)}
+.btn-primary,.primary,button.primary{background:#6750a4!important;border-radius:12px!important;box-shadow:0 2px 5px rgba(103,80,164,.25)}.btn-primary:hover,.primary:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.round-btn,.topbar select{background:#fff;color:#344054;border-color:rgba(25,35,55,.14)}.command-box{background:#fff;color:#172033}.command-overlay{background:rgba(20,25,35,.35)}
+.auth-shell{background:radial-gradient(circle at 20% 40%,rgba(103,80,164,.12),transparent 35%),#f6f7fb}.auth-card{background:#fff;border-color:rgba(25,35,55,.12)}.auth-art h1 span{color:#6750a4}.loading-screen{background:#f6f7fb}
