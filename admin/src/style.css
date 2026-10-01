@@ -75,3 +75,5 @@
  .workspace .topbar-actions select{display:none}
  .workspace .content-wrap{padding:14px}
 }
+
+html[data-theme="light"]{color-scheme:light}
