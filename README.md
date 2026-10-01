@@ -1,6 +1,6 @@
 # VPN Shop
 
-**Актуальный выпуск исходников: v20.0.24.** [Релиз и ZIP с SHA-256](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.24) · [заметки выпуска](.github/release-v20.0.24.md) · [Changelog](CHANGELOG.md). Это выпуск исходников; реальные платежи остаются закрытыми до полного staging E2E v2.
+**Актуальный выпуск исходников: v20.0.25.** [Релиз и ZIP с SHA-256](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.24) · [заметки выпуска](.github/release-v20.0.24.md) · [Changelog](CHANGELOG.md). Это выпуск исходников; реальные платежи остаются закрытыми до полного staging E2E v2.
 
 ## Актуальные инструкции
 
