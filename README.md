@@ -1,13 +1,13 @@
 # VPN Shop
 
-**Актуальный выпуск исходников: v20.0.26.** [Релиз и ZIP с SHA-256](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.26) · [заметки выпуска](.github/release-v20.0.26.md) · [Changelog](CHANGELOG.md). Это выпуск исходников; реальные платежи остаются закрытыми до полного staging E2E v2.
+**Актуальный выпуск исходников: v20.0.27.** [Релиз и ZIP с SHA-256](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.27) · [заметки выпуска](.github/release-v20.0.27.md) · [Changelog](CHANGELOG.md). Это выпуск исходников; реальные платежи остаются закрытыми до полного staging E2E v2.
 
 ## Актуальные инструкции
 
 | Задача | Документация |
 | --- | --- |
 | Начать с простых шагов | [Пять последовательных инструкций](docs/ru/steps/README.md) |
-| Установить на VDS с нуля (Termius/SSH) | [Подробная установка v20.0.26](docs/ru/VDS_PRODUCTION_20_0_26.md) |
+| Установить на VDS с нуля (Termius/SSH) | [Подробная установка v20.0.27](docs/ru/VDS_PRODUCTION_20_0_26.md) |
 | Запустить тестовый стенд | [Проверка без реальных платежей](docs/ru/TESTING.md) |
 | Обновить или восстановить сервер | [Обслуживание](docs/ru/steps/05-operations.md), [раздел в инструкции VDS](docs/ru/VDS_PRODUCTION_20_0_26.md) |
 | Настроить кассы | [Все провайдеры по шагам](docs/ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md), [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) |
@@ -15,7 +15,7 @@
 | Разобраться в функциях и API | [Руководство функций](docs/ru/FUNCTION_GUIDE.md), [API](API_REFERENCE_RU.md) |
 | Подготовить мобильные клиенты | [Мобильные приложения](docs/ru/MOBILE_GUIDE.md), [сборка и подпись](docs/ru/PRODUCTION_20_0_15.md) |
 | Эксплуатировать Support Pro | [Руководство компонента](support-pro/README.md) |
-| Ознакомиться с результатами проверки | [Отчёт 28 сентября](docs/ru/AUDIT_2026_09_28_REPOSITORY.md), [заметки v20.0.26](.github/release-v20.0.26.md) |
+| Ознакомиться с результатами проверки | [Отчёт 28 сентября](docs/ru/AUDIT_2026_09_28_REPOSITORY.md), [заметки v20.0.27](.github/release-v20.0.27.md) |
 | Найти другую документацию | [Общий указатель](docs/INDEX.md), [операционный регламент](OPERATIONS_RUNBOOK_RU.md) |
 
 | | Русский | English | Українська |
