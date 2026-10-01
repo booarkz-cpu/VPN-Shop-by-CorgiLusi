@@ -47,28 +47,29 @@ prompt() {
       printf -v "$var" '%s' "$default"
     fi
     value="${!var}"
-    value="${value#"${value%%[![:space:]]*}"}"
-    value="${value%"${value##*[![:space:]]}"}"
-    printf -v "$var" '%s' "$value"
-    return
-  fi
-  if [[ -z "$default" && -n "${!var:-}" && "$secret" != "1" ]]; then
-    default="${!var}"
-  fi
-  # curl | bash leaves stdin at EOF. Questions must come from the terminal.
-  if [[ ! -t 0 ]]; then
-    [[ -r /dev/tty ]] || die "Нет терминала для вопросов установщика. Запустите bash install.sh из SSH или задайте INSTALL_NONINTERACTIVE=1."
-    tty=/dev/tty
-  fi
-  if [[ "$secret" == "1" ]]; then
-    if [[ -n "$default" ]]; then
-      read -r -s -p "$label [$default]: " value <"$tty"; echo
-    else
-      read -r -s -p "$label: " value <"$tty"; echo
-    fi
   else
-    read -r -p "$label${default:+ [$default]}: " value <"$tty"
+    if [[ -z "$default" && -n "${!var:-}" && "$secret" != "1" ]]; then
+      default="${!var}"
+    fi
+    # curl | bash leaves stdin at EOF. Questions must come from the terminal.
+    if [[ ! -t 0 ]]; then
+      [[ -r /dev/tty ]] || die "Нет терминала для вопросов установщика. Запустите bash install.sh из SSH или задайте INSTALL_NONINTERACTIVE=1."
+      tty=/dev/tty
+    fi
+    if [[ "$secret" == "1" ]]; then
+      if [[ -n "$default" ]]; then
+        read -r -s -p "$label [$default]: " value <"$tty"; echo
+      else
+        read -r -s -p "$label: " value <"$tty"; echo
+      fi
+    else
+      read -r -p "$label${default:+ [$default]}: " value <"$tty"
+    fi
   fi
+
+  # Never allow terminal paste/input to inject a second .env line.
+  value="${value//$'\r'/}"
+  value="${value//$'\n'/}"
   value="${value#"${value%%[![:space:]]*}"}"
   value="${value%"${value##*[![:space:]]}"}"
   printf -v "$var" '%s' "${value:-$default}"
@@ -424,9 +425,15 @@ ufw default allow outgoing >/dev/null 2>&1 || true
 # Preserve the port of the active SSH session before enabling a default-deny firewall.
 SSH_PORT="${SSH_CONNECTION:-}"
 SSH_PORT="${SSH_PORT##* }"
-[[ "$SSH_PORT" =~ ^[0-9]+$ ]] || SSH_PORT="$(sshd -T 2>/dev/null | awk '$1 == "port" { print $2; exit }')"
+if [[ ! "$SSH_PORT" =~ ^[0-9]+$ ]]; then
+  SSH_PORT=""
+  if command -v sshd >/dev/null 2>&1; then
+    SSH_PORT="$(sshd -T 2>/dev/null | awk '$1 == "port" { print $2; exit }')" || SSH_PORT=""
+  fi
+fi
 SSH_PORT="${SSH_PORT:-22}"
 [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || die "Не удалось определить SSH-порт"
+log "Открываю SSH-порт ${SSH_PORT} в firewall"
 ufw allow "${SSH_PORT}/tcp" >/dev/null || die "Не удалось открыть SSH-порт ${SSH_PORT}"
 ufw allow 80/tcp >/dev/null 2>&1 || true
 ufw allow 443/tcp >/dev/null 2>&1 || true
