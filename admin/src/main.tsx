@@ -3,6 +3,8 @@ import{LangProvider,useLang,DomLocalizer,t}from"./i18n";
 // Исторические названия интерфейса для регрессионных тестов: Campaign Manager, Rules Engine, мультиустройства, Trial.
 import{createRoot}from"react-dom/client";import"./style.css";import"./design-system.css";
 class AdminErrorBoundary extends React.Component<{children:React.ReactNode},{error:string|null}>{
+ props: Readonly<{children:React.ReactNode}>;
+ constructor(props: {children:React.ReactNode}){super(props);this.props=props}
  state={error:null as string|null};
  static getDerivedStateFromError(error:any){return{error:String(error?.message||error||"Неизвестная ошибка интерфейса")}};
  render(){if(this.state.error)return <div className="loading-screen"><div className="card" style={{maxWidth:720,width:"calc(100% - 32px)"}}><h2>Раздел не удалось открыть</h2><p className="error">{this.state.error}</p><p className="muted">Проверьте доступ API и повторите открытие раздела. Панель не будет оставаться чёрной.</p><button className="primary" onClick={()=>window.location.reload()}>Перезагрузить панель</button></div></div>;return this.props.children}
