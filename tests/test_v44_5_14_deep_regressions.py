@@ -88,7 +88,7 @@ def test_upload_endpoints_use_bounded_reads_for_chunked_requests():
 
 def test_security_sensitive_dependency_pins_are_current_fixed_lines():
     req=(ROOT/"backend/requirements.txt").read_text()
-    assert 'PyJWT==2.14.0' in req
+    assert 'PyJWT==2.15.0' in req
     assert 'python-multipart==0.0.31' in req
     assert 'paramiko==5.0.0' in req
     assert 'boto3==1.43.91' in req
