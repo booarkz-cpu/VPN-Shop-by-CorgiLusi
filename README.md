@@ -7,9 +7,9 @@
 | Задача | Документация |
 | --- | --- |
 | Начать с простых шагов | [Пять последовательных инструкций](docs/ru/steps/README.md) |
-| Установить на VDS с нуля (Termius/SSH) | [Подробная установка v20.0.26](docs/ru/VDS_PRODUCTION_20_0_25.md) |
+| Установить на VDS с нуля (Termius/SSH) | [Подробная установка v20.0.26](docs/ru/VDS_PRODUCTION_20_0_26.md) |
 | Запустить тестовый стенд | [Проверка без реальных платежей](docs/ru/TESTING.md) |
-| Обновить или восстановить сервер | [Обслуживание](docs/ru/steps/05-operations.md), [раздел в инструкции VDS](docs/ru/VDS_PRODUCTION_20_0_25.md) |
+| Обновить или восстановить сервер | [Обслуживание](docs/ru/steps/05-operations.md), [раздел в инструкции VDS](docs/ru/VDS_PRODUCTION_20_0_26.md) |
 | Настроить кассы | [Все провайдеры по шагам](docs/ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md), [подготовка staging](docs/ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md) |
 | Проверить допуск живых платежей | [Контракт staging E2E v2](docs/ru/STAGING_E2E_V2_IMPLEMENTATION.md), [аудит интеграций](docs/ru/PAYMENT_AUDIT_2026_09_28.md) |
 | Разобраться в функциях и API | [Руководство функций](docs/ru/FUNCTION_GUIDE.md), [API](API_REFERENCE_RU.md) |
