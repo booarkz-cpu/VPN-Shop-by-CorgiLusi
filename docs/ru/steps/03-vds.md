@@ -8,7 +8,7 @@
 
    ```bash
    cd /opt
-   sudo git clone --branch v20.0.26 --depth 1 https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
+   sudo git clone --branch v20.0.27 --depth 1 https://github.com/booarkz-cpu/shop-by-boo.git vpn-shop-src
    cd /opt/vpn-shop-src
    sudo bash deploy/install-vps.sh
    ```
@@ -16,4 +16,4 @@
 4. Отвечайте на вопросы установщика своими доменами и секретами. Для кассы выберите `none`, пока нет готового staging. Не вставляйте секреты в issue или чат.
 5. После завершения выполните `cd /opt/vpn-shop && sudo docker compose ps`, затем откройте `https://api.ВАШ-ДОМЕН/health/ready` и админку в браузере. Включите TOTP для администратора.
 
-Если установка остановилась, запишите текст ошибки без секретов и следуйте [подробной инструкции для текущего выпуска](../VDS_PRODUCTION_20_0_26.md). Живые платежи после установки закрыты.
+Если установка остановилась, запишите текст ошибки без секретов и следуйте [подробной инструкции для текущего выпуска](../VDS_PRODUCTION_20_0_27.md). Живые платежи после установки закрыты.
