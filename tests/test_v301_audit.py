@@ -26,8 +26,8 @@ def test_wallet_spend_requires_a_client_key_and_blocks_a_second_debit():
     assert "uuid.uuid4()" not in spend
     assert "Повторное списание с баланса заблокировано" in spend
     assert "timedelta(seconds=30)" in spend
-    gift = main[main.index("async def purchase_gift"): main.index("async def redeem_gift")]
-    assert gift.index("with_for_update") < gift.index('code="GIFT_"')
+    gift = (ROOT / "backend/app/gift_orders.py").read_text()
+    assert gift.index("with_for_update") < gift.index("code='GIFT_'")
     create = main[main.index("async def create_payment"): main.index("async def _renew_redis_lock")]
     assert "lock:checkout-intent:" in create
     assert 'if existing.plan_id != plan_id' in create

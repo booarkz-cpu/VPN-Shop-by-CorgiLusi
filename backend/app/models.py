@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 import secrets
-from sqlalchemy import String, Integer, BigInteger, DateTime, Boolean, Numeric, Text, UniqueConstraint, JSON, ForeignKey
+from sqlalchemy import String, Integer, BigInteger, DateTime, Boolean, Numeric, Text, UniqueConstraint, JSON, ForeignKey, Index, text, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
 
@@ -39,6 +39,8 @@ class Payment(Base):
     __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_payments_user_idempotency_key"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    subscription_id: Mapped[int|None] = mapped_column(Integer, index=True)
+    new_subscription: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     plan_id: Mapped[int] = mapped_column(Integer, nullable=False)
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     provider_payment_id: Mapped[str|None] = mapped_column(String(255), unique=True, index=True, nullable=True)
@@ -72,8 +74,14 @@ class Payment(Base):
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
+    __table_args__ = (Index("uq_subscriptions_primary_user", "user_id", unique=True,
+                           postgresql_where=text("is_primary"), sqlite_where=text("is_primary")),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, index=True, unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(80), default="Подписка", nullable=False)
+    auto_renew_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    next_renewal_at: Mapped[datetime|None] = mapped_column(DateTime)
     plan_id: Mapped[int] = mapped_column(Integer, nullable=False)
     remnawave_uuid: Mapped[str|None] = mapped_column(String(255))
     subscription_url: Mapped[str|None] = mapped_column(Text)
@@ -275,6 +283,9 @@ class GiftCode(Base):
     code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     plan_id: Mapped[int] = mapped_column(Integer, nullable=False)
     duration_days: Mapped[int|None] = mapped_column(Integer)
+    entitlements_snapshot: Mapped[dict|None] = mapped_column(JSON)
+    purchase_fingerprint: Mapped[str|None] = mapped_column(String(64))
+    purchase_amount: Mapped[Decimal|None] = mapped_column(Numeric(12,2))
     max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     used_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     expires_at: Mapped[datetime|None] = mapped_column(DateTime)
@@ -289,9 +300,11 @@ class GiftRedemption(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     gift_code_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    subscription_id: Mapped[int|None] = mapped_column(Integer, index=True)
     operation_key: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="processing", nullable=False)
     remote_user_id: Mapped[str|None] = mapped_column(String(255))
+    before_snapshot: Mapped[dict|None] = mapped_column(JSON)
     expected_before_expires_at: Mapped[datetime|None] = mapped_column(DateTime)
     expected_after_expires_at: Mapped[datetime|None] = mapped_column(DateTime)
     error: Mapped[str|None] = mapped_column(Text)
@@ -495,6 +508,21 @@ class SupportMessage(Base):
     idempotency_key: Mapped[str|None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
+class SupportAttachment(Base):
+    __tablename__ = "support_attachments"
+    __table_args__ = (UniqueConstraint("ticket_id", "actor", "idempotency_key", name="uq_support_attachment_retry"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id", ondelete="CASCADE"), index=True, nullable=False)
+    message_id: Mapped[int|None] = mapped_column(ForeignKey("support_messages.id", ondelete="CASCADE"), index=True)
+    actor: Mapped[str] = mapped_column(String(350), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(180), nullable=False)
+    mime: Mapped[str] = mapped_column(String(64), nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
 class WithdrawalRequest(Base):
     __tablename__ = "withdrawal_requests"
     __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_withdrawal_user_idempotency"),)
@@ -687,6 +715,7 @@ class UserDevice(Base):
     __tablename__ = "user_devices"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    subscription_id: Mapped[int|None] = mapped_column(Integer, index=True)
     device_key: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), default="Устройство", nullable=False)
     platform: Mapped[str|None] = mapped_column(String(64))
@@ -745,6 +774,7 @@ class TrialGrant(Base):
     __tablename__ = "trial_grants"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, unique=True, index=True, nullable=False)
+    subscription_id: Mapped[int|None] = mapped_column(Integer, index=True)
     plan_id: Mapped[int] = mapped_column(Integer, nullable=False)
     days: Mapped[int] = mapped_column(Integer, nullable=False)
     # Freeze trial entitlement at claim time. Later admin edits to Plan must not

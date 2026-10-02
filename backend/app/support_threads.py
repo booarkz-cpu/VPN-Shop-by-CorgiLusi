@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy import select
 
-from .models import SupportMessage
+from .models import SupportMessage,SupportAttachment
 
 
 async def preserve_previous_reply(db, ticket):
@@ -17,7 +17,9 @@ async def preserve_previous_reply(db, ticket):
         await db.flush()
 
 
-async def append_message(db, ticket, role, body, key=None):
+async def append_message(db, ticket, role, body, key=None, attachment_ids=None, actor=None):
+    attachment_ids=attachment_ids or []
+    actor=actor or f"customer:{ticket.user_id}"
     # Caller holds the ticket row lock, so state changes and retry checks serialize.
     body = body.strip()
     if not body:
@@ -31,6 +33,8 @@ async def append_message(db, ticket, role, body, key=None):
         if previous:
             if previous.body != body:
                 raise HTTPException(409, "Этот ключ уже использован для другого сообщения")
+            existing=(await db.execute(select(SupportAttachment.id).where(SupportAttachment.message_id==previous.id))).scalars().all()
+            if set(existing)!=set(attachment_ids):raise HTTPException(409,"Этот ключ использован для другого набора вложений")
             return previous, False
     await preserve_previous_reply(db, ticket)
     message = SupportMessage(ticket_id=ticket.id, role=role, body=body, idempotency_key=key)
@@ -40,6 +44,8 @@ async def append_message(db, ticket, role, body, key=None):
     if role == "admin":
         ticket.admin_reply = body  # Compatibility projection for older clients.
     await db.flush()
+    from .support_attachments import bind
+    await bind(db,ticket,message,attachment_ids,actor)
     return message, True
 
 
@@ -49,6 +55,9 @@ async def read_thread(db, ticket, after=0):
     ).order_by(SupportMessage.id).limit(101))).scalars().all()
     visible = rows[:100]
     messages = [{"id": x.id, "role": x.role, "body": x.body, "created_at": x.created_at} for x in visible]
+    from .support_attachments import metadata
+    files=(await db.execute(select(SupportAttachment).where(SupportAttachment.message_id.in_([x.id for x in visible])))).scalars().all() if visible else []
+    for message in messages:message["attachments"]=[metadata(item) for item in files if item.message_id==message["id"]]
     if after == 0:
         messages.insert(0, {"id": 0, "role": "customer", "body": ticket.message, "created_at": ticket.created_at})
         # A legacy imported ticket can have no message rows until its next reply.

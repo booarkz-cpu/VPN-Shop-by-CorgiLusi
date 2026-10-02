@@ -77,7 +77,8 @@ services:
 
   admin:
     build:
-      context: ./admin
+      context: .
+      dockerfile: admin/Dockerfile
       args:
         VITE_API_URL: ""
     depends_on:

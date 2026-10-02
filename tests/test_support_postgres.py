@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select, text, func
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from app.models import SupportTicket, SupportMessage
+from app.models import SupportTicket, SupportMessage, SupportAttachment
 from app.support_threads import append_message
 
 
@@ -32,6 +32,7 @@ async def support_pg():
         async with engine.begin() as conn:
             await conn.run_sync(SupportTicket.__table__.create)
             await conn.run_sync(SupportMessage.__table__.create)
+            await conn.run_sync(SupportAttachment.__table__.create)
         yield engine
     finally:
         await engine.dispose()
@@ -69,9 +70,11 @@ async def test_support_migration_keeps_existing_operator_reply(support_pg):
     spec=importlib.util.spec_from_file_location("conversation_migration",path)
     migration=importlib.util.module_from_spec(spec);spec.loader.exec_module(migration)
     def migrate(connection):
+        SupportAttachment.__table__.drop(connection)
         SupportMessage.__table__.drop(connection)
         with Operations.context(MigrationContext.configure(connection)):
             migration.upgrade()
+        SupportAttachment.__table__.create(connection)
     async with support_pg.begin() as conn:
         await conn.run_sync(migrate)
     async with AsyncSession(support_pg) as db:

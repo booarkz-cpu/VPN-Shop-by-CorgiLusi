@@ -245,13 +245,15 @@ async def review_violation(violation_id: int, payload: dict, db: AsyncSession = 
         user = await db.get(User, row.user_id)
         if user:
             user.restricted_at = datetime.utcnow()
-            sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id))).scalar_one_or_none()
-            if sub and sub.remnawave_uuid:
-                try:
-                    from .remnawave import RemnawaveClient
-                    await RemnawaveClient().disable_user(sub.remnawave_uuid)
-                except Exception:
-                    pass
+            subscriptions=(await db.execute(select(Subscription).where(Subscription.user_id==user.id))).scalars().all()
+            for sub in subscriptions:
+                sub.lifecycle_status="revoke_pending";sub.scheduled_cancel_at=datetime.utcnow()
+                if sub.remnawave_uuid:
+                    try:
+                        from .remnawave import RemnawaveClient
+                        await RemnawaveClient().disable_user(sub.remnawave_uuid)
+                    except Exception:
+                        pass
     if action == "clear" and row.user_id:
         user = await db.get(User, row.user_id)
         if user:
@@ -429,7 +431,7 @@ async def agent_observations(payload: ObservationBatch, db: AsyncSession = Depen
             seen_at=now,
         )
         db.add(obs)
-        key = str(user.id) if user else (item.hwid or prefix)
+        key = f"{user.id}:{item.remnawave_uuid}" if user else (item.hwid or prefix)
         grouped.setdefault(key, []).append({**item.model_dump(), "seen_at": now, "user_id": user.id if user else None})
         if item.torrent:
             torrents.add(key)
@@ -445,7 +447,7 @@ async def agent_observations(payload: ObservationBatch, db: AsyncSession = Depen
             ) or 1)
         device_limit = None
         if user_id:
-            sub = (await db.execute(select(Subscription).where(Subscription.user_id == user_id))).scalar_one_or_none()
+            sub = (await db.execute(select(Subscription).where(Subscription.user_id == user_id,Subscription.remnawave_uuid==rows[0].get("remnawave_uuid")))).scalar_one_or_none()
             device_limit = sub.device_limit_snapshot if sub else None
         result = score_observations(rows, device_limit=device_limit, thresholds=policy, hwid_accounts=hwid_accounts, torrent=key in torrents)
         if result["score"] < int(policy["min_score"]):

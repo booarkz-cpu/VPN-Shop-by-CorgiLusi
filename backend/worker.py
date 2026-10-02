@@ -37,7 +37,8 @@ async def job_worker():
                                         trial.status="cancelled"
                                         await edb.commit()
                                         continue
-                                    sub=(await edb.execute(select(Subscription).where(Subscription.user_id==user.id).with_for_update())).scalar_one_or_none()
+                                    sub=await main.owned_subscription(edb,user.id,trial.subscription_id,lock=True)
+                                    if trial.subscription_id is not None and not sub:raise RuntimeError("Trial target missing or foreign")
                                     now=datetime.utcnow(); rw=main.RemnawaveClient()
                                     if sub and sub.remnawave_uuid:
                                         remote_before=await rw.get_user(sub.remnawave_uuid)
@@ -60,7 +61,7 @@ async def job_worker():
                                         verified_expiry=extension.get("expires_at") if isinstance(extension,dict) else None
                                         sub.expires_at=max(after,verified_expiry or after); sub.plan_id=plan.id; sub.traffic_limit_gb_snapshot=trial.traffic_limit_gb_snapshot; sub.device_limit_snapshot=trial.device_limit_snapshot; sub.remnawave_profile_id_snapshot=trial.remnawave_profile_id_snapshot
                                     else:
-                                        username=f"user_{user.id}"; existing=None
+                                        username=main.remote_username(user.id,sub); existing=None
                                         try: existing=await rw.get_user_by_username(username)
                                         except Exception: existing=None
                                         expected=trial.expires_at or (now+timedelta(days=trial.days))
@@ -95,6 +96,7 @@ async def job_worker():
                                         sub.device_limit_snapshot=trial.device_limit_snapshot
                                         sub.remnawave_profile_id_snapshot=trial.remnawave_profile_id_snapshot
                                         sub.subscription_url=data.get("subscriptionUrl") or data.get("subscription_url")
+                                    await edb.flush();trial.subscription_id=sub.id;sub.unit_price_per_day=0;sub.lifecycle_status="active"
                                     trial.status="completed"; await edb.commit()
                                 finally:
                                     await main._release_payment_side_effect_lock(user_lock,user_token)

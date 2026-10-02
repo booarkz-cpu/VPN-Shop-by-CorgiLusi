@@ -14,6 +14,7 @@ struct UserRootView: View {
     @State private var notice = ""
     @State private var busy = false
     @State private var dashboard: [String: Any] = [:]
+    @State private var profiles: [[String: Any]] = []
     @State private var plans: [[String: Any]] = []
     @State private var builders: [[String: Any]] = []
     @State private var servers: [String: Any] = [:]
@@ -123,6 +124,12 @@ struct UserRootView: View {
     @ViewBuilder private var section: some View {
         switch tab {
         case "overview":
+            Text(t("my_subscriptions")).font(.headline)
+            ForEach(Array(profiles.enumerated()), id: \.offset) { _, profile in
+                Text("\(jsonText(profile["name"])) · \(jsonText(profile["plan"])) · \(jsonText(profile["expires_at"]))")
+                if jsonBool(profile["is_primary"]) { Text(t("selected_subscription")) }
+                else { Button(t("select_subscription")) { selectProfile(profile) }.disabled(busy) }
+            }
             let user = dashboard["user"] as? [String: Any] ?? [:]
             Text("\(t("wallet")): \(user["wallet_balance"] as? String ?? "0")")
             Text("\(t("referral")): \(user["referral_code"] as? String ?? "")")
@@ -258,6 +265,7 @@ struct UserRootView: View {
         work {
             let api = ShopClient(base: base, token: token, lang: lang)
             let nextDashboard = try api.call("GET", "/api/me/dashboard") as? [String: Any] ?? [:]
+            let nextProfiles = try api.call("GET", "/api/me/subscriptions") as? [[String: Any]] ?? []
             let nextPlans = try api.call("GET", "/api/plans") as? [[String: Any]] ?? []
             let nextBuilders = try api.call("GET", "/api/tariff-constructors") as? [[String: Any]] ?? []
             let nextServers = try api.call("GET", "/api/me/servers") as? [String: Any] ?? [:]
@@ -274,6 +282,7 @@ struct UserRootView: View {
             let nextLogo = logoImage(api, "/api/public/apps")
             DispatchQueue.main.async {
                 dashboard = nextDashboard
+                profiles = nextProfiles
                 plans = nextPlans
                 builders = nextBuilders
                 servers = nextServers
@@ -347,10 +356,19 @@ struct UserRootView: View {
         }
     }
 
+    private func selectProfile(_ profile: [String: Any]) {
+        guard let id = jsonInt(profile["id"]) else { return }
+        work {
+            _ = try ShopClient(base: base, token: token, lang: lang).call("POST", "/api/me/subscriptions/\(id)/select")
+            DispatchQueue.main.async { refresh() }
+        }
+    }
+
     private func buy(_ plan: [String: Any], wallet: Bool) {
         guard let id = jsonInt(plan["id"]) else { return }
         work {
             var body: [String: Any] = ["plan_id": id]
+            if let sub = dashboard["subscription"] as? [String: Any], let selected = jsonInt(sub["id"]) { body["subscription_id"] = selected }
             if !promo.trimmingCharacters(in: .whitespaces).isEmpty { body["promo_code"] = promo }
             let api = ShopClient(base: base, token: token, lang: lang)
             if wallet {
@@ -377,13 +395,14 @@ struct UserRootView: View {
             }
         }
         work {
-            let body: [String: Any] = [
+            var body: [String: Any] = [
                 "constructor_id": id,
                 "provider": providerName(),
                 "device_option_id": picked["devices"] ?? 0,
                 "traffic_option_id": picked["traffic_gb"] ?? 0,
                 "days_option_id": picked["days"] ?? 0,
             ]
+            if let sub = dashboard["subscription"] as? [String: Any], let selected = jsonInt(sub["id"]) { body["subscription_id"] = selected }
             let response = try ShopClient(base: base, token: token, lang: lang).call("POST", "/api/payments/create", body: body, idempotency: UUID().uuidString) as? [String: Any]
             DispatchQueue.main.async {
                 notice = t("payment_created")

@@ -265,6 +265,7 @@ private fun UserApp() {
     var notice by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var dashboard by remember { mutableStateOf(JSONObject()) }
+    var profiles by remember { mutableStateOf(JSONArray()) }
     var plans by remember { mutableStateOf(JSONArray()) }
     var builders by remember { mutableStateOf(JSONArray()) }
     var servers by remember { mutableStateOf(JSONObject()) }
@@ -332,6 +333,7 @@ private fun UserApp() {
         val api = ShopApi(base, token, lang)
         work {
             val nextDashboard = api.get("/api/me/dashboard") as JSONObject
+            val nextProfiles = api.get("/api/me/subscriptions") as JSONArray
             val nextPlans = api.get("/api/plans") as JSONArray
             val nextBuilders = api.get("/api/tariff-constructors") as JSONArray
             val nextServers = api.get("/api/me/servers") as JSONObject
@@ -352,6 +354,7 @@ private fun UserApp() {
             } catch (_: Exception) { null }
             activity.runOnUiThread {
                 dashboard = nextDashboard
+                profiles = nextProfiles
                 plans = nextPlans
                 builders = nextBuilders
                 servers = nextServers
@@ -449,6 +452,19 @@ private fun UserApp() {
                     "overview" -> {
                         val user = dashboard.optJSONObject("user") ?: JSONObject()
                         val sub = dashboard.optJSONObject("subscription")
+                        Text(t("my_subscriptions"))
+                        for (profileIndex in 0 until profiles.length()) {
+                            val profile = profiles.getJSONObject(profileIndex)
+                            Text("${profile.optString("name")} · ${profile.optString("plan")} · ${profile.optString("expires_at")}")
+                            if (profile.optBoolean("is_primary")) Text(t("selected_subscription"))
+                            else Button(enabled = !busy, onClick = {
+                                val profileId = profile.getInt("id")
+                                work {
+                                    ShopApi(base, token, lang).post("/api/me/subscriptions/$profileId/select", JSONObject())
+                                    activity.runOnUiThread { refresh() }
+                                }
+                            }) { Text(t("select_subscription")) }
+                        }
                         Text("${t("wallet")}: ${user.optString("wallet_balance", "0")}")
                         Text("${t("referral")}: ${user.optString("referral_code")}")
                         Text(if (sub == null) t("no_subscription") else "${t("subscription")}: ${t("active")} · ${t("expires")} ${sub.optString("expires_at")}")
@@ -487,6 +503,7 @@ private fun UserApp() {
                                 Button(onClick = {
                                     work {
                                         val body = JSONObject().put("plan_id", plan.getInt("id")).put("provider", providerOf(config))
+                                        dashboard.optJSONObject("subscription")?.optInt("id")?.takeIf { it > 0 }?.let { body.put("subscription_id", it) }
                                         if (promo.isNotBlank()) body.put("promo_code", promo.trim())
                                         val response = ShopApi(base, token, lang).post("/api/payments/create", body, UUID.randomUUID().toString()) as JSONObject
                                         val url = response.optString("url")
@@ -501,6 +518,7 @@ private fun UserApp() {
                                 TextButton(onClick = {
                                     work {
                                         val body = JSONObject().put("plan_id", plan.getInt("id"))
+                                        dashboard.optJSONObject("subscription")?.optInt("id")?.takeIf { it > 0 }?.let { body.put("subscription_id", it) }
                                         if (promo.isNotBlank()) body.put("promo_code", promo.trim())
                                         ShopApi(base, token, lang).post("/api/me/wallet/spend", body, UUID.randomUUID().toString())
                                         activity.runOnUiThread { notice = t("paid_wallet") }
@@ -524,6 +542,7 @@ private fun UserApp() {
                                         .put("device_option_id", picked.optInt("devices"))
                                         .put("traffic_option_id", picked.optInt("traffic_gb"))
                                         .put("days_option_id", picked.optInt("days"))
+                                    dashboard.optJSONObject("subscription")?.optInt("id")?.takeIf { it > 0 }?.let { body.put("subscription_id", it) }
                                     val response = ShopApi(base, token, lang).post("/api/payments/create", body, UUID.randomUUID().toString()) as JSONObject
                                     val url = response.optString("url")
                                     activity.runOnUiThread {

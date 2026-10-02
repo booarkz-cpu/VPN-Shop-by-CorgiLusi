@@ -29,10 +29,11 @@ def test_gift_redemption_is_unique_and_serialized():
     assert 'class GiftCode' in MODELS
     assert 'class GiftRedemption' in MODELS
     assert 'UniqueConstraint("gift_code_id", "user_id", name="uq_gift_redemption_code_user")' in MODELS
-    block=MAIN[MAIN.index('@app.post("/api/me/gifts/redeem")'):MAIN.index('@app.post("/api/me/referral/apply")')]
+    block=(ROOT / "backend/app/gift_orders.py").read_text()
     assert 'with_for_update()' in block
     assert 'GiftRedemption' in block
-    assert 'IntegrityError' in block
+    redeem=block[block.index('async def redeem_gift'): ]
+    assert redeem.index('_acquire_user_fulfillment_lock(user.id') < redeem.index('select(GiftCode).where')
 
 
 def test_refund_dry_run_does_not_mutate_state():
@@ -81,8 +82,8 @@ def test_expired_subscription_has_remote_revoke_retry_state():
 
 
 def test_gift_activation_is_remote_idempotent_operation_not_local_only_credit():
-    block=MAIN[MAIN.index('@app.post("/api/me/gifts/redeem")'):MAIN.index('@app.post("/api/me/referral/apply")')]
-    assert 'operation_key=f"gift:{code.id}:{user.id}"' in block
+    block=(ROOT / "backend/app/gift_orders.py").read_text()
+    assert "operation_key=f'gift:{code.id}:{user.id}'" in block
     assert 'extend_idempotent' in block
     assert 'create_user' in block
-    assert 'redemption.status="completed"' in block
+    assert "redemption.status='completed'" in block

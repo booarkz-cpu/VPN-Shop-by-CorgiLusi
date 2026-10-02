@@ -8,7 +8,7 @@ MIGRATIONS = ROOT / "backend/alembic/versions"
 
 def test_privacy_delete_blocks_indefinite_subscription_and_revokes_remote_access():
     block = MAIN[MAIN.index('@app.delete("/api/me/privacy/account")'):MAIN.index('@app.get("/api/admin/monitoring")')]
-    assert 'active.expires_at is None or active.expires_at>datetime.utcnow()' in block
+    assert 'x.expires_at is None or x.expires_at>datetime.utcnow()' in block
     assert 'await RemnawaveClient().disable_user(active.remnawave_uuid)' in block
     assert 'active.remnawave_uuid=None' in block
 

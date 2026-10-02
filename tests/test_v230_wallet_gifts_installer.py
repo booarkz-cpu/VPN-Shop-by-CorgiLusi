@@ -34,7 +34,7 @@ def test_wallet_gifts_and_days_promo_are_wired():
     assert "async def wallet_topup" in main
     assert "async def wallet_spend" in main
     assert "async def purchase_gift" in main
-    assert "Gift purchaser cannot redeem their own gift" in main
+    assert "Gift purchaser cannot redeem their own gift" in (ROOT / "backend/app/gift_orders.py").read_text()
     assert 'if kind == "days"' in main
     assert "wallet_balance" in models
     assert "purchaser_user_id" in models

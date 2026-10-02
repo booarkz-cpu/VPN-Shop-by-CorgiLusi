@@ -2,7 +2,7 @@
 
 Единый магазин VPN-подписок: админ-панель, веб кабинет пользователя, Telegram-бот и Mini App, приложения Android и iOS. Интерфейсы оформлены в сине-фиолетовой палитре.
 
-**v21.0.0-alpha.1 — предварительный выпуск для проверки на стенде.** Торговые функции используют существующее ядро, базу пользователей и финансовые операции. Полное функциональное совпадение со всеми запрошенными решениями пока не достигнуто: [карта покрытия и оставшихся работ](docs/ru/WORKSPACE_COVERAGE.md).
+**v21.0.0-alpha.2 — предварительный выпуск для проверки на стенде.** Торговые функции используют существующее ядро, базу пользователей и финансовые операции. Добавлены независимые подписки, их выбор в Android/iOS и подарки из конструктора. Полное функциональное совпадение со всеми запрошенными решениями пока не достигнуто: [карта покрытия и оставшихся работ](docs/ru/WORKSPACE_COVERAGE.md).
 
 Последний стабильный выпуск: [v20.0.29](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.29). Изменения рабочего пространства описаны в [CHANGELOG.md](CHANGELOG.md). Старое содержание README вынесено в [архив](docs/archive/README_BEFORE_WORKSPACE.md); архивные инструкции не являются текущим руководством.
 
@@ -24,7 +24,7 @@
 Для проверки без настоящих касс, Telegram и Remnawave нужны Docker Engine, Compose и Python 3:
 
 ```bash
-git clone --branch v21.0.0-alpha.1 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.0-alpha.2 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
@@ -34,7 +34,7 @@ bash scripts/test-up.sh
 Установка на VDS через SSH или Termius:
 
 ```bash
-git clone --branch v21.0.0-alpha.1 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.0-alpha.2 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 sudo bash deploy/install-vps.sh
 ```
@@ -88,3 +88,5 @@ npm run build
 ## Лицензия
 
 [LICENSE](LICENSE) разрешает бесплатное использование и изменение проекта для собственного магазина, включая коммерческую работу и сборку мобильных клиентов. Соблюдайте условия распространения, изложенные в лицензии. Код запрошенных сторонних проектов в этой переработке не включён; функции реализуются в существующем ядре. Рекламных ссылок на эти проекты в интерфейсах нет.
+
+Подробные правила новых подписок и подарков: [инструкция](docs/ru/WORKSPACE_SUBSCRIPTIONS.md).

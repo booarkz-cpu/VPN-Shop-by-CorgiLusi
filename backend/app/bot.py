@@ -298,7 +298,7 @@ async def subscription(message: Message):
         return
     async with AsyncSession(engine, expire_on_commit=False) as db:
         user = (await db.execute(select(User).where(User.telegram_id == int(message.from_user.id)))).scalar_one_or_none()
-        sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id))).scalar_one_or_none() if user else None
+        sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id,Subscription.is_primary.is_(True)))).scalar_one_or_none() if user else None
     if not sub or not sub.subscription_url:
         await message.answer("Активной подписки нет. Откройте магазин." if lang == "ru" else "No active subscription. Open the shop.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=_tr(lang,"open"), web_app=WebAppInfo(url=settings.mini_app_url))]]))
         return

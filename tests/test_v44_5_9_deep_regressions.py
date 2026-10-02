@@ -23,7 +23,7 @@ def test_trial_retry_does_not_recalculate_target_after_remote_success():
 
 
 def test_reviving_a_revoked_device_rechecks_limit():
-    assert 'if device_limit is not None and (not x or x.status != "active"):' in MAIN
+    assert 'if device_limit is not None and (not x or x.status != "active" or x.subscription_id!=sub.id):' in MAIN
 
 
 def test_webhook_processing_event_can_be_reclaimed_after_stale_lease():

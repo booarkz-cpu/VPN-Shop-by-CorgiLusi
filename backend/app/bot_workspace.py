@@ -41,7 +41,7 @@ async def workspace(message: Message):
             lines.append(f"Реферальный баланс: {user.referral_balance or 0} {escape(settings.default_currency)}")
             lines.append(f"Код приглашения: <code>{escape(user.referral_code)}</code>")
         if command == "account":
-            sub = await db.scalar(select(Subscription).where(Subscription.user_id==user.id))
+            sub = await db.scalar(select(Subscription).where(Subscription.user_id==user.id,Subscription.is_primary.is_(True)))
             lines.append(f"Подписка до {sub.expires_at:%d.%m.%Y}" if sub and sub.expires_at and sub.expires_at>datetime.utcnow() else "Активной подписки нет")
         if command == "payments":
             rows = (await db.execute(select(Payment).where(Payment.user_id==user.id).order_by(Payment.id.desc()).limit(5))).scalars().all()
