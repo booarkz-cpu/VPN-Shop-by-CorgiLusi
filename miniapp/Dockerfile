@@ -3,10 +3,11 @@ ARG NGINX_BASE_IMAGE=nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878c
 FROM ${NODE_BASE_IMAGE} AS build
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_SURFACE=miniapp
 WORKDIR /src
-COPY package*.json ./
+COPY cabinet/package*.json ./
 RUN if [ -f package-lock.json ]; then npm ci --ignore-scripts --no-audit --no-fund; else npm install --package-lock=false --ignore-scripts --no-audit --no-fund; fi
-COPY . .
+COPY cabinet/ .
 RUN npm run build
 FROM ${NGINX_BASE_IMAGE}
 COPY --from=build /src/dist /usr/share/nginx/html

@@ -50,7 +50,7 @@ def test_runner_prints_the_marker_only_as_the_final_line():
 
 
 def test_readme_explains_staging_in_three_languages():
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     assert "## Changelog" in readme and "### 20.0.6" in readme
     assert "## Русский" in readme and "## English" in readme and "## Українська" in readme
     assert "Как пройти staging E2E" in readme

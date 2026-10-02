@@ -37,7 +37,7 @@ jobs:
             context: ./admin
             dockerfile: ./admin/Dockerfile
           - name: miniapp
-            context: ./miniapp
+            context: .
             dockerfile: ./miniapp/Dockerfile
     steps:
       - name: Checkout

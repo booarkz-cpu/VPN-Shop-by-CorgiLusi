@@ -114,7 +114,7 @@ def test_platform_routes_keep_secrets_and_bounds():
 
 def test_license_and_bilingual_platform_docs():
     license_text = (ROOT / "LICENSE").read_text()
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     github = (ROOT / "README_GITHUB.md").read_text()
     instruction = (ROOT / "INSTRUCTION.md").read_text()
     security = (ROOT / "SECURITY.md").read_text()

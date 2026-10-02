@@ -62,7 +62,7 @@ def test_admin_requires_sandbox_confirmation():
 def test_docs_explain_gate_and_install_in_both_languages():
     steps = (ROOT / "INSTALL_STEPS.md").read_text()
     instruction = (ROOT / "INSTRUCTION.md").read_text()
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     security = (ROOT / "SECURITY.md").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_1_1.md").read_text()
     docs = (ROOT / "DOCUMENTATION.md").read_text()

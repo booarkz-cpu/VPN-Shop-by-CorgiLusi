@@ -1,3 +1,5 @@
+> Для переработанного интерфейса актуальна [новая инструкция](WORKSPACE_PAYMENTS.md). Ниже — руководство предыдущего стабильного выпуска; перечень старых агентов не относится к новому checkout.
+
 **v20.0.13:** [Подробные шаги реализации staging E2E v2](STAGING_E2E_V2_IMPLEMENTATION.md). Текущий runner всегда выставляет `full_e2e=false` и `contract_version=1`; допуск требует `full_e2e=true` и версию 2. Следовательно, оператор не может пройти этот этап и открыть production-платежи на данном релизе. Описанные ниже шаги 5–7 являются планом для будущей реализации полноценного staging E2E, а не работающим способом включения живых списаний. См. [регламент запуска VDS](VDS_PRODUCTION_V20_0_12.md) и [полный регламент проверки](STAGING_E2E_20_0_8.md).
 
 # Подключение платёжных систем
@@ -15,9 +17,6 @@
 | YooKassa | `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `YOOKASSA_WEBHOOK_IP_ALLOWLIST` | `POST https://API_DOMAIN/api/webhooks/yookassa` |
 | Platega | `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET` | `POST https://API_DOMAIN/api/webhooks/platega` |
 | RollyPay | `ROLLYPAY_API_KEY`, `ROLLYPAY_SIGNING_SECRET` | `POST https://API_DOMAIN/api/webhooks/rollypay` |
-| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | путь вебхука Stripe в API |
-| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` | путь вебхука PayPal в API |
-| Крипто-шлюз | `CRYPTO_GATEWAY_URL`, `CRYPTO_GATEWAY_KEY` | по договору шлюза |
 
 `YOOKASSA_API_URL` по умолчанию `https://api.yookassa.ru`. `PLATEGA_API_URL` — `https://app.platega.io`. `ROLLYPAY_API_URL` — `https://rollypay.io`. Меняйте их только если провайдер дал другой адрес. Адрес проверяется как публичный URL.
 

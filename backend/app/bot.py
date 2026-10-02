@@ -179,6 +179,12 @@ async def broadcast_worker(bot: Bot):
 
 @router.message(CommandStart())
 async def start(message:Message):
+    if getattr(getattr(message,"chat",None),"type","private")!="private":
+        await message.answer("Откройте личный чат с ботом для управления аккаунтом.")
+        return
+    parts=(message.text or "").split(maxsplit=1)
+    incoming=parts[1].strip().split()[0] if len(parts)>1 else ""
+
     # /start is also the canonical Telegram-to-shop binding point. Without this,
     # a user can interact with the bot but remain invisible to broadcasts and
     # Telegram-based account lookups until the Mini App is opened.
@@ -198,12 +204,23 @@ async def start(message:Message):
                 if changed:
                     await db.commit()
             else:
-                db.add(User(
+                user=User(
                     telegram_id=tg_id,
                     username=message.from_user.username,
                     referral_code=__import__("secrets").token_urlsafe(8).upper(),
-                ))
+                )
+                db.add(user)
                 await db.commit()
+            if incoming.lower().startswith("ref_") and not user.referred_by_id:
+                from .referrals import bind_referrer
+                from fastapi import HTTPException
+                user=(await db.execute(select(User).where(User.id==user.id).with_for_update())).scalar_one()
+                try:
+                    await bind_referrer(db,user,incoming[4:])
+                    await db.commit()
+                except HTTPException:
+                    await db.rollback()
+
 
     vals,menu,fields,ads,promos,plans=await get_bot_config()
     lang=_lang(message)
@@ -273,6 +290,9 @@ async def buy(message: Message):
 
 @router.message(Command("subscription"))
 async def subscription(message: Message):
+    if getattr(getattr(message,"chat",None),"type","private")!="private":
+        await message.answer("Откройте личный чат с ботом для просмотра подписки.")
+        return
     lang = _lang(message)
     if not message.from_user:
         return
@@ -320,9 +340,11 @@ async def main():
         while True:
             await asyncio.sleep(3600)
         return
+    from . import bot_workspace  # Registers account commands on the shared router.
     bot = Bot(settings.bot_token)
     dp = Dispatcher()
     dp.include_router(router)
+    dp.include_router(bot_workspace.router)
 
     # This service uses long polling. Remove a stale webhook left by a previous
     # deployment so Telegram does not route updates somewhere else.

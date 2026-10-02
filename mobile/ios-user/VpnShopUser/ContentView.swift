@@ -56,7 +56,7 @@ struct UserRootView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     if let logo { Image(uiImage: logo).resizable().frame(width: 48, height: 48) }
-                    Text(t("app_name")).font(.title2).foregroundStyle(Color(red: 0, green: 0.90, blue: 0.75))
+                    Text(t("app_name")).font(.title2).foregroundStyle(Color(red: 0.54, green: 0.47, blue: 1.0))
                     Spacer()
                     Button(Self.languageLabel(lang)) { lang = Self.nextLanguage(lang) }
                 }
@@ -66,7 +66,7 @@ struct UserRootView: View {
             }
             .padding()
         }
-        .background(Color(red: 0.04, green: 0.06, blue: 0.08))
+        .background(Color(red: 0.047, green: 0.063, blue: 0.129))
         .preferredColorScheme(.dark)
         .overlay { if scenePhase != .active { Color.black.ignoresSafeArea() } }
         .onAppear {
@@ -110,7 +110,7 @@ struct UserRootView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
                     ForEach(["overview", "plans", "builder", "servers", "connection", "devices", "notifications", "security", "diagnostics", "privacy", "support"], id: \.self) { key in
-                        Button(t(key)) { tab = key }.buttonStyle(.bordered).tint(tab == key ? Color(red: 0, green: 0.90, blue: 0.75) : .gray)
+                        Button(t(key)) { tab = key }.buttonStyle(.bordered).tint(tab == key ? Color(red: 0.54, green: 0.47, blue: 1.0) : .gray)
                     }
                 }
             }

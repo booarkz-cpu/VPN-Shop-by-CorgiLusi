@@ -10,7 +10,7 @@ def test_rollypay_refund_generates_nonce():
 def test_frontend_builds_require_lockfiles():
     for d in ("admin","miniapp"):
         text=(ROOT/d/"Dockerfile").read_text()
-        assert 'COPY package*.json ./' in text
+        assert ('COPY cabinet/package*.json ./' if d == 'miniapp' else 'COPY package*.json ./') in text
         assert 'npm ci' in text and 'npm install --package-lock=false' in text
 
 def test_rollback_is_fail_closed():

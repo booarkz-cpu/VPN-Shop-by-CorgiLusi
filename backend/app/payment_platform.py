@@ -290,15 +290,5 @@ def store_product_plan_id(product_id: str) -> int:
     except (TypeError, ValueError) as exc:
         raise PlatformProviderError('Store product is not mapped to a plan') from exc
 
-PROVIDER_CAPABILITIES={
- 'yookassa':{'cards':True,'recurring':True,'refunds':True,'currency':['RUB','EUR','USD']},
- 'platega':{'cards':True,'recurring':False,'refunds':True,'currency':['RUB','EUR','USD']},
- 'rollypay':{'cards':True,'recurring':False,'refunds':True,'currency':['RUB','EUR','USD']},
- 'stripe':{'cards':True,'recurring':True,'refunds':True,'currency':['EUR','USD','GBP','RUB']},
- 'paypal':{'cards':True,'paypal':True,'recurring':True,'refunds':True,'currency':['EUR','USD','GBP']},
- 'crypto':{'crypto':True,'recurring':False,'refunds':False,'currency':['USD','EUR','USDT']},
- 'apple_iap':{'app_store':True,'recurring':True},
- 'google_play':{'play_store':True,'recurring':True},
- 'sepa':{'bank_transfer':True,'recurring':True,'refunds':True,'currency':['EUR']},
- 'sandbox':{'test':True},
-}
+# Compatibility import for older modules. The canonical catalog is payment_policy.
+from .payment_policy import PROVIDER_CAPABILITIES

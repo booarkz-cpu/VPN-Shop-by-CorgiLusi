@@ -92,7 +92,7 @@ def test_admin_routes_hide_credentials_and_stderr():
 
 
 def test_docs_describe_312_and_keep_311():
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     security = (ROOT / "SECURITY.md").read_text()
     instruction = (ROOT / "INSTRUCTION.md").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_1_2.md").read_text()

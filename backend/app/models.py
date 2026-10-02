@@ -448,10 +448,12 @@ class SupportTicket(Base):
 
 class WithdrawalRequest(Base):
     __tablename__ = "withdrawal_requests"
+    __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_withdrawal_user_idempotency"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12,2), nullable=False)
     destination: Mapped[str] = mapped_column(String(255), nullable=False)
+    idempotency_key: Mapped[str|None] = mapped_column(String(128))
     status: Mapped[str] = mapped_column(String(32), default="requested", nullable=False)
     admin_note: Mapped[str|None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

@@ -36,7 +36,7 @@ struct AdminRootView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     if let logo { Image(uiImage: logo).resizable().frame(width: 48, height: 48) }
-                    Text(t("app_name")).font(.title2).foregroundStyle(Color(red: 0, green: 0.90, blue: 0.75))
+                    Text(t("app_name")).font(.title2).foregroundStyle(Color(red: 0.54, green: 0.47, blue: 1.0))
                     Spacer()
                     Button(lang == "ru" ? "EN" : "RU") { lang = lang == "ru" ? "en" : "ru" }
                 }
@@ -45,7 +45,7 @@ struct AdminRootView: View {
                 if token.isEmpty { auth } else if !unlocked { lock } else { home }
             }.padding()
         }
-        .background(Color(red: 0.04, green: 0.06, blue: 0.08))
+        .background(Color(red: 0.047, green: 0.063, blue: 0.129))
         .preferredColorScheme(.dark)
         .overlay { if scenePhase != .active { Color.black.ignoresSafeArea() } }
         .onAppear {

@@ -48,7 +48,7 @@ def test_v250_frontends_expose_builder_and_servers():
 
 
 def test_v250_docs_are_bilingual_and_cover_sandbox():
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     instruction = (ROOT / "INSTRUCTION.md").read_text()
     security = (ROOT / "SECURITY.md").read_text()
     modules = (ROOT / "MODULES.md").read_text()

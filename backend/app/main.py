@@ -22,7 +22,8 @@ from .models import User, Plan, Payment, Subscription, AuditLog, FinancialLedger
 from .payments import YooKassaProvider, PlategaProvider, RollyPayProvider, SandboxProvider, verify_rollypay, verify_platega_headers, staging_create_payment, staging_read_payment, staging_refund_payment, staging_refund_read
 from .sandbox_mode import payments_sandbox_allowed, sandbox_checkout_requested, sandbox_local_vpn
 from .staging_gate import staging_evidence_valid
-from .payment_platform import StripePlatform, PayPalPlatform, CryptoGatewayPlatform, AppleStorePlatform, GooglePlayPlatform, PROVIDER_CAPABILITIES, PlatformProviderError
+from .payment_platform import StripePlatform, PayPalPlatform, CryptoGatewayPlatform, AppleStorePlatform, GooglePlayPlatform, PlatformProviderError
+from .payment_policy import PAYMENT_AGENTS, PROVIDER_CAPABILITIES, routing_names
 from .remnawave import RemnawaveClient, redact_remote
 from .provisioner import run_ssh, ProvisionError
 from .security import (hash_password, verify_password, encrypt_secret, decrypt_secret, issue_token, decode_token,
@@ -71,6 +72,7 @@ APP_VERSION = "20.0.29"
 logger = logging.getLogger("remnawave")
 app = FastAPI(title="VPN Shop by Corgi Lusi API", version=APP_VERSION, docs_url=None, redoc_url=None, openapi_url=None)
 from .cabinet_api import router as cabinet_router
+from .customer_workspace_api import router as customer_workspace_router
 from .mobile_api import router as mobile_router
 from .production_api import router as production_router
 from .production_launch_api import router as production_launch_router
@@ -82,6 +84,7 @@ from .v6_api import router as v6_router
 from .remnawave_shop_api import router as remnawave_shop_router
 from .marketplace_api import router as marketplace_router
 app.include_router(cabinet_router)
+app.include_router(customer_workspace_router)
 app.include_router(mobile_router)
 app.include_router(production_router)
 app.include_router(production_launch_router)
@@ -769,6 +772,10 @@ async def revoke_device(device_id:int,request:Request,db:AsyncSession=Depends(ge
     if not x or x.user_id!=user.id: raise HTTPException(404,"Устройство не найдено")
     x.status="revoked"; x.revoked_at=datetime.utcnow(); await db.commit(); return {"ok":True}
 
+class TrialIn(BaseModel):
+    plan_id: int = Field(gt=0)
+    days: int = Field(gt=0, le=30)
+
 @app.post("/api/me/trial")
 async def claim_trial(payload:TrialIn,request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
@@ -815,7 +822,7 @@ async def public_config(db:AsyncSession=Depends(get_db)):
         payment_providers=await _payment_provider_order(db,None)
     except HTTPException:
         payment_providers=[]
-    return {"default_language": settings.default_language if settings.default_language in {"ru","en"} else "ru","required_channel":settings.required_telegram_channel,"app_name":values.get("app_name","VPN Shop by Corgi Lusi"),"bot_name":values.get("bot_name","VPN Shop by Corgi Lusi"),"bot_start_image":values.get("bot_start_image",""),"menu":[{"title":m.title,"action":m.action,"type":m.item_type} for m in menus],"fields":[{"key":f.key,"label":f.label,"type":f.field_type,"value":f.value} for f in fields],"images":[{"title":i.title,"url":"/media/"+i.filename} for i in images],"yandex_enabled":bool(settings.yandex_client_id and settings.yandex_redirect_uri),"vk_enabled":bool(settings.vk_client_id and settings.vk_redirect_uri),"email_auth_enabled":True,"trial_days":max(1,min(int(settings.trial_max_days or 3),30)),"payments_sandbox":bool(settings.payments_sandbox),"cabinet_url":settings.cabinet_url or settings.mini_app_url,"advertisements":[{"title":a.title,"text":a.text,"image_url":a.image_url,"button_text":a.button_text,"button_url":a.button_url} for a in ads],"promotions":[{"id":p.id,"name":p.name,"kind":p.kind,"value":float(p.value),"description":p.description,"plan_ids":p.plan_ids} for p in promos],"miniapp":{"title":values.get("miniapp_title",values.get("app_name","VPN Shop by Corgi Lusi")),"subtitle":values.get("miniapp_subtitle",""),"background_color":values.get("miniapp_background_color","#f5f7fb"),"background_image":values.get("miniapp_background_image",""),"image":values.get("miniapp_image",""),"instructions":values.get("miniapp_instructions",""),"buttons":mini_buttons},"payment_providers":payment_providers}
+    return {"default_language": settings.default_language if settings.default_language in {"ru","en"} else "ru","required_channel":settings.required_telegram_channel,"app_name":values.get("app_name","VPN Shop by Corgi Lusi"),"bot_name":values.get("bot_name","VPN Shop by Corgi Lusi"),"bot_start_image":values.get("bot_start_image",""),"menu":[{"title":m.title,"action":m.action,"type":m.item_type} for m in menus],"fields":[{"key":f.key,"label":f.label,"type":f.field_type,"value":f.value} for f in fields],"images":[{"title":i.title,"url":"/media/"+i.filename} for i in images],"yandex_enabled":bool(settings.yandex_client_id and settings.yandex_redirect_uri),"vk_enabled":bool(settings.vk_client_id and settings.vk_redirect_uri),"email_auth_enabled":True,"trial_days":max(1,min(int(settings.trial_max_days or 3),30)),"payments_sandbox":bool(settings.payments_sandbox),"cabinet_url":settings.cabinet_url or settings.mini_app_url,"bot_username":settings.bot_username,"advertisements":[{"title":a.title,"text":a.text,"image_url":a.image_url,"button_text":a.button_text,"button_url":a.button_url} for a in ads],"promotions":[{"id":p.id,"name":p.name,"kind":p.kind,"value":float(p.value),"description":p.description,"plan_ids":p.plan_ids} for p in promos],"miniapp":{"title":values.get("miniapp_title",values.get("app_name","VPN Shop by Corgi Lusi")),"subtitle":values.get("miniapp_subtitle",""),"background_color":values.get("miniapp_background_color","#f5f7fb"),"background_image":values.get("miniapp_background_image",""),"image":values.get("miniapp_image",""),"instructions":values.get("miniapp_instructions",""),"buttons":mini_buttons},"payment_providers":payment_providers}
 
 @app.get("/api/me")
 async def api_me(request:Request,db:AsyncSession=Depends(get_db)):
@@ -865,10 +872,6 @@ class MonitoringCheckIn(BaseModel):
     interval_seconds: int = Field(default=60, ge=15, le=86400)
     timeout_seconds: int = Field(default=10, ge=1, le=60)
     enabled: bool = True
-
-class TrialIn(BaseModel):
-    plan_id: int = Field(gt=0)
-    days: int = Field(gt=0, le=30)
 
 # ---------- Admin authentication / MFA ----------
 @app.post("/api/admin/auth/telegram")
@@ -956,7 +959,7 @@ async def feature_enabled(db: AsyncSession, key: str, default: bool = True) -> b
 
 # ---------- Payments ----------
 async def _payment_provider_order(db: AsyncSession, requested: str|None):
-    names={"yookassa","platega","rollypay","stripe","paypal","crypto","apple_iap","google_play","sepa","sandbox"}
+    names=routing_names(payments_sandbox_allowed())
     # Provider health rows are lazily bootstrapped. Serialize that bootstrap so
     # concurrent first requests cannot race into a unique-constraint failure.
     await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1300000002})
@@ -966,7 +969,7 @@ async def _payment_provider_order(db: AsyncSession, requested: str|None):
     # unrelated admin screen, so bootstrap the provider-health records lazily.
     rows=(await db.execute(select(PaymentProviderHealth).order_by(PaymentProviderHealth.priority,PaymentProviderHealth.provider).with_for_update())).scalars().all()
     existing={x.provider for x in rows}
-    for i,p in enumerate(("yookassa","platega","rollypay","stripe","paypal","crypto","apple_iap","google_play","sepa","sandbox"),1):
+    for i,p in enumerate((*PAYMENT_AGENTS, "sandbox") if payments_sandbox_allowed() else PAYMENT_AGENTS,1):
         if p not in existing:
             row=PaymentProviderHealth(provider=p,priority=i*10,enabled=True)
             db.add(row); rows.append(row)
@@ -986,12 +989,6 @@ async def _payment_provider_order(db: AsyncSession, requested: str|None):
         "platega": bool(settings.platega_merchant_id and settings.platega_secret),
         "rollypay": bool(settings.rollypay_api_key and settings.rollypay_signing_secret),
         "sandbox": payments_sandbox_allowed(),
-        "stripe": bool(settings.stripe_secret_key and settings.stripe_webhook_secret),
-        "paypal": bool(settings.paypal_client_id and settings.paypal_client_secret and settings.paypal_webhook_id),
-        "crypto": bool(settings.crypto_gateway_url and settings.crypto_gateway_key),
-        "apple_iap": False,  # mobile entitlement verification only
-        "google_play": False,  # mobile entitlement verification only
-        "sepa": False,  # invoice/bank-transfer flow, not redirect checkout
     }
     enabled=[x.provider for x in rows
              if x.provider in names
@@ -1189,7 +1186,7 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
         provider_order=await _payment_provider_order(db,requested_provider)
         if not provider_order: raise HTTPException(503,"Нет доступных платёжных провайдеров")
         provider_name=provider_order[0]
-        provider={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform(),"crypto":CryptoGatewayPlatform(),"sandbox":SandboxProvider()}[provider_name]
+        provider={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"sandbox":SandboxProvider()}[provider_name]
         order_id=canonical_order_id
         lock_key=f"lock:payment-create:{hashlib.sha256(canonical_order_id.encode()).hexdigest()}"
         try:
@@ -1201,7 +1198,7 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
         reservation=None; payment_row=None
         try:
             candidate=provider_order[0]
-            candidate_provider={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform(),"crypto":CryptoGatewayPlatform(),"sandbox":SandboxProvider()}[candidate]
+            candidate_provider={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"sandbox":SandboxProvider()}[candidate]
             # Re-check after acquiring the distributed lock so two first-time callers cannot
             # create two durable intents for the same idempotency key.
             existing=(await db.execute(select(Payment).where(Payment.order_id==order_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
@@ -2158,7 +2155,7 @@ async def wallet_topup(payload:dict, request:Request, db:AsyncSession=Depends(ge
     provider_order=await _payment_provider_order(db,payload.get("provider"))
     if not provider_order: raise HTTPException(503,"Нет доступных платёжных провайдеров")
     candidate=provider_order[0]
-    provider={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform(),"crypto":CryptoGatewayPlatform(),"sandbox":SandboxProvider()}[candidate]
+    provider={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"sandbox":SandboxProvider()}[candidate]
     order_id=f"topup-{user.id}-{hashlib.sha256(idem.encode()).hexdigest()[:24]}"
     row=Payment(user_id=user.id,plan_id=0,provider=candidate,order_id=order_id,amount=amount,original_amount=amount,discount_amount=Decimal("0.00"),currency=settings.default_currency,status="creating",fulfillment_status="pending",idempotency_key=idem,purpose="topup",bonus_days=0)
     db.add(row); await db.commit(); await db.refresh(row)
@@ -2308,12 +2305,12 @@ async def purchase_gift(payload:dict, request:Request, db:AsyncSession=Depends(g
             return {"ok":True,"code":existing.code,"bot_claim_url":(f"https://t.me/{settings.bot_username}?start={existing.code}" if settings.bot_username else None),"wallet_balance":str(user.wallet_balance)}
         balance=_money(user.wallet_balance or 0)
         if balance < price: raise HTTPException(402,"Недостаточно средств на балансе")
-        code="GIFT_"+secrets.token_hex(20)
+        code="GIFT_"+secrets.token_hex(20).upper()
         user.wallet_balance=_money(balance-price)
         gift=GiftCode(code=code,plan_id=plan.id,duration_days=plan.duration_days,max_uses=1,purchaser_user_id=user.id,idempotency_key=idem,enabled=True)
         db.add(gift); await db.flush()
         await record_financial_event(db,operation_key=f"gift-purchase:{gift.id}",user_id=user.id,payment_id=None,kind="gift_purchase",direction="debit",amount=price,currency=settings.default_currency,metadata={"plan_id":plan.id})
-        await audit(db,"gift.purchased",f"user:{user.id}",code,{"plan_id":plan.id}); await db.commit()
+        await audit(db,"gift.purchased",f"user:{user.id}",str(gift.id),{"plan_id":plan.id}); await db.commit()
         claim=f"https://t.me/{settings.bot_username}?start={code}" if settings.bot_username else None
         return {"ok":True,"code":code,"bot_claim_url":claim,"wallet_balance":str(user.wallet_balance)}
     finally:
@@ -2322,13 +2319,13 @@ async def purchase_gift(payload:dict, request:Request, db:AsyncSession=Depends(g
 @app.post("/api/me/gifts/redeem")
 async def redeem_gift(payload:GiftRedeemIn,request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
-    code=(await db.execute(select(GiftCode).where(GiftCode.code==payload.code.strip().upper()).with_for_update())).scalar_one_or_none()
+    code=(await db.execute(select(GiftCode).where(func.upper(GiftCode.code)==payload.code.strip().upper()).with_for_update())).scalar_one_or_none()
     if not code or not code.enabled: raise HTTPException(404,"Gift code not found")
     if code.purchaser_user_id and code.purchaser_user_id==user.id: raise HTTPException(403,"Gift purchaser cannot redeem their own gift")
+    existing_redemption=(await db.execute(select(GiftRedemption).where(GiftRedemption.gift_code_id==code.id,GiftRedemption.user_id==user.id).with_for_update())).scalar_one_or_none()
+    if existing_redemption and existing_redemption.status=="completed": return {"ok":True,"status":"completed","already_redeemed":True}
     if code.expires_at and code.expires_at<=datetime.utcnow(): raise HTTPException(410,"Gift code expired")
     if code.used_count>=code.max_uses: raise HTTPException(409,"Gift code already exhausted")
-    existing_redemption=(await db.execute(select(GiftRedemption).where(GiftRedemption.gift_code_id==code.id,GiftRedemption.user_id==user.id).with_for_update())).scalar_one_or_none()
-    if existing_redemption and existing_redemption.status=="completed": raise HTTPException(409,"Gift code already redeemed by this account")
     if existing_redemption and existing_redemption.status=="failed": raise HTTPException(409,"Previous gift activation failed; contact support")
     plan=await db.get(Plan,code.plan_id)
     if not plan or not plan.enabled: raise HTTPException(409,"Gift plan is unavailable")
@@ -2402,11 +2399,10 @@ async def redeem_gift(payload:GiftRedeemIn,request:Request,db:AsyncSession=Depen
 async def apply_referral(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
     user=(await db.execute(select(User).where(User.id==user.id).with_for_update())).scalar_one()
-    if user.referred_by_id: raise HTTPException(409,"Referral is already set")
-    code=str(payload.get("code") or "").strip().upper()
-    ref=(await db.execute(select(User).where(User.referral_code==code))).scalar_one_or_none()
-    if not ref or ref.id==user.id: raise HTTPException(400,"Invalid referral code")
-    user.referred_by_id=ref.id; await db.commit(); return {"ok":True,"referrer_id":ref.id}
+    from .referrals import bind_referrer
+    referrer_id=await bind_referrer(db,user,str(payload.get("code") or ""))
+    await db.commit(); return {"ok":True,"referrer_id":referrer_id}
+
 
 @app.get("/api/me/auto-renew")
 async def auto_renew_status(request:Request,db:AsyncSession=Depends(get_db)):
@@ -2495,6 +2491,7 @@ async def my_referral(request:Request,db:AsyncSession=Depends(get_db)):
 @app.post("/api/me/support/tickets")
 async def create_support_ticket(payload:TicketIn, request:Request, db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
+    if not payload.subject.strip() or not payload.message.strip(): raise HTTPException(400,"Укажите тему и сообщение")
     t=SupportTicket(user_id=user.id, subject=payload.subject.strip(), message=payload.message.strip())
     db.add(t); await db.commit(); await db.refresh(t)
     return {"id":t.id,"status":t.status}
@@ -2513,9 +2510,18 @@ async def request_withdrawal(payload:WithdrawalIn,request:Request,db:AsyncSessio
     if amount < Decimal("1.00"): raise HTTPException(400,"Minimum withdrawal is 1.00")
     destination=payload.destination.strip()
     if not destination or len(destination)>255: raise HTTPException(400,"Invalid withdrawal destination")
+    idem=request.headers.get("Idempotency-Key")
+    if idem is not None:
+        if not idem.strip() or len(idem)>128: raise HTTPException(400,"Invalid Idempotency-Key")
+        key=int.from_bytes(hashlib.sha256(f"withdrawal:{user.id}:{idem}".encode()).digest()[:8],"big",signed=True)
+        await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"),{"key":key})
+        existing=(await db.execute(select(WithdrawalRequest).where(WithdrawalRequest.user_id==user.id,WithdrawalRequest.idempotency_key==idem))).scalar_one_or_none()
+        if existing:
+            if existing.amount!=amount or existing.destination!=destination: raise HTTPException(409,"Idempotency-Key уже использован для другой выплаты")
+            return {"id":existing.id,"status":existing.status,"amount":str(existing.amount)}
     result=await db.execute(sql_text("UPDATE users SET referral_balance=referral_balance-:amount WHERE id=:uid AND referral_balance>=:amount"),{"amount":amount,"uid":user.id})
     if result.rowcount != 1: raise HTTPException(400,"Insufficient referral balance")
-    row=WithdrawalRequest(user_id=user.id,amount=amount,destination=destination,status="requested")
+    row=WithdrawalRequest(user_id=user.id,amount=amount,destination=destination,status="requested",idempotency_key=idem)
     db.add(row); await db.flush()
     db.add(ReferralLedger(user_id=user.id,source_user_id=None,payment_id=None,amount=-amount,kind=f"withdrawal:{row.id}"))
     await audit(db,"referral.withdrawal.requested",f"user:{user.id}",str(row.id),{"amount":str(amount)}); await db.commit(); await db.refresh(row)
@@ -2554,7 +2560,7 @@ async def read_notification(notification_id:int,request:Request,db:AsyncSession=
 @app.get("/api/public/status")
 async def public_status(db:AsyncSession=Depends(get_db)):
     rows=(await db.execute(select(StatusComponent).where(StatusComponent.enabled==True).order_by(StatusComponent.sort_order,StatusComponent.id))).scalars().all()
-    return {"version":APP_VERSION,"overall":"operational" if all(x.status=="operational" for x in rows) else "degraded","components":[{"slug":x.slug,"name":x.name,"status":x.status,"message":x.message,"updated_at":x.updated_at} for x in rows]}
+    return {"version":APP_VERSION,"overall":("unknown" if not rows else "operational" if all(x.status=="operational" for x in rows) else "degraded"),"components":[{"slug":x.slug,"name":x.name,"status":x.status,"message":x.message,"updated_at":x.updated_at} for x in rows]}
 
 @app.get("/api/admin/notifications")
 async def admin_notifications(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
@@ -2790,9 +2796,16 @@ async def admin_tickets(db:AsyncSession=Depends(get_db),admin=Depends(require_pe
 # LEGACY COMPATIBILITY: Support Pro is the canonical support system.
 @app.post("/api/admin/support/tickets/{ticket_id}/reply")
 async def admin_ticket_reply(ticket_id:int,payload:AdminTicketReplyIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.write"))):
-    t=await db.get(SupportTicket,ticket_id)
+    t=(await db.execute(select(SupportTicket).where(SupportTicket.id==ticket_id).with_for_update())).scalar_one_or_none()
     if not t: raise HTTPException(404,"Ticket not found")
-    t.admin_reply=payload.reply.strip(); t.status="resolved"; t.updated_at=datetime.utcnow(); await audit(db,"support.ticket.replied",admin.email,str(t.id)); await db.commit()
+    reply=payload.reply.strip()
+    if not reply: raise HTTPException(400,"Ответ не может быть пустым")
+    if t.admin_reply==reply and t.status=="resolved": return {"ok":True,"status":t.status}
+    t.admin_reply=reply; t.status="resolved"; t.updated_at=datetime.utcnow()
+    dedupe=f"support:{t.id}:"+hashlib.sha256(reply.encode()).hexdigest()
+    if not await db.scalar(select(Notification.id).where(Notification.user_id==t.user_id,Notification.dedupe_key==dedupe)):
+        db.add(Notification(user_id=t.user_id,channel="in_app",kind="support.reply",title=f"Ответ на обращение #{t.id}",body=reply,status="sent",dedupe_key=dedupe,sent_at=datetime.utcnow()))
+    await audit(db,"support.ticket.replied",admin.email,str(t.id)); await db.commit()
     return {"ok":True,"status":t.status}
 
 @app.get("/api/admin/referrals/withdrawals")
@@ -4812,19 +4825,19 @@ async def v41_analytics(db:AsyncSession=Depends(get_db),admin=Depends(require_pe
 
 @app.get("/api/admin/v41/crm/users")
 async def v41_crm_users(q:str="",page:int=1,page_size:int=50,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("users.read"))):
-    page=max(1,page); page_size=min(100,max(1,page_size)); stmt=select(User).order_by(User.id.desc())
+    page=max(1,page); page_size=min(100,max(1,page_size)); stmt=select(User).where(User.deleted_at.is_(None)).order_by(User.id.desc())
     q=q.strip()
     if q:
-        if q.isdigit(): stmt=stmt.where(User.telegram_id==int(q))
-        else: stmt=stmt.where(User.username.ilike(f"%{q}%"))
+        if q.isdigit(): stmt=stmt.where(or_(User.id==int(q),User.telegram_id==int(q)))
+        else: stmt=stmt.where(or_(User.username.ilike(f"%{q}%"),User.email.ilike(f"%{q}%")))
     rows=(await db.execute(stmt.offset((page-1)*page_size).limit(page_size))).scalars().all()
-    return [{"id":u.id,"telegram_id":u.telegram_id,"username":u.username,"referral_code":u.referral_code,"auto_renew":u.auto_renew_enabled,"created_at":str(u.created_at)} for u in rows]
+    return [{"id":u.id,"telegram_id":u.telegram_id,"username":u.username,"email":u.email,"referral_code":u.referral_code,"auto_renew":u.auto_renew_enabled,"created_at":str(u.created_at)} for u in rows]
 
 @app.get("/api/admin/v41/providers")
 async def v41_providers(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("ops.providers"))):
     await _ensure_v41_defaults(db)
     rows=(await db.execute(select(PaymentProviderHealth).order_by(PaymentProviderHealth.priority,PaymentProviderHealth.provider))).scalars().all()
-    return [{"provider":x.provider,"enabled":x.enabled,"priority":x.priority,"success_count":x.success_count,"failure_count":x.failure_count,"last_latency_ms":x.last_latency_ms,"last_error":"unavailable" if x.last_error else None,"circuit_open_until":str(x.circuit_open_until) if x.circuit_open_until else None} for x in rows]
+    return [{"provider":x.provider,"enabled":x.enabled,"priority":x.priority,"success_count":x.success_count,"failure_count":x.failure_count,"last_latency_ms":x.last_latency_ms,"last_error":"unavailable" if x.last_error else None,"circuit_open_until":str(x.circuit_open_until) if x.circuit_open_until else None} for x in rows if x.provider in PAYMENT_AGENTS]
 
 class ProviderHealthIn(BaseModel):
     enabled: bool
@@ -5011,13 +5024,13 @@ async def _issue_invoice(db, payment: Payment):
 @app.get("/api/payments/providers")
 async def payment_providers(db:AsyncSession=Depends(get_db)):
     enabled=await _payment_provider_order(db,None)
-    return {"providers":[{"name":k,"enabled":k in enabled,"capabilities":PROVIDER_CAPABILITIES.get(k,{})} for k in PROVIDER_CAPABILITIES]}
+    return {"providers":[{"name":k,"enabled":k in enabled,"capabilities":PROVIDER_CAPABILITIES.get(k,{})} for k in PAYMENT_AGENTS]}
 
 @app.get("/api/admin/payments/platform/capabilities")
 async def admin_payment_platform_capabilities(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("read"))):
     enabled=await _payment_provider_order(db,None)
     rows=(await db.execute(select(PaymentProviderHealth).order_by(PaymentProviderHealth.priority))).scalars().all()
-    return {"version":APP_VERSION,"providers":[{"provider":x.provider,"enabled":x.enabled,"routable":x.provider in enabled,"priority":x.priority,"failures":x.failure_count,"successes":x.success_count,"circuit_open_until":x.circuit_open_until,"capabilities":PROVIDER_CAPABILITIES.get(x.provider,{})} for x in rows],"features":{"router":True,"failover":True,"auto_renew":True,"tax":True,"invoices":True,"risk":True,"chargebacks":True,"gift_cards":True,"corporate":True,"dynamic_pricing":True}}
+    return {"version":APP_VERSION,"providers":[{"provider":x.provider,"enabled":x.enabled,"routable":x.provider in enabled,"priority":x.priority,"failures":x.failure_count,"successes":x.success_count,"circuit_open_until":x.circuit_open_until,"capabilities":PROVIDER_CAPABILITIES.get(x.provider,{})} for x in rows if x.provider in PAYMENT_AGENTS],"features":{"router":True,"failover":True,"auto_renew":True,"tax":True,"invoices":True,"risk":True,"chargebacks":True,"gift_cards":True,"corporate":True,"dynamic_pricing":True}}
 
 class TaxProfileIn(BaseModel):
     country:str=Field(default="DE",min_length=2,max_length=2)
@@ -5218,6 +5231,7 @@ class MobilePurchaseIn(BaseModel):
 
 @app.post("/api/payments/mobile/verify")
 async def verify_mobile_purchase(payload:MobilePurchaseIn,request:Request,db:AsyncSession=Depends(get_db)):
+    raise HTTPException(410,"Покупки через магазины приложений отключены. Используйте YooKassa, RollyPay или Platega в кабинете.")
     from .payment_platform import store_product_plan_id
     user=await user_from_token(request,db); plan=await db.get(Plan,payload.plan_id)
     if not plan or not plan.enabled: raise HTTPException(404,"Plan not found")
