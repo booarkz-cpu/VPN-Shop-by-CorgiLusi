@@ -1,5 +1,8 @@
 # Актуальная документация рабочего пространства
 
+- [Восстановление пароля и подтверждение email](ru/WORKSPACE_ACCOUNT_SECURITY.md)
+- [Подготовка стенда и условия финального выпуска](ru/FINAL_RELEASE_READINESS.md)
+- [Лицензия и сторонние компоненты](../THIRD_PARTY_NOTICES.md)
 - [Кабинет пользователя, по каждой странице](ru/WORKSPACE_USER_GUIDE.md)
 - [Администратор, по каждому разделу](ru/WORKSPACE_ADMIN_GUIDE.md)
 - [Три платёжных агента](ru/WORKSPACE_PAYMENTS.md)

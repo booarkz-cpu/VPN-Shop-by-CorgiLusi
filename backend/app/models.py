@@ -13,6 +13,7 @@ class User(Base):
     vk_id: Mapped[str|None] = mapped_column(String(255), unique=True, index=True)
     email: Mapped[str|None] = mapped_column(String(320), unique=True, index=True)
     email_password_hash: Mapped[str|None] = mapped_column(String(512))
+    email_verified_at: Mapped[datetime|None] = mapped_column(DateTime)
     username: Mapped[str|None] = mapped_column(String(255))
     referral_code: Mapped[str] = mapped_column(String(32), unique=True, index=True, default=lambda: secrets.token_urlsafe(8).upper())
     referred_by_id: Mapped[int|None] = mapped_column(Integer, index=True)
@@ -93,6 +94,7 @@ class Subscription(Base):
     device_limit_snapshot: Mapped[int|None] = mapped_column(Integer)
     remnawave_profile_id_snapshot: Mapped[str|None] = mapped_column(String(255))
     unit_price_per_day: Mapped[Decimal|None] = mapped_column(Numeric(18,8))
+    renewal_terms: Mapped[dict|None] = mapped_column(JSON)
     lifecycle_status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     grace_until: Mapped[datetime|None] = mapped_column(DateTime)
     scheduled_cancel_at: Mapped[datetime|None] = mapped_column(DateTime)
@@ -1001,3 +1003,25 @@ class SupportImportLink(Base):
     completed: Mapped[bool] = mapped_column(Boolean,default=False,nullable=False)
     source_key: Mapped[str] = mapped_column(String(80),primary_key=True)
     ticket_id: Mapped[int] = mapped_column(ForeignKey('support_tickets.id',ondelete='CASCADE'),unique=True,nullable=False)
+
+class AccountAction(Base):
+    __tablename__='account_actions'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id',ondelete='CASCADE'),index=True,nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64),unique=True,nullable=False)
+    purpose: Mapped[str] = mapped_column(String(24),nullable=False)
+    email: Mapped[str] = mapped_column(String(320),nullable=False)
+    password_fingerprint: Mapped[str|None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.utcnow,nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime,nullable=False)
+    used_at: Mapped[datetime|None] = mapped_column(DateTime)
+
+class AccountMail(Base):
+    __tablename__='account_mail'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    action_id: Mapped[int] = mapped_column(ForeignKey('account_actions.id',ondelete='CASCADE'),unique=True,nullable=False)
+    token_encrypted: Mapped[str] = mapped_column(Text,nullable=False)
+    status: Mapped[str] = mapped_column(String(16),default='queued',nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer,default=0,nullable=False)
+    next_retry_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.utcnow,nullable=False)
+    error: Mapped[str|None] = mapped_column(String(40))

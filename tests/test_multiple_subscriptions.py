@@ -60,7 +60,7 @@ async def test_constructor_gift_freezes_terms_and_debits_once(database):
     payload={'constructor_id':1,'device_option_id':1,'traffic_option_id':2,'days_option_id':3}
     first=await gifts.purchase_gift(payload,request('gift-once'),database)
     code=await database.scalar(select(GiftCode));assert code.purchase_amount==85
-    assert code.entitlements_snapshot=={'days':15,'traffic_gb':70,'devices':3,'profile_id':'group'}
+    assert code.entitlements_snapshot=={'days':15,'traffic_gb':70,'devices':3,'profile_id':'group','currency':'RUB'}
     constructor=await database.get(TariffConstructor,1);constructor.enabled=False
     option=await database.get(TariffConstructorOption,3);option.value=90;option.price=100
     await database.commit()
@@ -78,6 +78,7 @@ async def test_gift_lost_remote_answer_retries_fixed_target_once(database,monkey
     remote={};extensions=[]
     class Remote:
         async def get_user_by_username(self,name):return remote.get(name)
+        async def get_user(self,uuid):return {'userTraffic':{'usedTrafficBytes':0}}
         async def create_user(self,name,expiry,*args,**kwargs):
             remote[name]={'id':'gift-remote','subscriptionUrl':'https://example.test/sub'}
             return remote[name]

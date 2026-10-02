@@ -3,6 +3,8 @@ import {createRoot} from "react-dom/client";
 import "./style.css";
 import {SubscriptionProfiles} from "./subscription-profiles";
 import {Workspace} from "./workspace";
+import {AccountRecovery, AccountSecurity, accountLink} from "./account-recovery";
+import type {AccountLink} from "./account-recovery";
 import {DomLocalizer, LangProvider, detectLang, t, useLang} from "./i18n";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -192,6 +194,7 @@ function App() {
   const {lang, setLang} = useLang();
   const [booting, setBooting] = useState(true);
   const [authed, setAuthed] = useState(false);
+  const [accountFlow,setAccountFlow]=useState<AccountLink|null>(accountLink);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -202,7 +205,7 @@ function App() {
 
   const [cfg, setCfg] = useState<any>({});
   const [menu, setMenu] = useState<MenuItem[]>(FALLBACK_MENU);
-  const [tab, setTab] = useState(location.hash.slice(1)||"overview");
+  const [tab, setTab] = useState(accountFlow?"overview":location.hash.slice(1)||"overview");
   const [dash, setDash] = useState<any>();
   const [profiles,setProfiles]=useState<any[]>([]);
   const [profileTarget,setProfileTarget]=useState("current");
@@ -581,7 +584,7 @@ function App() {
           {(cfg.fields||[]).map((field:any)=><div id={`field-${field.key}`} key={field.key}><h3>{field.label}</h3><p>{field.value}</p></div>)}
         </section>}
 
-        {!authed ? (
+        {accountFlow ? <AccountRecovery link={accountFlow} request={req} onClose={reset=>{setAccountFlow(null);if(reset)setAuthed(false)}}/> : !authed ? (
           <section className="auth-layout">
             <div className="form-card">
               <div className="auth-switch">
@@ -633,6 +636,7 @@ function App() {
                   {authMode === "login" ? "Войти" : "Создать аккаунт"}
                 </button>
               </form>
+              {authMode==="login"&&<button type="button" className="btn-ghost" onClick={()=>setAccountFlow({kind:"request",token:""})}>Забыли пароль?</button>}
               <button
                 type="button"
                 className="btn-soft"
@@ -937,6 +941,7 @@ function App() {
 
               {["wallet","payments","gifts","referral","subscription","security","notifications","support"].includes(activeItem?.kind||"") && <>
                 <h2 className="section-title">{activeItem.title}</h2>
+                {activeItem.kind==="security"&&<AccountSecurity request={req} onPasswordChanged={()=>{setAuthed(false);flash("Пароль изменён. Войдите снова.")}}/>}
                 {activeItem.kind==="subscription"&&<SubscriptionProfiles profiles={profiles} request={req} reload={loadSession}/>}
                 <Workspace key={activeItem.kind+":"+(sub?.id||"none")} kind={activeItem.kind} request={req} reload={loadSession} plans={plans} provider={provider} botUsername={cfg.bot_username||""} providers={(cfg.payment_providers||[]).filter((p:string)=>["yookassa","rollypay","platega","sandbox"].includes(p))} currency={currency} api={API}/>
               </>}

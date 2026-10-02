@@ -24,11 +24,12 @@ def entitlement_state(sub):
     return {"plan_id":sub.plan_id,"traffic_gb":sub.traffic_limit_gb_snapshot,
             "devices":sub.device_limit_snapshot,"profile":sub.remnawave_profile_id_snapshot,
             "expires_at":sub.expires_at.isoformat() if sub.expires_at else None,
-            "unit_price":str(Decimal(sub.unit_price_per_day).quantize(Decimal("0.00000001"))) if sub.unit_price_per_day is not None else None}
+            "unit_price":str(Decimal(sub.unit_price_per_day).quantize(Decimal("0.00000001"))) if sub.unit_price_per_day is not None else None,
+            "renewal_terms":sub.renewal_terms}
 
 
 def public_state(state):
-    return {k:v for k,v in state.items() if k!="profile"}
+    return {k:v for k,v in state.items() if k not in {"profile","renewal_terms"}}
 
 
 def prorated_amount(old_rate,new_rate,remaining_seconds):
@@ -67,14 +68,15 @@ async def _effective_rate(db,sub):
     return Decimal(paid.amount)/Decimal(days)
 
 
-async def _validate_reduction(db,sub,after,force_traffic=False):
+async def _validate_reduction(db,sub,after,force_traffic=False,remote_id=None,remote_client=None):
     if after["devices"] is not None:
         count=await db.scalar(select(func.count()).select_from(UserDevice).where(UserDevice.user_id==sub.user_id,UserDevice.subscription_id==sub.id,UserDevice.status=="active"))
         if int(count or 0)>after["devices"]:raise HTTPException(409,"Сначала отключите лишние устройства")
     before=sub.traffic_limit_gb_snapshot
     if after["traffic_gb"] is not None and (force_traffic or before is None or after["traffic_gb"]<before):
-        if not sub.remnawave_uuid:raise HTTPException(409,"Не удалось проверить использованный трафик")
-        remote=await RemnawaveClient().get_user(sub.remnawave_uuid)
+        remote_id=remote_id or sub.remnawave_uuid
+        if not remote_id:raise HTTPException(409,"Не удалось проверить использованный трафик")
+        remote=await (remote_client or RemnawaveClient()).get_user(remote_id)
         remote=remote.get("response",remote)
         used=(remote.get("userTraffic") or {}).get("usedTrafficBytes")
         if used is None:used=remote.get("trafficUsedBytes",remote.get("usedTrafficBytes"))
@@ -153,6 +155,8 @@ async def quote_change(payload:QuoteIn,request:Request,db:AsyncSession=Depends(g
         new_rate=Decimal(price)/Decimal(days)
         amount=prorated_amount(await _effective_rate(db,sub),new_rate,(sub.expires_at-datetime.utcnow()).total_seconds())
         after.update(plan_id=plan.id,traffic_gb=traffic,devices=devices,profile=profile,unit_price=str(new_rate.quantize(Decimal("0.00000001"))))
+        after['renewal_terms']=({'amount':str(price),'days':days,'traffic_gb':traffic,'devices':devices,'profile_id':profile,'currency':settings.default_currency}
+                                if payload.constructor_id else None)
         if after==before:raise HTTPException(409,"Эти условия уже применены")
         await _validate_reduction(db,sub,after)
     quote=EntitlementQuote(id=secrets.token_urlsafe(24),user_id=user.id,subscription_id=sub.id,kind=payload.kind,
@@ -185,7 +189,7 @@ async def purchase_change(payload:PurchaseIn,request:Request,db:AsyncSession=Dep
         return {"id":payment.id,"status":payment.status,"fulfillment_status":payment.fulfillment_status}
     if quote.expires_at<=datetime.utcnow() or quote.currency!=settings.default_currency:raise HTTPException(409,"Расчёт истёк; запросите новый")
     sub=await _subscription(db,user.id,quote.subscription_id,lock=True)
-    if entitlement_state(sub)!=quote.before:raise HTTPException(409,"Условия подписки изменились; запросите новый расчёт")
+    if any(entitlement_state(sub).get(k)!=v for k,v in quote.before.items()):raise HTTPException(409,"Условия подписки изменились; запросите новый расчёт")
     from .subscriptions import ensure_no_pending_purchase
     await ensure_no_pending_purchase(db,sub.id)
     if Decimal(user.wallet_balance or 0)<quote.amount:raise HTTPException(402,"Недостаточно средств в кошельке")
@@ -224,7 +228,7 @@ async def apply_change(payment_id,db):
             payment.fulfillment_terminal=True; await db.commit(); return
         if payment.status!="paid" or op.status not in {"queued","applying"}:raise RuntimeError("Operation is not payable")
         sub=await db.scalar(select(Subscription).where(Subscription.id==op.subscription_id,Subscription.user_id==user.id).with_for_update())
-        if not sub or entitlement_state(sub)!=op.before:raise RuntimeError("Entitlement changed; refund or reconcile this operation")
+        if not sub or any(entitlement_state(sub).get(k)!=v for k,v in op.before.items()):raise RuntimeError("Entitlement changed; refund or reconcile this operation")
         if not sub.expires_at or sub.expires_at<=datetime.utcnow():raise RuntimeError("Subscription expired before application")
         op.status="applying";payment.fulfillment_status="processing";payment.fulfillment_attempts=(payment.fulfillment_attempts or 0)+1
         await db.commit() # Durable before the remote call; replay always sets absolute limits.
@@ -235,6 +239,7 @@ async def apply_change(payment_id,db):
         sub.plan_id=op.after["plan_id"];sub.traffic_limit_gb_snapshot=op.after["traffic_gb"]
         sub.device_limit_snapshot=op.after["devices"];sub.remnawave_profile_id_snapshot=op.after["profile"]
         sub.unit_price_per_day=Decimal(op.after["unit_price"]) if op.after["unit_price"] is not None else None
+        if op.kind=='subscription_change':sub.renewal_terms=op.after.get('renewal_terms')
         op.status="applied";op.completed_at=datetime.utcnow();op.error=None
         payment.fulfillment_status="completed";payment.fulfillment_terminal=True;payment.next_retry_at=None;payment.fulfillment_error=None
         job=await db.scalar(select(Job).where(Job.job_key==f"fulfillment:{payment.id}"))
