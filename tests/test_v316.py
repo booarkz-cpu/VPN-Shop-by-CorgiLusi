@@ -23,7 +23,8 @@ def test_nginx_uses_tmp_and_is_mounted():
         assert (ROOT / app / "nginx.conf").read_text() == nginx
         assert (ROOT / app / "default.conf").read_text() == default
         dockerfile = (ROOT / app / "Dockerfile").read_text()
-        assert "COPY nginx.conf /etc/nginx/nginx.conf" in dockerfile
+        source = "miniapp/nginx.conf" if app == "miniapp" else "nginx.conf"
+        assert f"COPY {source} /etc/nginx/nginx.conf" in dockerfile
     compose = (ROOT / "docker-compose.yml").read_text()
     caddy = compose.split("  caddy:", 1)[1]
     for name in ("admin", "miniapp", "cabinet"):

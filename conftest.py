@@ -1,5 +1,11 @@
 """Source checks read the assembled shop module, admin entry, and installer."""
 import base64
+import os
+import tempfile
+
+# Import-time StaticFiles setup must use a writable isolated directory on CI.
+_test_media = tempfile.TemporaryDirectory(prefix="vpnshop-tests-media-")
+os.environ.setdefault("MEDIA_DIR", _test_media.name)
 from pathlib import Path
 
 _read_text = Path.read_text

@@ -185,3 +185,14 @@ def test_openapi_resolves_all_request_models():
     schema = shop.app.openapi()
     assert "TrialIn" in schema["components"]["schemas"]
     assert "/api/me/wallet/history" in schema["paths"]
+
+
+def test_miniapp_docker_copy_sources_exist_in_root_context():
+    from pathlib import Path
+    import shlex
+    root = Path(__file__).resolve().parents[1]
+    for line in (root / "miniapp/Dockerfile").read_text().splitlines():
+        words = shlex.split(line)
+        if words and words[0] == "COPY" and not words[1].startswith("--from="):
+            for source in words[1:-1]:
+                assert list(root.glob(source)), f"Missing Docker context source: {source}"
