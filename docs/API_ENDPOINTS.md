@@ -1,0 +1,353 @@
+# Каталог API текущего проекта
+
+Получен из OpenAPI текущих исходников. Авторизация, права, CSRF и принадлежность записей проверяются сервером. Сценарии описаны в [руководстве](ru/WORKSPACE_USER_GUIDE.md).
+
+Legacy callbacks прежних агентов служат только историческим операциям. `POST /api/payments/mobile/verify` закрыт ответом 410.
+
+| Метод | Путь | Операция |
+| --- | --- | --- |
+| `GET` | `/api/admin/admins` | List Admins |
+| `POST` | `/api/admin/admins` | Create Admin |
+| `PUT` | `/api/admin/admins/{admin_id}` | Update Admin |
+| `DELETE` | `/api/admin/admins/{admin_id}` | Delete Admin |
+| `POST` | `/api/admin/advertisements` | Create Ad |
+| `PUT` | `/api/admin/advertisements/{item_id}` | Update Ad |
+| `DELETE` | `/api/admin/advertisements/{item_id}` | Delete Ad |
+| `GET` | `/api/admin/analytics` | Admin Analytics |
+| `GET` | `/api/admin/apps` | Admin Apps |
+| `PUT` | `/api/admin/apps` | Save Apps |
+| `POST` | `/api/admin/apps/logo` | Upload Client Logo |
+| `DELETE` | `/api/admin/apps/logo` | Delete Client Logo |
+| `GET` | `/api/admin/apps/{app_id}/download` | Admin App Download |
+| `POST` | `/api/admin/apps/{app_id}/file` | Upload App File |
+| `DELETE` | `/api/admin/apps/{app_id}/file` | Delete App File |
+| `GET` | `/api/admin/audit` | Admin Audit |
+| `POST` | `/api/admin/auth/login` | Admin Login |
+| `POST` | `/api/admin/auth/logout` | Admin Logout |
+| `POST` | `/api/admin/auth/mfa/disable` | Mfa Disable |
+| `POST` | `/api/admin/auth/mfa/enable` | Mfa Enable |
+| `POST` | `/api/admin/auth/mfa/setup` | Mfa Setup |
+| `GET` | `/api/admin/auth/mfa/status` | Mfa Status |
+| `POST` | `/api/admin/auth/telegram` | Admin Telegram Login |
+| `GET` | `/api/admin/backups` | List Backups |
+| `GET` | `/api/admin/backups/config` | Backup Config |
+| `PUT` | `/api/admin/backups/config` | Update Backup Config |
+| `POST` | `/api/admin/backups/run` | Run Backup |
+| `DELETE` | `/api/admin/backups/{backup_id}` | Delete Backup |
+| `GET` | `/api/admin/backups/{backup_id}/download` | Download Backup |
+| `POST` | `/api/admin/backups/{backup_id}/restore` | Restore Backup |
+| `POST` | `/api/admin/backups/{backup_id}/restore/approve` | Approve Restore |
+| `POST` | `/api/admin/backups/{backup_id}/restore/request` | Request Restore |
+| `POST` | `/api/admin/backups/{backup_id}/validate` | Validate Backup Archive |
+| `POST` | `/api/admin/backups/{backup_id}/verify` | Verify Backup |
+| `POST` | `/api/admin/bot/start-image` | Admin Bot Start Image |
+| `DELETE` | `/api/admin/bot/start-image` | Admin Bot Start Image Delete |
+| `POST` | `/api/admin/branding/favicon` | Admin Branding Favicon |
+| `POST` | `/api/admin/branding/logo` | Admin Branding Logo |
+| `DELETE` | `/api/admin/branding/{kind}` | Admin Branding Delete |
+| `POST` | `/api/admin/broadcasts` | Create Broadcast |
+| `POST` | `/api/admin/broadcasts/{broadcast_id}/retry` | Retry Broadcast |
+| `GET` | `/api/admin/cabinet/guides` | Admin Cabinet Guides |
+| `PUT` | `/api/admin/cabinet/guides/{platform}` | Admin Cabinet Guide |
+| `GET` | `/api/admin/cabinet/menu` | Admin Cabinet Menu |
+| `POST` | `/api/admin/cabinet/menu` | Admin Cabinet Menu Create |
+| `PUT` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Update |
+| `DELETE` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Delete |
+| `GET` | `/api/admin/content` | Admin Content |
+| `GET` | `/api/admin/corporate-accounts` | List Corporate |
+| `POST` | `/api/admin/corporate-accounts` | Create Corporate |
+| `GET` | `/api/admin/customers/{user_id}/360` | Customer 360 |
+| `GET` | `/api/admin/deployments` | Deployment List |
+| `POST` | `/api/admin/deployments` | Deployment Create |
+| `POST` | `/api/admin/deployments/{deployment_id}/promote` | Deployment Promote |
+| `POST` | `/api/admin/deployments/{deployment_id}/rollback` | Deployment Rollback |
+| `GET` | `/api/admin/enterprise/campaigns` | Enterprise Campaigns |
+| `POST` | `/api/admin/enterprise/campaigns` | Enterprise Campaign Create |
+| `PUT` | `/api/admin/enterprise/campaigns/{campaign_id}` | Enterprise Campaign Update |
+| `GET` | `/api/admin/enterprise/monitoring` | Enterprise Monitoring |
+| `POST` | `/api/admin/enterprise/monitoring` | Enterprise Monitoring Create |
+| `DELETE` | `/api/admin/enterprise/monitoring/{check_id}` | Enterprise Monitoring Delete |
+| `GET` | `/api/admin/enterprise/rules` | Enterprise Rules |
+| `POST` | `/api/admin/enterprise/rules` | Enterprise Rule Create |
+| `PUT` | `/api/admin/enterprise/rules/{rule_id}` | Enterprise Rule Update |
+| `GET` | `/api/admin/enterprise/summary` | Enterprise Summary |
+| `POST` | `/api/admin/fields` | Admin Field |
+| `PUT` | `/api/admin/fields/{field_id}` | Admin Field Update |
+| `DELETE` | `/api/admin/fields/{field_id}` | Admin Field Delete |
+| `GET` | `/api/admin/financial-ledger` | Admin Financial Ledger |
+| `GET` | `/api/admin/fraud` | Admin Fraud |
+| `POST` | `/api/admin/fraud/scan` | Fraud Scan |
+| `POST` | `/api/admin/fraud/{signal_id}` | Fraud Decision |
+| `GET` | `/api/admin/gifts` | Admin Gifts |
+| `POST` | `/api/admin/gifts` | Admin Gift Create |
+| `GET` | `/api/admin/github-update` | Admin Github Update |
+| `GET` | `/api/admin/health/summary` | Health Summary |
+| `POST` | `/api/admin/images` | Admin Image |
+| `DELETE` | `/api/admin/images/{image_id}` | Admin Image Delete |
+| `GET` | `/api/admin/incident-mode` | Incident Mode Status |
+| `POST` | `/api/admin/incident-mode` | Incident Mode |
+| `GET` | `/api/admin/jobs` | Admin Jobs |
+| `POST` | `/api/admin/jobs/{job_id}/retry` | Retry Job |
+| `GET` | `/api/admin/marketing` | Admin Marketing |
+| `GET` | `/api/admin/marketplace/resellers` | List Resellers |
+| `POST` | `/api/admin/marketplace/resellers` | Create Reseller |
+| `PATCH` | `/api/admin/marketplace/resellers/{reseller_id}` | Update Reseller |
+| `POST` | `/api/admin/marketplace/resellers/{reseller_id}/rotate-key` | Rotate Reseller Key |
+| `POST` | `/api/admin/menu` | Admin Menu |
+| `PUT` | `/api/admin/menu/{item_id}` | Admin Menu Update |
+| `DELETE` | `/api/admin/menu/{item_id}` | Admin Menu Delete |
+| `POST` | `/api/admin/miniapp/background` | Admin Miniapp Background |
+| `DELETE` | `/api/admin/miniapp/background` | Admin Miniapp Background Delete |
+| `PUT` | `/api/admin/miniapp/config` | Admin Miniapp Config |
+| `POST` | `/api/admin/miniapp/image` | Admin Miniapp Image |
+| `DELETE` | `/api/admin/miniapp/image` | Admin Miniapp Image Delete |
+| `GET` | `/api/admin/mobile/ops` | Admin Mobile Ops |
+| `GET` | `/api/admin/monitoring` | Admin Monitoring |
+| `GET` | `/api/admin/notifications` | Admin Notifications |
+| `POST` | `/api/admin/notifications` | Admin Notification Create |
+| `GET` | `/api/admin/openapi.json` | Admin Openapi |
+| `POST` | `/api/admin/ops/withdrawals/{withdrawal_id}/approve` | Admin Withdrawal Approve |
+| `POST` | `/api/admin/ops/withdrawals/{withdrawal_id}/paid` | Admin Withdrawal Paid |
+| `GET` | `/api/admin/overview` | Admin Overview |
+| `POST` | `/api/admin/payment/gift-cards` | Create Gift Card |
+| `GET` | `/api/admin/payments` | Admin Payments |
+| `GET` | `/api/admin/payments/analytics` | Payment Analytics |
+| `GET` | `/api/admin/payments/chargebacks` | Admin Chargebacks |
+| `PATCH` | `/api/admin/payments/chargebacks/{chargeback_id}` | Update Chargeback |
+| `GET` | `/api/admin/payments/gift-cards` | List Gift Cards |
+| `GET` | `/api/admin/payments/platform/capabilities` | Admin Payment Platform Capabilities |
+| `GET` | `/api/admin/payments/pricing/experiments` | List Price Experiments |
+| `PUT` | `/api/admin/payments/pricing/experiments/{key}` | Upsert Price Experiment |
+| `POST` | `/api/admin/payments/production-gate` | Production Payment Gate |
+| `POST` | `/api/admin/payments/reconcile` | Reconcile Payments |
+| `GET` | `/api/admin/payments/{payment_id}` | Admin Payment Detail |
+| `POST` | `/api/admin/payments/{payment_id}/refund-request` | Request Refund |
+| `POST` | `/api/admin/payments/{payment_id}/retry` | Retry Payment |
+| `POST` | `/api/admin/payments/{payment_id}/risk/recheck` | Payment Risk Recheck |
+| `GET` | `/api/admin/payouts` | Admin Payouts |
+| `GET` | `/api/admin/plans` | Admin List Plans |
+| `POST` | `/api/admin/plans` | Create Plan |
+| `PUT` | `/api/admin/plans/{plan_id}` | Admin Update Plan |
+| `DELETE` | `/api/admin/plans/{plan_id}` | Admin Delete Plan |
+| `POST` | `/api/admin/plans/{plan_id}/enabled` | Admin Set Plan Enabled |
+| `POST` | `/api/admin/platform/agents` | Create Agent |
+| `POST` | `/api/admin/platform/api-keys` | Create Api Key |
+| `DELETE` | `/api/admin/platform/api-keys/{key_id}` | Disable Api Key |
+| `POST` | `/api/admin/platform/blacklist` | Add Blacklist |
+| `POST` | `/api/admin/platform/dkim` | Create Dkim |
+| `PUT` | `/api/admin/platform/mail` | Save Mail |
+| `POST` | `/api/admin/platform/mail/test` | Test Mail |
+| `POST` | `/api/admin/platform/plugins/{key}` | Toggle Plugin |
+| `PUT` | `/api/admin/platform/policy` | Save Policy |
+| `GET` | `/api/admin/platform/summary` | Platform Summary |
+| `POST` | `/api/admin/platform/violations/{violation_id}/review` | Review Violation |
+| `POST` | `/api/admin/platform/webhooks` | Create Webhook |
+| `POST` | `/api/admin/promo-codes` | Create Promo Code |
+| `PUT` | `/api/admin/promo-codes/{item_id}` | Update Promo Code |
+| `DELETE` | `/api/admin/promo-codes/{item_id}` | Delete Promo Code |
+| `POST` | `/api/admin/promotions` | Create Promotion |
+| `PUT` | `/api/admin/promotions/{item_id}` | Update Promotion |
+| `DELETE` | `/api/admin/promotions/{item_id}` | Delete Promotion |
+| `POST` | `/api/admin/provision-node` | Provision Node |
+| `GET` | `/api/admin/recovery` | Admin Recovery |
+| `GET` | `/api/admin/recovery/operations` | Recovery Operations |
+| `POST` | `/api/admin/recovery/operations/{operation_id}/retry` | Retry Operation |
+| `POST` | `/api/admin/referrals/reconcile` | Reconcile Referrals |
+| `GET` | `/api/admin/referrals/withdrawals` | Admin Withdrawals |
+| `POST` | `/api/admin/referrals/withdrawals/{withdrawal_id}/approve` | Approve Withdrawal |
+| `POST` | `/api/admin/referrals/withdrawals/{withdrawal_id}/paid` | Paid Withdrawal |
+| `POST` | `/api/admin/referrals/withdrawals/{withdrawal_id}/reject` | Reject Withdrawal |
+| `GET` | `/api/admin/refunds` | Admin Refunds |
+| `POST` | `/api/admin/refunds/{refund_id}/approve` | Approve Refund |
+| `GET` | `/api/admin/refunds/{refund_id}/dry-run` | Refund Dry Run |
+| `POST` | `/api/admin/refunds/{refund_id}/execute` | Execute Refund |
+| `POST` | `/api/admin/refunds/{refund_id}/mark-refunded` | Mark Refunded |
+| `POST` | `/api/admin/refunds/{refund_id}/reconcile` | Reconcile Refund |
+| `POST` | `/api/admin/refunds/{refund_id}/retry-revoke` | Retry Refund Revoke |
+| `GET` | `/api/admin/releases` | Admin Releases |
+| `POST` | `/api/admin/releases/check` | Check Release |
+| `GET` | `/api/admin/remnawave/health` | Remnawave Health |
+| `GET` | `/api/admin/remnawave/monitoring` | Admin Monitoring |
+| `GET` | `/api/admin/remnawave/nodes` | Rw Nodes |
+| `GET` | `/api/admin/remnawave/shop` | Remnawave Shop Overview |
+| `POST` | `/api/admin/remnawave/shop/plan-mapping/validate` | Validate Plan Mapping |
+| `POST` | `/api/admin/remnawave/shop/test` | Remnawave Shop Test |
+| `GET` | `/api/admin/remnawave/users` | Rw Users |
+| `GET` | `/api/admin/remnawave/users/stream` | Rw User Stream |
+| `GET` | `/api/admin/remnawave/users/{user_id}` | Rw User |
+| `POST` | `/api/admin/remnawave/users/{user_id}/extend` | Rw Extend |
+| `GET` | `/api/admin/remnawave/users/{user_id}/keys` | Rw Keys |
+| `GET` | `/api/admin/remnawave/users/{user_id}/subscription` | Rw Subscription |
+| `GET` | `/api/admin/security` | Admin Security |
+| `POST` | `/api/admin/security/incident` | Security Incident |
+| `GET` | `/api/admin/security/incidents` | Security Incidents |
+| `GET` | `/api/admin/security/risk-summary` | Risk Summary |
+| `GET` | `/api/admin/security/secrets/status` | Secret Status |
+| `GET` | `/api/admin/sessions` | Admin Sessions |
+| `POST` | `/api/admin/sessions/revoke-all` | Revoke All Sessions |
+| `DELETE` | `/api/admin/sessions/{session_id}` | Revoke Admin Session |
+| `PUT` | `/api/admin/settings/{key}` | Admin Setting |
+| `GET` | `/api/admin/staging-e2e/config` | Staging E2E Config |
+| `PUT` | `/api/admin/staging-e2e/config` | Update Staging E2E Config |
+| `POST` | `/api/admin/staging-e2e/run` | Run Staging E2E |
+| `GET` | `/api/admin/staging-e2e/status` | Staging E2E Status |
+| `GET` | `/api/admin/status/components` | Admin Status Components |
+| `POST` | `/api/admin/status/components` | Admin Status Component Create |
+| `PUT` | `/api/admin/status/components/{component_id}` | Admin Status Component Update |
+| `POST` | `/api/admin/support-pro/sso` | Support Pro Sso |
+| `GET` | `/api/admin/support-pro/status` | Support Pro Status |
+| `GET` | `/api/admin/support/tickets` | Admin Tickets |
+| `GET` | `/api/admin/support/tickets/{ticket_id}/messages` | Admin Support Messages |
+| `POST` | `/api/admin/support/tickets/{ticket_id}/reply` | Admin Ticket Reply |
+| `GET` | `/api/admin/system/health` | System Health |
+| `GET` | `/api/admin/tariff-constructors` | Admin Constructors |
+| `POST` | `/api/admin/tariff-constructors` | Admin Constructor Create |
+| `PUT` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Update |
+| `DELETE` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Delete |
+| `POST` | `/api/admin/v15/deployments/{deployment_id}/rollback` | Rollback |
+| `GET` | `/api/admin/v15/operations` | Operations |
+| `POST` | `/api/admin/v16/nodes/register` | Register Node |
+| `POST` | `/api/admin/v16/nodes/{node_name}/failover` | Node Failover |
+| `GET` | `/api/admin/v3/automation` | Admin Automation |
+| `POST` | `/api/admin/v3/automation/{rule_id}/toggle` | Toggle Automation |
+| `GET` | `/api/admin/v3/control-center` | Control Center |
+| `GET` | `/api/admin/v3/devices` | Admin Devices |
+| `GET` | `/api/admin/v3/routing` | Get Routing |
+| `PUT` | `/api/admin/v3/routing` | Put Routing |
+| `GET` | `/api/admin/v41/analytics` | V41 Analytics |
+| `GET` | `/api/admin/v41/backups/verification` | V41 Backup Verification List |
+| `POST` | `/api/admin/v41/backups/{backup_id}/test-restore` | V41 Backup Test Restore |
+| `GET` | `/api/admin/v41/crm/users` | V41 Crm Users |
+| `GET` | `/api/admin/v41/diagnostics` | V41 Diagnostics |
+| `GET` | `/api/admin/v41/features` | V41 Features |
+| `PUT` | `/api/admin/v41/features/{key}` | V41 Feature Update |
+| `GET` | `/api/admin/v41/incidents` | V41 Incidents |
+| `POST` | `/api/admin/v41/incidents` | V41 Incident Create |
+| `POST` | `/api/admin/v41/incidents/{incident_id}/resolve` | V41 Incident Resolve |
+| `GET` | `/api/admin/v41/passkeys` | V41 Passkeys |
+| `DELETE` | `/api/admin/v41/passkeys/{credential_id}` | V41 Passkey Delete |
+| `GET` | `/api/admin/v41/promotions` | V41 Promotions |
+| `GET` | `/api/admin/v41/providers` | V41 Providers |
+| `PUT` | `/api/admin/v41/providers/{provider}` | V41 Provider Update |
+| `GET` | `/api/admin/v41/referrals` | V41 Referrals |
+| `GET` | `/api/admin/v6/capacity` | Capacity |
+| `GET` | `/api/admin/v6/command-center` | Command Center |
+| `GET` | `/api/admin/v6/commercial` | Commercial |
+| `GET` | `/api/admin/v6/config/{section}` | Get Config |
+| `PUT` | `/api/admin/v6/config/{section}` | Put Config |
+| `GET` | `/api/admin/v6/events` | Events |
+| `GET` | `/api/admin/v6/integrations` | Integrations |
+| `GET` | `/api/admin/v6/intelligence` | Intelligence |
+| `POST` | `/api/admin/v6/orchestrator/evaluate` | Orchestrate |
+| `POST` | `/api/admin/v6/provision` | Provision |
+| `GET` | `/api/admin/v6/security-center` | Security Center |
+| `GET` | `/api/admin/workers` | Admin Workers |
+| `POST` | `/api/agent/heartbeat` | Agent Heartbeat |
+| `POST` | `/api/agent/observations` | Agent Observations |
+| `POST` | `/api/auth/exchange` | Auth Exchange |
+| `POST` | `/api/auth/login` | Auth Login |
+| `POST` | `/api/auth/logout` | User Logout |
+| `POST` | `/api/auth/mobile/token` | Mobile Token |
+| `POST` | `/api/auth/register` | Auth Register |
+| `POST` | `/api/auth/telegram` | Telegram Auth |
+| `GET` | `/api/auth/vk` | Vk Login |
+| `GET` | `/api/auth/vk/callback` | Vk Callback |
+| `GET` | `/api/auth/yandex` | Yandex Login |
+| `GET` | `/api/auth/yandex/callback` | Yandex Callback |
+| `POST` | `/api/internal/staging-e2e/payment` | Internal Staging Payment |
+| `POST` | `/api/internal/staging-e2e/refund` | Internal Staging Refund |
+| `POST` | `/api/internal/staging-e2e/refund-status` | Internal Staging Refund Status |
+| `POST` | `/api/internal/staging-e2e/remnawave` | Internal Staging Remnawave |
+| `POST` | `/api/internal/staging-e2e/verify` | Internal Staging Verify |
+| `GET` | `/api/me` | Api Me |
+| `GET` | `/api/me/auto-renew` | Auto Renew Status |
+| `PUT` | `/api/me/auto-renew` | Set Auto Renew |
+| `DELETE` | `/api/me/auto-renew/method` | Remove Auto Renew Method |
+| `GET` | `/api/me/billing-center` | Billing Center |
+| `GET` | `/api/me/connection-info` | Connection Info |
+| `GET` | `/api/me/connection-qr` | Connection Qr |
+| `GET` | `/api/me/dashboard` | Customer Dashboard |
+| `GET` | `/api/me/devices` | My Devices |
+| `POST` | `/api/me/devices` | Register Device |
+| `POST` | `/api/me/devices/transfer` | Device Transfer |
+| `POST` | `/api/me/devices/{device_id}/revoke` | Revoke Device |
+| `GET` | `/api/me/gifts` | Purchased Gifts |
+| `POST` | `/api/me/gifts/purchase` | Purchase Gift |
+| `POST` | `/api/me/gifts/redeem` | Redeem Gift |
+| `GET` | `/api/me/identity` | Identity |
+| `POST` | `/api/me/lusi/action` | Lusi Action |
+| `GET` | `/api/me/mobile/alerts` | Mobile Alerts |
+| `GET` | `/api/me/mobile/bootstrap` | Mobile Bootstrap |
+| `GET` | `/api/me/mobile/connection` | Mobile Connection |
+| `GET` | `/api/me/mobile/diagnostics` | Mobile Diagnostics |
+| `GET` | `/api/me/mobile/features` | Mobile Features |
+| `GET` | `/api/me/mobile/notifications` | Mobile Notifications |
+| `POST` | `/api/me/mobile/notifications/{notification_id}/read` | Mobile Notification Read |
+| `GET` | `/api/me/mobile/privacy` | Mobile Privacy |
+| `GET` | `/api/me/notifications` | My Notifications |
+| `POST` | `/api/me/notifications/{notification_id}/read` | Read Notification |
+| `POST` | `/api/me/payment/gift-card/redeem` | Redeem Gift Card |
+| `PUT` | `/api/me/payment/tax-profile` | Set Tax Profile |
+| `GET` | `/api/me/payments` | My Payments |
+| `GET` | `/api/me/payments/{payment_id}/invoice` | Payment Invoice |
+| `PUT` | `/api/me/preferences/language` | Set Language |
+| `DELETE` | `/api/me/privacy/account` | Privacy Delete |
+| `GET` | `/api/me/privacy/export` | Privacy Export |
+| `GET` | `/api/me/referral` | My Referral |
+| `POST` | `/api/me/referral/apply` | Apply Referral |
+| `GET` | `/api/me/referral/ledger` | My Referral Ledger |
+| `GET` | `/api/me/referral/withdrawals` | My Withdrawals |
+| `POST` | `/api/me/referral/withdrawals` | Request Withdrawal |
+| `GET` | `/api/me/remnawave/subscription` | My Remnawave Subscription |
+| `POST` | `/api/me/remnawave/subscription/refresh` | Refresh My Remnawave Subscription |
+| `GET` | `/api/me/routing/recommendation` | Routing Recommendation |
+| `GET` | `/api/me/security-center` | Security Center |
+| `POST` | `/api/me/security/revoke-all` | Revoke All User Sessions |
+| `GET` | `/api/me/servers` | My Servers |
+| `GET` | `/api/me/subscription` | My Subscription |
+| `GET` | `/api/me/subscription-file` | Subscription File |
+| `POST` | `/api/me/subscription/lifecycle` | Subscription Lifecycle |
+| `GET` | `/api/me/support/tickets` | My Support Tickets |
+| `POST` | `/api/me/support/tickets` | Create Support Ticket |
+| `GET` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Messages |
+| `POST` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Reply |
+| `GET` | `/api/me/traffic` | My Traffic |
+| `POST` | `/api/me/trial` | Claim Trial |
+| `GET` | `/api/me/v15/bootstrap` | V15 Bootstrap |
+| `POST` | `/api/me/v16/roaming` | Roaming |
+| `POST` | `/api/me/v16/tunnel-profile` | Tunnel Profile |
+| `GET` | `/api/me/wallet/history` | Wallet History |
+| `POST` | `/api/me/wallet/spend` | Wallet Spend |
+| `POST` | `/api/me/wallet/topup` | Wallet Topup |
+| `POST` | `/api/payments/create` | Create Payment |
+| `POST` | `/api/payments/mobile/verify` | Verify Mobile Purchase |
+| `GET` | `/api/payments/providers` | Payment Providers |
+| `POST` | `/api/payments/sandbox/complete` | Sandbox Complete |
+| `POST` | `/api/payments/webhooks/paypal` | Paypal Webhook |
+| `POST` | `/api/payments/webhooks/stripe` | Stripe Webhook |
+| `GET` | `/api/plans` | Plans |
+| `GET` | `/api/promo/validate` | Validate Promo |
+| `GET` | `/api/public/apps` | Public Apps |
+| `GET` | `/api/public/apps/install` | Public Install Guide |
+| `GET` | `/api/public/apps/{app_id}/download` | Public App Download |
+| `GET` | `/api/public/branding` | Public Branding |
+| `GET` | `/api/public/cabinet-menu` | Public Cabinet Menu |
+| `GET` | `/api/public/config` | Public Config |
+| `GET` | `/api/public/servers` | Public Servers |
+| `GET` | `/api/public/status` | Public Status |
+| `GET` | `/api/public/v15/privacy` | Public Privacy |
+| `GET` | `/api/public/v16/release` | Release |
+| `GET` | `/api/public/v6/status` | Public Status |
+| `GET` | `/api/reseller/branding` | Reseller Branding |
+| `GET` | `/api/reseller/catalog` | Reseller Catalog |
+| `GET` | `/api/reseller/stats` | Reseller Stats |
+| `GET` | `/api/tariff-constructors` | Public Constructors |
+| `GET` | `/api/v3/status` | V3 Status |
+| `POST` | `/api/webhooks/crypto` | Crypto Webhook |
+| `POST` | `/api/webhooks/platega` | Platega Webhook |
+| `POST` | `/api/webhooks/rollypay` | Rollypay Webhook |
+| `POST` | `/api/webhooks/yookassa` | Yookassa Webhook |
+| `GET` | `/health` | Health |
+| `GET` | `/health/live` | Health Live |
+| `GET` | `/health/ready` | Health Ready |
+| `GET` | `/metrics` | Metrics |

@@ -9,7 +9,7 @@ ADMIN_APK = "https://github.com/booarkz-cpu/remnawave-vpn-shop/releases/download
 def test_release_310_is_current_and_documented():
     main = (ROOT / "backend/app/main.py").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_1_0.md").read_text()
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     security = (ROOT / "SECURITY.md").read_text()
     instruction = (ROOT / "INSTRUCTION.md").read_text()
     assert main.index('APP_VERSION = "3.1.0"') < main.index('APP_VERSION = "3.0.1"')

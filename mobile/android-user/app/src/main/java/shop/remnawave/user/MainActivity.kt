@@ -104,11 +104,11 @@ class MainActivity : FragmentActivity() {
 }
 
 private fun shopColors() = darkColorScheme(
-    primary = Color(0xFF00E5C0),
-    onPrimary = Color(0xFF06221C),
-    background = Color(0xFF0B0F14),
+    primary = Color(0xFF8A79FF),
+    onPrimary = Color(0xFF18122D),
+    background = Color(0xFF0C1021),
     onBackground = Color(0xFFF4F7FB),
-    surface = Color(0xFF141A22),
+    surface = Color(0xFF151A31),
     onSurface = Color(0xFFF4F7FB),
 )
 
@@ -392,13 +392,13 @@ private fun UserApp() {
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 if (logo != null) Image(logo!!, contentDescription = t("app_name"), modifier = Modifier.size(48.dp))
-                Text(t("app_name"), style = MaterialTheme.typography.headlineSmall, color = Color(0xFF00E5C0))
+                Text(t("app_name"), style = MaterialTheme.typography.headlineSmall, color = Color(0xFF8A79FF))
                 TextButton(onClick = {
                     lang = nextLanguage(lang)
                     prefs.edit().putString("lang", lang).apply()
                 }) { Text(languageLabel(lang)) }
             }
-            Text(t("tagline"), color = Color(0xFF9AA6B2))
+            Text(t("tagline"), color = Color(0xFFA4AFD0))
             if (notice.isNotBlank()) Text(notice, color = Color(0xFFFFB020))
             if (token.isBlank()) {
                 OutlinedTextField(base, { base = it }, label = { Text(t("server")) }, modifier = Modifier.fillMaxWidth())

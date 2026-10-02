@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 import secrets
-from sqlalchemy import String, Integer, BigInteger, DateTime, Boolean, Numeric, Text, UniqueConstraint, JSON
+from sqlalchemy import String, Integer, BigInteger, DateTime, Boolean, Numeric, Text, UniqueConstraint, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
 
@@ -446,12 +446,24 @@ class SupportTicket(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+    __table_args__ = (UniqueConstraint("ticket_id", "role", "idempotency_key", name="uq_support_message_retry"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id", ondelete="CASCADE"), index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    idempotency_key: Mapped[str|None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
 class WithdrawalRequest(Base):
     __tablename__ = "withdrawal_requests"
+    __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_withdrawal_user_idempotency"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12,2), nullable=False)
     destination: Mapped[str] = mapped_column(String(255), nullable=False)
+    idempotency_key: Mapped[str|None] = mapped_column(String(128))
     status: Mapped[str] = mapped_column(String(32), default="requested", nullable=False)
     admin_note: Mapped[str|None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

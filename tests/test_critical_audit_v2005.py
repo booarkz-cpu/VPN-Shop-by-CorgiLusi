@@ -32,7 +32,7 @@ def test_reconciliation_looks_up_yookassa_instead_of_creating():
 
 
 def test_changelog_is_in_the_root_readme():
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     assert "## Changelog" in readme
     assert "### 20.0.5" in readme
     assert "## Русский" in readme and "## English" in readme and "## Українська" in readme

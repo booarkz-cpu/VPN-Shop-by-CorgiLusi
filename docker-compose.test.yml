@@ -103,7 +103,8 @@ services:
 
   miniapp:
     build:
-      context: ./miniapp
+      context: .
+      dockerfile: miniapp/Dockerfile
       args:
         VITE_API_URL: ""
     depends_on:

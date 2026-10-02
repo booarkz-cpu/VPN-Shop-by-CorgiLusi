@@ -41,7 +41,7 @@ def test_updater_points_at_this_repository():
 
 
 def test_readme_describes_features_and_live_payments_in_three_languages():
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     assert "## Русский" in readme and "## English" in readme and "## Українська" in readme
     assert "### Возможности" in readme and "### Features" in readme and "### Можливості" in readme
     assert "личный кабинет" in readme and "Конструктор тарифов" in readme

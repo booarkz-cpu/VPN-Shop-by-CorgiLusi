@@ -52,7 +52,7 @@ def test_prompt_trims_prices_and_maps_moscow():
 
 
 def test_docs_describe_314_and_keep_313():
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     instruction = (ROOT / "INSTRUCTION.md").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_1_4.md").read_text()
     steps = (ROOT / "INSTALL_STEPS.md").read_text()

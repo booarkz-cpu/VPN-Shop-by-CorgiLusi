@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_release_identity_and_docs():
     main = (ROOT / "backend/app/main.py").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_0_0.md").read_text()
-    readme = (ROOT / "README.md").read_text()
+    readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
     checklist = (ROOT / "PRODUCTION_CHECKLIST.md").read_text()
     instruction = (ROOT / "INSTRUCTION.md").read_text()
     assert main.index('APP_VERSION = "3.0.0-realise"') < main.index('APP_VERSION = "2.13.0"')

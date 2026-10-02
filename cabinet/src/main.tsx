@@ -1,11 +1,13 @@
 import React, {useEffect, useState} from "react";
 import {createRoot} from "react-dom/client";
 import "./style.css";
+import {Workspace} from "./workspace";
 import {DomLocalizer, LangProvider, detectLang, t, useLang} from "./i18n";
 
 const API = import.meta.env.VITE_API_URL || "";
+const MINI_APP = import.meta.env.VITE_SURFACE === "miniapp" || !!(window as any).__SHOP_SURFACE__ || !!(window as any).Telegram?.WebApp;
 
-type MenuKind = "overview" | "plans" | "trial" | "connection" | "support" | "servers" | "devices" | "custom";
+type MenuKind = "overview" | "plans" | "trial" | "connection" | "support" | "servers" | "devices" | "wallet" | "payments" | "gifts" | "referral" | "security" | "notifications" | "subscription" | "custom";
 type MenuItem = {slug: string; title: string; kind: MenuKind; body?: string};
 
 const FALLBACK_MENU: MenuItem[] = [
@@ -14,6 +16,13 @@ const FALLBACK_MENU: MenuItem[] = [
   {slug: "trial", title: "Пробный период", kind: "trial"},
   {slug: "connection", title: "Подключение", kind: "connection"},
   {slug: "servers", title: "Серверы", kind: "servers"},
+  {slug: "wallet", title: "Кошелёк", kind: "wallet"},
+  {slug: "subscription", title: "Моя подписка", kind: "subscription"},
+  {slug: "payments", title: "Платежи", kind: "payments"},
+  {slug: "gifts", title: "Подарки", kind: "gifts"},
+  {slug: "referral", title: "Реферальная программа", kind: "referral"},
+  {slug: "notifications", title: "Уведомления", kind: "notifications"},
+  {slug: "security", title: "Безопасность", kind: "security"},
   {slug: "support", title: "Поддержка", kind: "support"},
 ];
 
@@ -50,12 +59,12 @@ async function req(path: string, opts: RequestInit = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const r = await fetch(API + path, {...opts, headers, credentials: "include", signal: ctrl.signal});
+    const r = await fetch(API + path, {...opts, headers, credentials:"include", signal: ctrl.signal});
     let d: any = {};
     try {
       d = await r.json();
     } catch {}
-    if (!r.ok) throw Error(d.detail || d.message || `HTTP ${r.status}`);
+    if (!r.ok) throw Object.assign(Error(typeof d.detail==="string"?d.detail:d.message||`HTTP ${r.status}`), {status:r.status});
     return d;
   } finally {
     clearTimeout(timer);
@@ -131,14 +140,16 @@ function ServerList({servers}: {servers: any}) {
   );
 }
 
-function withServers(list: MenuItem[]) {
-  if (list.some((item) => item.kind === "servers")) return list;
-  const next = list.slice();
-  const at = next.findIndex((item) => item.kind === "support");
-  const item: MenuItem = {slug: "servers", title: "Серверы", kind: "servers"};
-  if (at >= 0) next.splice(at, 0, item);
-  else next.push(item);
-  return next;
+function withServers(items: MenuItem[]) {
+  const seenKinds = new Set<string>(), seenSlugs = new Set<string>();
+  const result = items.filter(item => {
+    if(seenSlugs.has(item.slug) || (item.kind!=="custom"&&seenKinds.has(item.kind)))return false;
+    seenSlugs.add(item.slug);seenKinds.add(item.kind);return true;
+  });
+  for(const item of [...FALLBACK_MENU,{slug:"devices",title:"Устройства",kind:"devices" as MenuKind}]){
+    if(!seenKinds.has(item.kind)&&!seenSlugs.has(item.slug)){result.push(item);seenKinds.add(item.kind);seenSlugs.add(item.slug)}
+  }
+  return result;
 }
 
 function AppsNotice({apps, lang}: {apps: any[]; lang: string}) {
@@ -190,14 +201,14 @@ function App() {
 
   const [cfg, setCfg] = useState<any>({});
   const [menu, setMenu] = useState<MenuItem[]>(FALLBACK_MENU);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(location.hash.slice(1)||"overview");
   const [dash, setDash] = useState<any>();
   const [plans, setPlans] = useState<any[]>([]);
   const [constructors, setConstructors] = useState<any[]>([]);
   const [pick, setPick] = useState<Record<number, Record<string, number>>>({});
   const [servers, setServers] = useState<any>();
   const [provider, setProvider] = useState("");
-  const [promo, setPromo] = useState("");
+  const [promo, setPromo] = useState(new URLSearchParams(location.search).get("promo")||"");
   const [connection, setConnection] = useState<any>();
   const [platform, setPlatform] = useState<string>("android");
   const [ticket, setTicket] = useState({subject: "", message: ""});
@@ -212,6 +223,10 @@ function App() {
     setMsg(text);
     setMsgError(error);
   }
+
+  useEffect(()=>{const change=()=>setTab(location.hash.slice(1)||"overview");window.addEventListener("hashchange",change);return()=>window.removeEventListener("hashchange",change)},[]);
+  useEffect(()=>{if(menu.some(m=>m.slug===tab))history.replaceState(null,"",`#${tab}`)},[tab,menu]);
+  useEffect(()=>{if(!drawerOpen)return;const close=(e:KeyboardEvent)=>{if(e.key==="Escape")setDrawerOpen(false)};window.addEventListener("keydown",close);return()=>window.removeEventListener("keydown",close)},[drawerOpen]);
 
   async function loadPublic() {
     try {
@@ -318,6 +333,11 @@ function App() {
           history.replaceState({}, "", url.pathname + url.search + url.hash);
         }
         await loadSession();
+        const gift=params.get("gift");
+        if(gift){
+          try{await req("/api/me/gifts/redeem",{method:"POST",body:JSON.stringify({code:gift})});flash("Подарок активирован");await loadSession()}catch(e:any){flash(e.message,true)}
+          const url=new URL(location.href);url.searchParams.delete("gift");history.replaceState(null,"",url.pathname+url.search+url.hash);
+        }
         if (sandboxPayment) {
           try {
             await req("/api/payments/sandbox/complete", {
@@ -488,7 +508,14 @@ function App() {
     ...Object.keys(platforms).filter((k) => !(PLATFORM_ORDER as readonly string[]).includes(k)),
   ];
   const apiGuide = platforms[platform] ? String(platforms[platform]) : "";
-  const guideText = PLATFORM_GUIDES[platform] || apiGuide;
+  const guideText = apiGuide || PLATFORM_GUIDES[platform] || "";
+  const m=cfg.miniapp||{};
+  function mediaUrl(value:string){if(!value)return "";try{const url=new URL(value,location.origin);return url.protocol==="https:" || (url.origin===location.origin&&url.pathname.startsWith("/media/")) ? url.href : ""}catch{return ""}}
+  function runButton(button:any){
+    if(button.type==="url"){const url=mediaUrl(button.url||"");if(url)window.open(url,"_blank","noopener,noreferrer")}
+    else if(button.type==="plans"||button.type==="promo"){const plansTab=menu.find(x=>x.kind==="plans");if(plansTab)setTab(plansTab.slug);if(button.type==="promo")setPromo(button.code||"")}
+    else if(button.type==="field")document.getElementById(`field-${button.field_key}`)?.scrollIntoView({behavior:"smooth"});
+  }
 
   if (booting) {
     return (
@@ -519,11 +546,17 @@ function App() {
           </div>
         </div>
 
-        <header className="hero">
-          <h1>{brand}</h1>
+        <header className="hero" style={MINI_APP&&mediaUrl(m.background_image)?{backgroundImage:`url(${mediaUrl(m.background_image)})`,backgroundSize:"cover"}:undefined}>
+          <h1>{MINI_APP&&m.title?m.title:brand}</h1>
           <p>{authed ? "Управляйте подпиской, тарифами и подключением" : "Безопасный доступ к сети"}</p>
         </header>
         <AppsNotice apps={shopApps} lang={lang} />
+        {MINI_APP&&(m.image||m.instructions||(m.buttons||[]).length>0)&&<section className="miniapp-extras form-card">
+          {mediaUrl(m.image)&&<img src={mediaUrl(m.image)} alt="" className="miniapp-banner"/>}
+          {m.subtitle&&<h2>{m.subtitle}</h2>}{m.instructions&&<p>{m.instructions}</p>}
+          <div className="btn-row">{(m.buttons||[]).map((button:any,i:number)=><button type="button" className="btn-ghost" key={i} onClick={()=>runButton(button)}>{button.title}</button>)}</div>
+          {(cfg.fields||[]).map((field:any)=><div id={`field-${field.key}`} key={field.key}><h3>{field.label}</h3><p>{field.value}</p></div>)}
+        </section>}
 
         {!authed ? (
           <section className="auth-layout">
@@ -637,7 +670,7 @@ function App() {
                 </nav>
                 <div className="sidebar-status">
                   <span className="status-pulse" />
-                  <span>Сервис доступен</span>
+                  <span>Ваш личный кабинет</span>
                 </div>
               </aside>
 
@@ -690,6 +723,7 @@ function App() {
                       <span className="value">{dash?.user?.referral_code || "—"}</span>
                     </div>
                   </div>
+                  {subUrl&&<img className="connection-qr" src={API+"/api/me/connection-qr"} alt="QR-код вашей подписки"/>}
                   <h3 className="section-title" style={{marginTop: 22, fontSize: "1.1rem"}}>Серверы</h3>
                   <ServerList servers={servers} />
                 </>
@@ -738,6 +772,7 @@ function App() {
                     ))}
                     {!plans.length && <p className="section-sub">Выберите тариф</p>}
                   </div>
+                  {!!constructors.length&&<h3 className="section-title">Конструктор тарифов</h3>}
                   {constructors.map((row) => {
                     const selected = pick[row.id] || defaultPick(row);
                     const total = constructorTotal(row, selected);
@@ -830,6 +865,7 @@ function App() {
                   ) : (
                     <p className="section-sub">Ссылка подписки пока недоступна</p>
                   )}
+                  {subUrl&&<img className="connection-qr" src={API+"/api/me/connection-qr"} alt="QR-код вашей подписки"/>}
                   <h3 className="section-title" style={{marginTop: 22, fontSize: "1.1rem"}}>
                     Инструкции по устройствам
                   </h3>
@@ -873,35 +909,10 @@ function App() {
                 </>
               )}
 
-              {activeItem?.kind === "support" && (
-                <>
-                  <h2 className="section-title">Поддержка</h2>
-                  <p className="section-sub">Создайте обращение в службу поддержки</p>
-                  <form className="form-card stack" onSubmit={sendTicket}>
-                    <label className="field">
-                      Тема
-                      <input
-                        required
-                        value={ticket.subject}
-                        onChange={(e) => setTicket({...ticket, subject: e.target.value})}
-                        placeholder="Тема"
-                      />
-                    </label>
-                    <label className="field">
-                      Сообщение
-                      <textarea
-                        required
-                        value={ticket.message}
-                        onChange={(e) => setTicket({...ticket, message: e.target.value})}
-                        placeholder="Сообщение"
-                      />
-                    </label>
-                    <button className="btn-primary" type="submit" disabled={busy}>
-                      Создать тикет
-                    </button>
-                  </form>
-                </>
-              )}
+              {["wallet","payments","gifts","referral","subscription","security","notifications","support"].includes(activeItem?.kind||"") && <>
+                <h2 className="section-title">{activeItem.title}</h2>
+                <Workspace key={activeItem.kind} kind={activeItem.kind} request={req} reload={loadSession} plans={plans} provider={provider} botUsername={cfg.bot_username||""} providers={(cfg.payment_providers||[]).filter((p:string)=>["yookassa","rollypay","platega","sandbox"].includes(p))} currency={currency} api={API}/>
+              </>}
 
               {activeItem?.kind === "custom" && (
                 <>
