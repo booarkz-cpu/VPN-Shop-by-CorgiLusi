@@ -5,7 +5,7 @@ from pydantic import BaseModel,Field
 from sqlalchemy import select,func,update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .db import get_db
-from .models import User,Subscription,Payment,Plan,UserDevice,GiftRedemption
+from .models import User,Subscription,Payment,Plan,UserDevice,GiftRedemption,EntitlementOperation
 router=APIRouter()
 
 
@@ -41,13 +41,31 @@ async def reserve_target(db,user,plan_id,payload):
         db.add(sub);await db.flush()
         if primary is None:
             await db.execute(update(UserDevice).where(UserDevice.user_id==user.id,UserDevice.subscription_id.is_(None)).values(subscription_id=sub.id))
-    await ensure_no_pending_gift(db,sub.id)
+    await ensure_no_pending_purchase(db,sub.id)
     return sub
 
 
 async def ensure_no_pending_gift(db,subscription_id):
     pending=await db.scalar(select(GiftRedemption.id).where(GiftRedemption.subscription_id==subscription_id,GiftRedemption.status!='completed').limit(1))
     if pending:raise HTTPException(409,'Завершите активацию ранее принятого подарка')
+
+
+async def ensure_no_pending_purchase(db,subscription_id):
+    """Call under the owner row lock before accepting a new entitlement purchase.
+
+    A paid grant or uncertain absolute remote update must settle before another
+    purchase can freeze terms for the same profile. Other profiles stay available.
+    Existing idempotent retries are resolved before this check by each caller.
+    """
+    await ensure_no_pending_gift(db,subscription_id)
+    operation=await db.scalar(select(EntitlementOperation.id).where(
+        EntitlementOperation.subscription_id==subscription_id,
+        EntitlementOperation.status.in_(('queued','applying','refund_pending'))).limit(1))
+    payment=await db.scalar(select(Payment.id).where(
+        Payment.subscription_id==subscription_id,
+        Payment.status.in_(('paid','fulfilled')),
+        Payment.fulfillment_status!='completed').limit(1))
+    if operation or payment:raise HTTPException(409,'Предыдущая покупка ещё обрабатывается')
 
 
 def check_retry(payment,payload):

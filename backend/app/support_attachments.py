@@ -107,3 +107,21 @@ async def customer_remove(attachment_id:int,request:Request,db:AsyncSession=Depe
 @router.delete('/api/admin/support/attachments/{attachment_id}')
 async def admin_remove(attachment_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission('support.write'))):
     return await remove_draft(db,attachment_id,f'admin:{admin.email}')
+
+async def drafts(db,ticket_id,actor):
+    rows=(await db.execute(select(SupportAttachment).where(
+        SupportAttachment.ticket_id==ticket_id,SupportAttachment.actor==actor,
+        SupportAttachment.message_id.is_(None)).order_by(SupportAttachment.id))).scalars().all()
+    return [metadata(item) for item in rows]
+
+@router.get('/api/me/support/tickets/{ticket_id}/attachments/drafts')
+async def customer_drafts(ticket_id:int,request:Request,db:AsyncSession=Depends(get_db)):
+    user=await customer(request,db)
+    ticket=await db.scalar(select(SupportTicket).where(SupportTicket.id==ticket_id,SupportTicket.user_id==user.id))
+    if not ticket:raise HTTPException(404,'Обращение не найдено')
+    return await drafts(db,ticket_id,f'customer:{user.id}')
+
+@router.get('/api/admin/support/tickets/{ticket_id}/attachments/drafts')
+async def admin_drafts(ticket_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission('support.write'))):
+    if not await db.get(SupportTicket,ticket_id):raise HTTPException(404,'Обращение не найдено')
+    return await drafts(db,ticket_id,f'admin:{admin.email}')

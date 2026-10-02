@@ -227,3 +227,16 @@ async def test_postgres_privacy_disables_all_profiles_and_erases_names_and_files
     rows=(await database.execute(select(Subscription).where(Subscription.user_id==1))).scalars().all()
     assert all(x.name=='Подписка' and x.remnawave_uuid is None and not x.auto_renew_enabled for x in rows)
     assert await database.scalar(select(func.count()).select_from(SupportAttachment))==0
+
+@pytest.mark.asyncio
+async def test_unsettled_purchase_blocks_only_its_profile(database):
+    owner=await database.get(User,1)
+    payment=Payment(user_id=1,subscription_id=1,plan_id=1,provider='wallet',order_id='unsettled',amount=10,currency='RUB',status='paid',fulfillment_status='pending')
+    database.add(payment);await database.commit()
+    with pytest.raises(HTTPException) as error:
+        await profiles.reserve_target(database,owner,1,{'subscription_id':1})
+    assert error.value.status_code==409
+    independent=await profiles.reserve_target(database,owner,1,{'new_subscription':True})
+    assert independent.id!=1
+    payment.fulfillment_status='completed';await database.commit()
+    assert (await profiles.reserve_target(database,owner,1,{'subscription_id':1})).id==1

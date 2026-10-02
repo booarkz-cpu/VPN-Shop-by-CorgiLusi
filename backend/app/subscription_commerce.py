@@ -186,10 +186,8 @@ async def purchase_change(payload:PurchaseIn,request:Request,db:AsyncSession=Dep
     if quote.expires_at<=datetime.utcnow() or quote.currency!=settings.default_currency:raise HTTPException(409,"Расчёт истёк; запросите новый")
     sub=await _subscription(db,user.id,quote.subscription_id,lock=True)
     if entitlement_state(sub)!=quote.before:raise HTTPException(409,"Условия подписки изменились; запросите новый расчёт")
-    from .subscriptions import ensure_no_pending_gift
-    await ensure_no_pending_gift(db,sub.id)
-    pending=await db.scalar(select(EntitlementOperation.id).where(EntitlementOperation.subscription_id==sub.id,EntitlementOperation.status.in_(("queued","applying","refund_pending"))).limit(1))
-    if pending:raise HTTPException(409,"Предыдущая операция ещё обрабатывается")
+    from .subscriptions import ensure_no_pending_purchase
+    await ensure_no_pending_purchase(db,sub.id)
     if Decimal(user.wallet_balance or 0)<quote.amount:raise HTTPException(402,"Недостаточно средств в кошельке")
     if (await _risk_score(db,user,quote.amount,request))[1]=="block":raise HTTPException(403,"Операция отклонена системой защиты")
     payment=Payment(user_id=user.id,subscription_id=sub.id,plan_id=quote.after["plan_id"],provider="wallet",order_id="adjust-"+quote.id,

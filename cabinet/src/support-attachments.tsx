@@ -15,8 +15,14 @@ export function AttachmentUpload({ticketId,prefix='me',request,value,onChange,on
    const item=await request(`/api/${prefix}/support/tickets/${ticketId}/attachments`,{method:'POST',headers:{'Idempotency-Key':keys.current[fingerprint]},body:JSON.stringify({name:file.name,content_base64:content})});next.push(item);onChange([...next]);
   }}catch(e:any){setError(e.message)}finally{locked.current=false;setBusy(false);onBusyChange?.(false)}
  }
+ async function recover(){
+  if(locked.current)return;locked.current=true;setBusy(true);onBusyChange?.(true);setError('');
+  try{const items=await request(`/api/${prefix}/support/tickets/${ticketId}/attachments/drafts`);
+   onChange(items);if(items.length>3)setError('Удалите лишние файлы: к сообщению можно прикрепить до трёх вложений');
+  }catch(e:any){setError(e.message)}finally{locked.current=false;setBusy(false);onBusyChange?.(false)}
+ }
  async function remove(id:number){if(busy)return;setBusy(true);onBusyChange?.(true);setError('');try{await request(`/api/${prefix}/support/attachments/${id}`,{method:'DELETE'});onChange(value.filter(v=>v.id!==id))}catch(e:any){setError(e.message)}finally{setBusy(false);onBusyChange?.(false)}}
- return <div className="support-attachments"><label>Вложения · PNG, JPEG, PDF, TXT · до 2 МБ<input type="file" accept=".png,.jpg,.jpeg,.pdf,.txt" multiple disabled={disabled||busy||value.length>=3} onChange={e=>{upload(e.target.files);e.target.value=''}}/></label>{busy&&<p role="status">Загрузка вложений…</p>}{error&&<p role="alert">{error}</p>}{value.map(x=><div key={x.id}>{x.name} · {Math.ceil(x.size/1024)} КБ <button type="button" disabled={disabled||busy} onClick={()=>remove(x.id)}>Убрать из сообщения</button></div>)}</div>;
+ return <div className="support-attachments"><button type="button" disabled={disabled||busy} onClick={recover}>Восстановить загруженные файлы</button><label>Вложения · PNG, JPEG, PDF, TXT · до 2 МБ<input type="file" accept=".png,.jpg,.jpeg,.pdf,.txt" multiple disabled={disabled||busy||value.length>=3} onChange={e=>{upload(e.target.files);e.target.value=''}}/></label>{busy&&<p role="status">Загрузка вложений…</p>}{error&&<p role="alert">{error}</p>}{value.map(x=><div key={x.id}>{x.name} · {Math.ceil(x.size/1024)} КБ <button type="button" disabled={disabled||busy} onClick={()=>remove(x.id)}>Убрать из сообщения</button></div>)}</div>;
 }
 export function AttachmentFiles({files=[],prefix='me',request}:{files?:any[];prefix?:string;request:RequestFn}){
  const [error,setError]=useState(''),[busy,setBusy]=useState(false);
