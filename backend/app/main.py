@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, desc, or_
+from sqlalchemy import select, func, desc, or_, bindparam
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text as sql_text
@@ -30,7 +30,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "20.0.29"
+APP_VERSION = "21.0.0-alpha.1"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -73,6 +73,7 @@ logger = logging.getLogger("remnawave")
 app = FastAPI(title="VPN Shop by Corgi Lusi API", version=APP_VERSION, docs_url=None, redoc_url=None, openapi_url=None)
 from .cabinet_api import router as cabinet_router
 from .customer_workspace_api import router as customer_workspace_router
+from .subscription_commerce import router as subscription_commerce_router
 from .mobile_api import router as mobile_router
 from .production_api import router as production_router
 from .production_launch_api import router as production_launch_router
@@ -85,6 +86,7 @@ from .remnawave_shop_api import router as remnawave_shop_router
 from .marketplace_api import router as marketplace_router
 app.include_router(cabinet_router)
 app.include_router(customer_workspace_router)
+app.include_router(subscription_commerce_router)
 app.include_router(mobile_router)
 app.include_router(production_router)
 app.include_router(production_launch_router)
@@ -374,10 +376,10 @@ async def record_financial_event(db: AsyncSession, *, operation_key: str, user_i
     if amount <= 0 or direction not in {"credit", "debit"}:
         raise ValueError("Invalid financial ledger entry")
     row = FinancialLedger(operation_key=operation_key, user_id=user_id, payment_id=payment_id, kind=kind, direction=direction, amount=amount, currency=currency, metadata_json=json.dumps(metadata or {}, ensure_ascii=False))
-    stmt = sql_text("""INSERT INTO financial_ledger (operation_key,user_id,payment_id,kind,direction,amount,currency,metadata_json)
-        VALUES (:operation_key,:user_id,:payment_id,:kind,:direction,:amount,:currency,:metadata_json)
-        ON CONFLICT (operation_key) DO NOTHING RETURNING id""")
-    result = await db.execute(stmt, {"operation_key": operation_key, "user_id": user_id, "payment_id": payment_id, "kind": kind, "direction": direction, "amount": amount, "currency": currency, "metadata_json": row.metadata_json})
+    stmt = sql_text("""INSERT INTO financial_ledger (operation_key,user_id,payment_id,kind,direction,amount,currency,metadata_json,created_at)
+        VALUES (:operation_key,:user_id,:payment_id,:kind,:direction,:amount,:currency,:metadata_json,:created_at)
+        ON CONFLICT (operation_key) DO NOTHING RETURNING id""").bindparams(bindparam("amount", type_=FinancialLedger.__table__.c.amount.type), bindparam("created_at", type_=FinancialLedger.__table__.c.created_at.type))
+    result = await db.execute(stmt, {"operation_key": operation_key, "user_id": user_id, "payment_id": payment_id, "kind": kind, "direction": direction, "amount": amount, "currency": currency, "metadata_json": row.metadata_json, "created_at": datetime.utcnow()})
     if result.first() is not None:
         await db.flush()
         return row
@@ -1383,6 +1385,10 @@ async def _confirm_and_fulfill_payment(payment_id:int, db:AsyncSession):
         await _release_payment_side_effect_lock(user_lock,user_token)
 
 async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str|None = None):
+    from .subscription_commerce import KINDS, apply_change
+    commerce_payment = await db.get(Payment, payment_id)
+    if commerce_payment and commerce_payment.purpose in KINDS:
+        return await apply_change(payment_id, db)
     if redis_client is None:
         raise RuntimeError("Redis is required for fulfillment locking")
     # Global lock order: user -> payment. Auto-renew already owns the user lock
@@ -1481,6 +1487,7 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
                 sub.remnawave_uuid=sub.remnawave_uuid or f"sandbox-user-{user.id}"
                 sub.expires_at=expires
                 sub.lifecycle_status="active"
+                sub.unit_price_per_day=Decimal(payment.amount)/Decimal(duration_days)
                 sub.traffic_limit_gb_snapshot=traffic_limit_gb
                 sub.device_limit_snapshot=payment.device_limit_snapshot
                 sub.remnawave_profile_id_snapshot=profile_id
@@ -1515,6 +1522,7 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
                 rw_sub=await rw.get_subscription(sub.remnawave_uuid)
                 verified_expiry=extension.get("expires_at") if isinstance(extension,dict) else None
                 sub.plan_id=plan.id; sub.expires_at=max(expected_after,verified_expiry or expected_after)
+                sub.unit_price_per_day=Decimal(payment.amount)/Decimal(duration_days)
                 sub.traffic_limit_gb_snapshot=traffic_limit_gb
                 sub.device_limit_snapshot=payment.device_limit_snapshot
                 sub.remnawave_profile_id_snapshot=profile_id
@@ -1549,6 +1557,7 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
                 if not sub:
                     sub=Subscription(user_id=user.id,plan_id=plan.id); db.add(sub)
                 sub.plan_id=plan.id; sub.remnawave_uuid=str(data.get("id")); sub.expires_at=final_remote_expiry
+                sub.unit_price_per_day=Decimal(payment.amount)/Decimal(duration_days)
                 sub.traffic_limit_gb_snapshot=traffic_limit_gb
                 sub.device_limit_snapshot=payment.device_limit_snapshot
                 sub.remnawave_profile_id_snapshot=profile_id
@@ -2360,7 +2369,7 @@ async def redeem_gift(payload:GiftRedeemIn,request:Request,db:AsyncSession=Depen
             try:
                 await RemnawaveClient().update_entitlements(sub.remnawave_uuid,plan.traffic_limit_gb,plan.remnawave_profile_id)
                 await RemnawaveClient().extend_idempotent(sub.remnawave_uuid,days,before,after)
-                sub.plan_id=plan.id; sub.expires_at=after; sub.lifecycle_status="active"; sub.grace_until=None; sub.traffic_limit_gb_snapshot=plan.traffic_limit_gb; sub.device_limit_snapshot=plan.device_limit; sub.remnawave_profile_id_snapshot=plan.remnawave_profile_id
+                sub.unit_price_per_day=Decimal(0); sub.plan_id=plan.id; sub.expires_at=after; sub.lifecycle_status="active"; sub.grace_until=None; sub.traffic_limit_gb_snapshot=plan.traffic_limit_gb; sub.device_limit_snapshot=plan.device_limit; sub.remnawave_profile_id_snapshot=plan.remnawave_profile_id
             except Exception as exc:
                 redemption.status="failed"; redemption.error=str(exc)[:1000]; await db.commit(); raise HTTPException(503,"Gift provisioning is temporarily unavailable") from exc
         else:
@@ -2376,7 +2385,7 @@ async def redeem_gift(payload:GiftRedeemIn,request:Request,db:AsyncSession=Depen
                 try:
                     await RemnawaveClient().update_entitlements(remote_id,plan.traffic_limit_gb,plan.remnawave_profile_id)
                     if not remote_before or remote_before < after: await RemnawaveClient().extend_idempotent(remote_id,days,before,after)
-                    sub=Subscription(user_id=user.id,plan_id=plan.id,remnawave_uuid=remote_id,expires_at=after,lifecycle_status="active",traffic_limit_gb_snapshot=plan.traffic_limit_gb,device_limit_snapshot=plan.device_limit,remnawave_profile_id_snapshot=plan.remnawave_profile_id); db.add(sub)
+                    sub=Subscription(user_id=user.id,plan_id=plan.id,remnawave_uuid=remote_id,expires_at=after,lifecycle_status="active",unit_price_per_day=Decimal(0),traffic_limit_gb_snapshot=plan.traffic_limit_gb,device_limit_snapshot=plan.device_limit,remnawave_profile_id_snapshot=plan.remnawave_profile_id); db.add(sub)
                 except Exception as exc:
                     redemption.status="failed"; redemption.error=str(exc)[:1000]; await db.commit(); raise HTTPException(503,"Gift provisioning is temporarily unavailable") from exc
             else:
@@ -2387,7 +2396,7 @@ async def redeem_gift(payload:GiftRedeemIn,request:Request,db:AsyncSession=Depen
                     remote_id=str(data.get("id"))
                     if not remote_id: raise RuntimeError("Remnawave returned no user id")
                     redemption.remote_user_id=remote_id
-                    sub=Subscription(user_id=user.id,plan_id=plan.id,remnawave_uuid=remote_id,expires_at=expires,lifecycle_status="active",traffic_limit_gb_snapshot=plan.traffic_limit_gb,device_limit_snapshot=plan.device_limit,remnawave_profile_id_snapshot=plan.remnawave_profile_id); db.add(sub)
+                    sub=Subscription(user_id=user.id,plan_id=plan.id,remnawave_uuid=remote_id,expires_at=expires,lifecycle_status="active",unit_price_per_day=Decimal(0),traffic_limit_gb_snapshot=plan.traffic_limit_gb,device_limit_snapshot=plan.device_limit,remnawave_profile_id_snapshot=plan.remnawave_profile_id); db.add(sub)
                 except Exception as exc:
                     redemption.status="failed"; redemption.error=str(exc)[:1000]; await db.commit(); raise HTTPException(503,"Gift provisioning is temporarily unavailable") from exc
         redemption.status="completed"; code.used_count+=1

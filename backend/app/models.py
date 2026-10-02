@@ -84,11 +84,50 @@ class Subscription(Base):
     traffic_limit_gb_snapshot: Mapped[int|None] = mapped_column(Integer)
     device_limit_snapshot: Mapped[int|None] = mapped_column(Integer)
     remnawave_profile_id_snapshot: Mapped[str|None] = mapped_column(String(255))
+    unit_price_per_day: Mapped[Decimal|None] = mapped_column(Numeric(18,8))
     lifecycle_status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     grace_until: Mapped[datetime|None] = mapped_column(DateTime)
     scheduled_cancel_at: Mapped[datetime|None] = mapped_column(DateTime)
     cancelled_at: Mapped[datetime|None] = mapped_column(DateTime)
     last_renewal_failure_at: Mapped[datetime|None] = mapped_column(DateTime)
+
+class TrafficPackage(Base):
+    __tablename__ = "traffic_packages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    traffic_gb: Mapped[int] = mapped_column(Integer, nullable=False)
+    price: Mapped[Decimal] = mapped_column(Numeric(12,2), nullable=False)
+    plan_id: Mapped[int|None] = mapped_column(Integer)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+class EntitlementQuote(Base):
+    __tablename__ = "entitlement_quotes"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    subscription_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12,2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    before: Mapped[dict] = mapped_column(JSON, nullable=False)
+    after: Mapped[dict] = mapped_column(JSON, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+class EntitlementOperation(Base):
+    __tablename__ = "entitlement_operations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    quote_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    payment_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    subscription_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    before: Mapped[dict] = mapped_column(JSON, nullable=False)
+    after: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False)
+    error: Mapped[str|None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at: Mapped[datetime|None] = mapped_column(DateTime)
 
 class AdminUser(Base):
     __tablename__ = "admin_users"
@@ -106,7 +145,7 @@ class AdminUser(Base):
 
 class FinancialLedger(Base):
     __tablename__ = "financial_ledger"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     operation_key: Mapped[str] = mapped_column(String(160), unique=True, index=True, nullable=False)
     user_id: Mapped[int|None] = mapped_column(Integer, index=True)
     payment_id: Mapped[int|None] = mapped_column(Integer, index=True)

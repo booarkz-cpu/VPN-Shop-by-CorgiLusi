@@ -1,5 +1,5 @@
 {
-  "version": "20.0.29",
+  "version": "21.0.0-alpha.1",
   "legacy_v3_1_5_contract": {
     "version": "3.1.5"
   },
@@ -68,7 +68,7 @@
   "legacy_v2_0_2_contract": {
     "version": "2.0.2-audited"
   },
-  "artifact": "remnawave_vpn_shop_v3_1_6_full_release.zip",
+  "artifact": "remnawave_vpn_shop_v21_0_0-alpha_1_full_release.zip",
   "legacy_v3_1_5_artifact": "remnawave_vpn_shop_v3_1_5_full_release.zip",
   "legacy_v3_1_4_artifact": "remnawave_vpn_shop_v3_1_4_full_release.zip",
   "legacy_v3_1_3_artifact": "remnawave_vpn_shop_v3_1_3_full_release.zip",
@@ -90,7 +90,7 @@
   "legacy_v2_3_0_artifact": "remnawave_vpn_shop_v2_3_0_full_release.zip",
   "legacy_v2_2_1_artifact": "remnawave_vpn_shop_v2_2_1_full_release.zip",
   "sha256": null,
-  "migration_head": "0038_v2_6_0_platform",
+  "migration_head": "0044_subscription_commerce",
   "previous_migration_head_v2_5_0": "0037_v2_5_0_tariff_constructor",
   "previous_migration_head_v2_4_0": "0036_v2_4_0_cabinet",
   "previous_migration_head_v2_3_0": "0035_v2_3_0_wallet_gifts",
@@ -156,5 +156,8 @@
   "previous_release_migration_head": "0032_v2_0_0_product_features",
   "legacy_previous_release_contract": {
     "version": "2.0.0-realise"
-  }
+  },
+  "prerelease": true,
+  "full_function_transfer": false,
+  "production_e2e_verified": false
 }

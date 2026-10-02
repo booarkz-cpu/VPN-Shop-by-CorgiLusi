@@ -5,7 +5,7 @@ cd "$ROOT"
 # Historical release: VERSION="39.0.0-production" artifact=remnawave_vpn_shop_v39_production.zip migration=0017_v39_staging_isolation
 # Previous release contract: VERSION="1.0.1-realise" artifact=remnawave_vpn_shop_v1_0_1_realise_deep_audited_fixed.zip
 # Legacy regression markers: VERSION="1.0.0-realise" artifact=remnawave_vpn_shop_v1_0_0_realise_deep_audited_fixed.zip
-VERSION="20.0.29"
+VERSION="21.0.0-alpha.1"
 # Historical compatibility marker: VERSION="20.0.12"
 # Historical compatibility marker: VERSION="20.0.11"
 # Historical compatibility marker: VERSION="20.0.10"
@@ -44,7 +44,7 @@ VERSION="20.0.29"
 # Legacy regression contract marker: VERSION="1.0.0-realise"
 # Previous release contract: VERSION="45.0.0-enterprise" artifact=remnawave_vpn_shop_v44_5_9_enterprise_deep_audited_fixed.zip
 # Previous migration head retained for compatibility: 0030_v44_5_16_privacy_and_refund_integrity
-# Current migration head: 0038_v2_6_0_platform
+# Current migration head: 0044_subscription_commerce
 # Historical compatibility marker: 2.9.0 keeps migration 0038_v2_6_0_platform
 # Historical compatibility marker: 2.8.0 keeps migration 0038_v2_6_0_platform
 # Historical compatibility marker: 2.7.0 keeps migration 0038_v2_6_0_platform
@@ -55,7 +55,7 @@ VERSION="20.0.29"
 # Historical compatibility marker: 0032_v2_0_0_product_features
 # VERSION="43.1.0-production" legacy regression marker
 # migration_head="0021_v43_hardening_docs" legacy regression marker
-ARTIFACT="remnawave_vpn_shop_v20_0_24_full_release.zip"
+ARTIFACT="remnawave_vpn_shop_v21_0_0-alpha_1_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_6_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_5_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_4_full_release.zip"
@@ -100,7 +100,7 @@ fi
 python - "$VERSION" "$ARTIFACT" <<'PY'
 import json,sys
 p='release-manifest.template.json'
-m=json.load(open(p)); m['sha256']=None; m['tests']=None; m['artifact']=sys.argv[2]; m['version']=sys.argv[1]; m['migration_head']='0038_v2_6_0_platform'; m['detached_manifest']=sys.argv[2].removesuffix('.zip')+'_manifest.json'; m['signed']=False
+m=json.load(open(p)); m['sha256']=None; m['tests']=None; m['artifact']=sys.argv[2]; m['version']=sys.argv[1]; m['migration_head']=__import__('alembic.script',fromlist=['ScriptDirectory']).ScriptDirectory('backend/alembic').get_current_head(); m['detached_manifest']=sys.argv[2].removesuffix('.zip')+'_manifest.json'; m['signed']=False
 m['note']='Template only. The exact release manifest is shipped as a detached file next to the ZIP because embedding the ZIP SHA inside the ZIP is self-referential.'
 json.dump(m,open(p,'w'),ensure_ascii=False,indent=2); open(p,'a').write('\n')
 PY
