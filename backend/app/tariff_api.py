@@ -247,7 +247,7 @@ async def my_servers(request: Request, db: AsyncSession = Depends(get_db)):
 
     user = await user_from_token(request, db)
     status = await remnawave_server_status("user")
-    sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id))).scalar_one_or_none()
+    sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id,Subscription.is_primary.is_(True)))).scalar_one_or_none()
     now = datetime.utcnow()
     lifecycle = (sub.lifecycle_status if sub else "") or ""
     status["subscription_active"] = bool(

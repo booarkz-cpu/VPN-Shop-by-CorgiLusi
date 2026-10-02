@@ -20,7 +20,7 @@ def test_recovery_code_consumption_locks_admin_row():
 
 def test_subscription_uses_immutable_device_entitlement_snapshot():
     assert 'device_limit_snapshot: Mapped[int|None]' in MODELS
-    assert 'device_limit=sub.device_limit_snapshot if sub.device_limit_snapshot is not None else (plan.device_limit if plan else None)' in MAIN
+    assert 'device_limit=sub.device_limit_snapshot if sub.device_limit_snapshot is not None or sub.unit_price_per_day is not None else (plan.device_limit if plan else None)' in MAIN
     assert 'sub.device_limit_snapshot=payment.device_limit_snapshot' in MAIN
     assert 'sub.traffic_limit_gb_snapshot=payment.traffic_limit_gb_snapshot' not in MAIN  # runtime uses resolved traffic value
 

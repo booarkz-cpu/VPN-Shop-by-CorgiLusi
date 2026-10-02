@@ -47,7 +47,7 @@ async def _owner(request,db):
 
 async def _subscription(db,user_id,subscription_id=None,lock=False):
     query=select(Subscription).where(Subscription.user_id==user_id)
-    if subscription_id is not None:query=query.where(Subscription.id==subscription_id)
+    query=query.where(Subscription.id==subscription_id) if subscription_id is not None else query.where(Subscription.is_primary.is_(True))
     if lock:query=query.execution_options(populate_existing=True).with_for_update()
     sub=await db.scalar(query)
     if not sub:raise HTTPException(404,"Подписка не найдена")
@@ -58,7 +58,7 @@ async def _subscription(db,user_id,subscription_id=None,lock=False):
 
 async def _effective_rate(db,sub):
     if sub.unit_price_per_day is not None:return Decimal(sub.unit_price_per_day)
-    paid=await db.scalar(select(Payment).where(Payment.user_id==sub.user_id,Payment.plan_id==sub.plan_id,
+    paid=await db.scalar(select(Payment).where(Payment.user_id==sub.user_id,Payment.subscription_id==sub.id,Payment.plan_id==sub.plan_id,
         Payment.purpose=="subscription",Payment.status.in_(("paid","fulfilled")),
         Payment.fulfillment_status=="completed",Payment.currency==settings.default_currency).order_by(Payment.id.desc()).limit(1))
     if not paid:return Decimal(0) # Trials and free gifts cannot create paid upgrade credit.
@@ -69,7 +69,7 @@ async def _effective_rate(db,sub):
 
 async def _validate_reduction(db,sub,after,force_traffic=False):
     if after["devices"] is not None:
-        count=await db.scalar(select(func.count()).select_from(UserDevice).where(UserDevice.user_id==sub.user_id,UserDevice.status=="active"))
+        count=await db.scalar(select(func.count()).select_from(UserDevice).where(UserDevice.user_id==sub.user_id,UserDevice.subscription_id==sub.id,UserDevice.status=="active"))
         if int(count or 0)>after["devices"]:raise HTTPException(409,"Сначала отключите лишние устройства")
     before=sub.traffic_limit_gb_snapshot
     if after["traffic_gb"] is not None and (force_traffic or before is None or after["traffic_gb"]<before):
@@ -186,11 +186,13 @@ async def purchase_change(payload:PurchaseIn,request:Request,db:AsyncSession=Dep
     if quote.expires_at<=datetime.utcnow() or quote.currency!=settings.default_currency:raise HTTPException(409,"Расчёт истёк; запросите новый")
     sub=await _subscription(db,user.id,quote.subscription_id,lock=True)
     if entitlement_state(sub)!=quote.before:raise HTTPException(409,"Условия подписки изменились; запросите новый расчёт")
+    from .subscriptions import ensure_no_pending_gift
+    await ensure_no_pending_gift(db,sub.id)
     pending=await db.scalar(select(EntitlementOperation.id).where(EntitlementOperation.subscription_id==sub.id,EntitlementOperation.status.in_(("queued","applying","refund_pending"))).limit(1))
     if pending:raise HTTPException(409,"Предыдущая операция ещё обрабатывается")
     if Decimal(user.wallet_balance or 0)<quote.amount:raise HTTPException(402,"Недостаточно средств в кошельке")
     if (await _risk_score(db,user,quote.amount,request))[1]=="block":raise HTTPException(403,"Операция отклонена системой защиты")
-    payment=Payment(user_id=user.id,plan_id=quote.after["plan_id"],provider="wallet",order_id="adjust-"+quote.id,
+    payment=Payment(user_id=user.id,subscription_id=sub.id,plan_id=quote.after["plan_id"],provider="wallet",order_id="adjust-"+quote.id,
         amount=quote.amount,original_amount=quote.amount,currency=quote.currency,status="paid",paid_at=datetime.utcnow(),
         purpose=quote.kind,idempotency_key=key,fulfillment_status="pending",next_retry_at=datetime.utcnow(),
         duration_days_snapshot=0,traffic_limit_gb_snapshot=quote.after["traffic_gb"],device_limit_snapshot=quote.after["devices"],remnawave_profile_id_snapshot=quote.after["profile"])

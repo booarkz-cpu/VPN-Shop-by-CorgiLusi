@@ -1,6 +1,7 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useRef} from "react";
 import {createRoot} from "react-dom/client";
 import "./style.css";
+import {SubscriptionProfiles} from "./subscription-profiles";
 import {Workspace} from "./workspace";
 import {DomLocalizer, LangProvider, detectLang, t, useLang} from "./i18n";
 
@@ -203,6 +204,10 @@ function App() {
   const [menu, setMenu] = useState<MenuItem[]>(FALLBACK_MENU);
   const [tab, setTab] = useState(location.hash.slice(1)||"overview");
   const [dash, setDash] = useState<any>();
+  const [profiles,setProfiles]=useState<any[]>([]);
+  const [profileTarget,setProfileTarget]=useState("current");
+  const purchaseKeys=useRef<Record<string,string>>({});
+  const purchaseLocked=useRef(false);
   const [plans, setPlans] = useState<any[]>([]);
   const [constructors, setConstructors] = useState<any[]>([]);
   const [pick, setPick] = useState<Record<number, Record<string, number>>>({});
@@ -297,7 +302,8 @@ function App() {
   }
 
   async function loadSession() {
-    const [dashboard, planList] = await Promise.all([req("/api/me/dashboard"), req("/api/plans")]);
+    const [dashboard, planList,profileList] = await Promise.all([req("/api/me/dashboard"), req("/api/plans"),req("/api/me/subscriptions")]);
+    setProfiles(Array.isArray(profileList)?profileList:[]);
     setDash(dashboard);
     setPlans(Array.isArray(planList) ? planList : []);
     setAuthed(true);
@@ -397,14 +403,25 @@ function App() {
     location.href = API + path;
   }
 
-  async function buySelection(body: Record<string, unknown>, wallet: boolean) {
+  async function buySelection(body: Record<string, unknown>, wallet: boolean, gift = false) {
+    if(purchaseLocked.current)return;
+    purchaseLocked.current=true;
+    const selected=profileTarget==="current"?dash?.subscription?.id:profileTarget==="new"?undefined:Number(profileTarget);
+    if(!gift)body={...body,...(profileTarget==="new"?{new_subscription:true}:selected?{subscription_id:selected}:{})};
+    const fingerprint=JSON.stringify({body,wallet,gift,provider:wallet?"wallet":provider});
+    purchaseKeys.current[fingerprint]??=crypto.randomUUID();
+    const key=purchaseKeys.current[fingerprint];
     setBusy(true);
     flash("");
     try {
-      if (wallet) {
+      if (gift) {
+        const issued=await req("/api/me/gifts/purchase",{method:"POST",headers:{"Idempotency-Key":key},body:JSON.stringify(body)});
+        await loadSession();
+        flash("Подарочный код: " + issued.code);
+      } else if (wallet) {
         await req("/api/me/wallet/spend", {
           method: "POST",
-          headers: {"Idempotency-Key": crypto.randomUUID()},
+          headers: {"Idempotency-Key": key},
           body: JSON.stringify(body),
         });
         flash(t("Оплачено с баланса"));
@@ -412,18 +429,24 @@ function App() {
       } else {
         const r = await req("/api/payments/create", {
           method: "POST",
-          headers: {"Idempotency-Key": crypto.randomUUID()},
+          headers: {"Idempotency-Key": key},
           body: JSON.stringify({...body, provider: provider || undefined}),
         });
-        if (r.url) location.href = r.url;
+        if (r.url) {
+          const target=new URL(r.url,location.origin);
+          if(target.protocol!=="https:"&&target.origin!==location.origin)throw Error("Некорректная ссылка оплаты");
+          location.href=target.href;
+        }
         else {
           flash(t("Платёж создан"));
           await loadSession();
         }
       }
+      delete purchaseKeys.current[fingerprint];
     } catch (err: any) {
       flash(err.message || t("Ошибка"), true);
     } finally {
+      purchaseLocked.current=false;
       setBusy(false);
     }
   }
@@ -436,7 +459,7 @@ function App() {
     return buySelection({plan_id: plan.id, promo_code: promo || undefined}, true);
   }
 
-  function buyConstructor(row: any, wallet: boolean) {
+  function buyConstructor(row: any, wallet: boolean, gift = false) {
     const selected = pick[row.id] || defaultPick(row);
     return buySelection({
       constructor_id: row.id,
@@ -444,7 +467,7 @@ function App() {
       traffic_option_id: selected.traffic_gb,
       days_option_id: selected.days,
       promo_code: promo || undefined,
-    }, wallet);
+    }, wallet, gift);
   }
 
   async function claimTrial(planId: number) {
@@ -733,6 +756,7 @@ function App() {
                 <>
                   <h2 className="section-title">Тарифы</h2>
                   <p className="section-sub">Выберите тариф и способ оплаты</p>
+                  <label className="field">Для какой подписки<select value={profileTarget} disabled={busy} onChange={e=>setProfileTarget(e.target.value)}><option value="current">Продлить выбранную подписку</option><option value="new">Новая независимая подписка</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name} · {p.plan||`№${p.id}`}</option>)}</select></label>
                   <div className="form-card stack" style={{marginBottom: 14}}>
                     <label className="field">
                       Промокод
@@ -813,6 +837,7 @@ function App() {
                           <button type="button" className="btn-ghost" disabled={busy} onClick={() => buyConstructor(row, true)}>
                             С баланса
                           </button>
+                          <button type="button" className="btn-ghost" disabled={busy} onClick={() => buyConstructor(row, true, true)}>Купить в подарок с баланса</button>
                         </div>
                       </article>
                     );
@@ -911,7 +936,8 @@ function App() {
 
               {["wallet","payments","gifts","referral","subscription","security","notifications","support"].includes(activeItem?.kind||"") && <>
                 <h2 className="section-title">{activeItem.title}</h2>
-                <Workspace key={activeItem.kind} kind={activeItem.kind} request={req} reload={loadSession} plans={plans} provider={provider} botUsername={cfg.bot_username||""} providers={(cfg.payment_providers||[]).filter((p:string)=>["yookassa","rollypay","platega","sandbox"].includes(p))} currency={currency} api={API}/>
+                {activeItem.kind==="subscription"&&<SubscriptionProfiles profiles={profiles} request={req} reload={loadSession}/>}
+                <Workspace key={activeItem.kind+":"+(sub?.id||"none")} kind={activeItem.kind} request={req} reload={loadSession} plans={plans} provider={provider} botUsername={cfg.bot_username||""} providers={(cfg.payment_providers||[]).filter((p:string)=>["yookassa","rollypay","platega","sandbox"].includes(p))} currency={currency} api={API}/>
               </>}
 
               {activeItem?.kind === "custom" && (

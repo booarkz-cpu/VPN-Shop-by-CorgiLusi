@@ -5,7 +5,7 @@ cd "$ROOT"
 # Historical release: VERSION="39.0.0-production" artifact=remnawave_vpn_shop_v39_production.zip migration=0017_v39_staging_isolation
 # Previous release contract: VERSION="1.0.1-realise" artifact=remnawave_vpn_shop_v1_0_1_realise_deep_audited_fixed.zip
 # Legacy regression markers: VERSION="1.0.0-realise" artifact=remnawave_vpn_shop_v1_0_0_realise_deep_audited_fixed.zip
-VERSION="21.0.0-alpha.1"
+VERSION="21.0.0-alpha.2"
 # Historical compatibility marker: VERSION="20.0.12"
 # Historical compatibility marker: VERSION="20.0.11"
 # Historical compatibility marker: VERSION="20.0.10"
@@ -44,7 +44,7 @@ VERSION="21.0.0-alpha.1"
 # Legacy regression contract marker: VERSION="1.0.0-realise"
 # Previous release contract: VERSION="45.0.0-enterprise" artifact=remnawave_vpn_shop_v44_5_9_enterprise_deep_audited_fixed.zip
 # Previous migration head retained for compatibility: 0030_v44_5_16_privacy_and_refund_integrity
-# Current migration head: 0044_subscription_commerce
+# Current migration head: 0047_support_attachments
 # Historical compatibility marker: 2.9.0 keeps migration 0038_v2_6_0_platform
 # Historical compatibility marker: 2.8.0 keeps migration 0038_v2_6_0_platform
 # Historical compatibility marker: 2.7.0 keeps migration 0038_v2_6_0_platform
@@ -55,7 +55,7 @@ VERSION="21.0.0-alpha.1"
 # Historical compatibility marker: 0032_v2_0_0_product_features
 # VERSION="43.1.0-production" legacy regression marker
 # migration_head="0021_v43_hardening_docs" legacy regression marker
-ARTIFACT="remnawave_vpn_shop_v21_0_0-alpha_1_full_release.zip"
+ARTIFACT="remnawave_vpn_shop_v21_0_0-alpha_2_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_6_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_5_full_release.zip"
 # Historical compatibility marker: ARTIFACT="remnawave_vpn_shop_v3_1_4_full_release.zip"

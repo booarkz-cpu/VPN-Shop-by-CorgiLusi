@@ -1,0 +1,118 @@
+"""Owner selection and immutable order binding for multiple subscriptions."""
+from datetime import datetime
+from fastapi import APIRouter,Depends,HTTPException,Request
+from pydantic import BaseModel,Field
+from sqlalchemy import select,func,update
+from sqlalchemy.ext.asyncio import AsyncSession
+from .db import get_db
+from .models import User,Subscription,Payment,Plan,UserDevice,GiftRedemption
+router=APIRouter()
+
+
+def selection(payload):
+    raw=payload.get('subscription_id')
+    try:sub_id=int(raw) if raw not in (None,'') else None
+    except (TypeError,ValueError):raise HTTPException(400,'Некорректная подписка')
+    if isinstance(raw,bool) or (sub_id is not None and sub_id<=0):raise HTTPException(400,'Некорректная подписка')
+    new=payload.get('new_subscription',False)
+    if not isinstance(new,bool) or (new and sub_id is not None):raise HTTPException(400,'Выберите новую или существующую подписку')
+    return sub_id,new
+
+
+async def owned(db,user_id,subscription_id=None,lock=False):
+    q=select(Subscription).where(Subscription.user_id==user_id)
+    q=q.where(Subscription.id==subscription_id) if subscription_id is not None else q.where(Subscription.is_primary.is_(True))
+    if lock:q=q.execution_options(populate_existing=True).with_for_update()
+    return await db.scalar(q)
+
+
+async def reserve_target(db,user,plan_id,payload):
+    sub_id,new=selection(payload)
+    # This row lock serializes profile creation with wallet reservations and primary selection.
+    user=await db.scalar(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())
+    if not user or user.deleted_at:raise HTTPException(409,'Аккаунт недоступен')
+    primary=await owned(db,user.id,lock=True)
+    sub=await owned(db,user.id,sub_id,lock=True) if sub_id is not None else primary
+    if sub_id is not None and not sub:raise HTTPException(404,'Подписка не найдена')
+    if new or sub is None:
+        count=await db.scalar(select(func.count()).select_from(Subscription).where(Subscription.user_id==user.id))
+        if count>=20:raise HTTPException(409,'Достигнут лимит 20 подписок')
+        sub=Subscription(user_id=user.id,plan_id=plan_id,is_primary=primary is None,lifecycle_status='pending',name='Подписка',expires_at=None)
+        db.add(sub);await db.flush()
+        if primary is None:
+            await db.execute(update(UserDevice).where(UserDevice.user_id==user.id,UserDevice.subscription_id.is_(None)).values(subscription_id=sub.id))
+    await ensure_no_pending_gift(db,sub.id)
+    return sub
+
+
+async def ensure_no_pending_gift(db,subscription_id):
+    pending=await db.scalar(select(GiftRedemption.id).where(GiftRedemption.subscription_id==subscription_id,GiftRedemption.status!='completed').limit(1))
+    if pending:raise HTTPException(409,'Завершите активацию ранее принятого подарка')
+
+
+def check_retry(payment,payload):
+    sub_id,new=selection(payload)
+    if bool(payment.new_subscription)!=new or (sub_id is not None and payment.subscription_id!=sub_id):
+        raise HTTPException(409,'Ключ уже использован для другой подписки')
+
+
+async def payment_target(db,payment,lock=False):
+    sub=await owned(db,payment.user_id,payment.subscription_id,lock=lock)
+    if payment.subscription_id is not None and not sub:raise RuntimeError('Payment subscription is missing or belongs to another owner')
+    # Legacy orders created before the migration keep the pre-existing primary target.
+    if sub and payment.subscription_id is None:payment.subscription_id=sub.id
+    return sub
+
+
+def remote_username(user_id,sub):
+    # Pending independent profiles must never recover another profile's remote account.
+    return f'user_{user_id}_sub_{sub.id}' if sub and sub.lifecycle_status=='pending' else f'user_{user_id}'
+
+
+def output(sub,plan=None):
+    return {'id':sub.id,'name':sub.name,'is_primary':sub.is_primary,'plan_id':sub.plan_id,
+            'plan':plan.name if plan else None,'status':sub.lifecycle_status,'expires_at':sub.expires_at,
+            'traffic_gb':sub.traffic_limit_gb_snapshot,'devices':sub.device_limit_snapshot,
+            'subscription_url':sub.subscription_url,'auto_renew_enabled':sub.auto_renew_enabled}
+
+
+async def user(request,db):
+    from .main import user_from_token
+    from .platform_api import reject_restricted
+    owner=await user_from_token(request,db);reject_restricted(owner);return owner
+
+
+@router.get('/api/me/subscriptions')
+async def list_subscriptions(request:Request,db:AsyncSession=Depends(get_db)):
+    owner=await user(request,db)
+    rows=(await db.execute(select(Subscription,Plan).outerjoin(Plan,Subscription.plan_id==Plan.id)
+        .where(Subscription.user_id==owner.id).order_by(Subscription.is_primary.desc(),Subscription.id))).all()
+    return [output(sub,plan) for sub,plan in rows]
+
+
+@router.post('/api/me/subscriptions/{subscription_id}/select')
+async def select_subscription(subscription_id:int,request:Request,db:AsyncSession=Depends(get_db)):
+    from .main import audit
+    owner=await user(request,db)
+    await db.scalar(select(User).where(User.id==owner.id).with_for_update())
+    sub=await owned(db,owner.id,subscription_id,lock=True)
+    if not sub:raise HTTPException(404,'Подписка не найдена')
+    # Clear first, then flush the new primary to respect the partial unique index.
+    await db.execute(update(Subscription).where(Subscription.user_id==owner.id,Subscription.is_primary.is_(True)).values(is_primary=False))
+    sub.is_primary=True
+    await audit(db,'subscription.selected',f'user:{owner.id}',str(sub.id));await db.commit()
+    return output(sub)
+
+
+class RenameIn(BaseModel):
+    name:str=Field(min_length=1,max_length=80)
+
+
+@router.put('/api/me/subscriptions/{subscription_id}')
+async def rename_subscription(subscription_id:int,payload:RenameIn,request:Request,db:AsyncSession=Depends(get_db)):
+    from .main import audit
+    owner=await user(request,db);sub=await owned(db,owner.id,subscription_id,lock=True)
+    if not sub:raise HTTPException(404,'Подписка не найдена')
+    if not payload.name.strip():raise HTTPException(400,'Укажите название')
+    sub.name=payload.name.strip();await audit(db,'subscription.renamed',f'user:{owner.id}',str(sub.id));await db.commit()
+    return output(sub)

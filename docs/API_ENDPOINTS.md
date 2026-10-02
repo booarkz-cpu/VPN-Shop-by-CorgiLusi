@@ -8,19 +8,19 @@ Legacy callbacks прежних агентов служат только ист�
 | --- | --- | --- |
 | `GET` | `/api/admin/admins` | List Admins |
 | `POST` | `/api/admin/admins` | Create Admin |
-| `PUT` | `/api/admin/admins/{admin_id}` | Update Admin |
 | `DELETE` | `/api/admin/admins/{admin_id}` | Delete Admin |
+| `PUT` | `/api/admin/admins/{admin_id}` | Update Admin |
 | `POST` | `/api/admin/advertisements` | Create Ad |
-| `PUT` | `/api/admin/advertisements/{item_id}` | Update Ad |
 | `DELETE` | `/api/admin/advertisements/{item_id}` | Delete Ad |
+| `PUT` | `/api/admin/advertisements/{item_id}` | Update Ad |
 | `GET` | `/api/admin/analytics` | Admin Analytics |
 | `GET` | `/api/admin/apps` | Admin Apps |
 | `PUT` | `/api/admin/apps` | Save Apps |
-| `POST` | `/api/admin/apps/logo` | Upload Client Logo |
 | `DELETE` | `/api/admin/apps/logo` | Delete Client Logo |
+| `POST` | `/api/admin/apps/logo` | Upload Client Logo |
 | `GET` | `/api/admin/apps/{app_id}/download` | Admin App Download |
-| `POST` | `/api/admin/apps/{app_id}/file` | Upload App File |
 | `DELETE` | `/api/admin/apps/{app_id}/file` | Delete App File |
+| `POST` | `/api/admin/apps/{app_id}/file` | Upload App File |
 | `GET` | `/api/admin/audit` | Admin Audit |
 | `POST` | `/api/admin/auth/login` | Admin Login |
 | `POST` | `/api/admin/auth/logout` | Admin Logout |
@@ -40,8 +40,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/backups/{backup_id}/restore/request` | Request Restore |
 | `POST` | `/api/admin/backups/{backup_id}/validate` | Validate Backup Archive |
 | `POST` | `/api/admin/backups/{backup_id}/verify` | Verify Backup |
-| `POST` | `/api/admin/bot/start-image` | Admin Bot Start Image |
 | `DELETE` | `/api/admin/bot/start-image` | Admin Bot Start Image Delete |
+| `POST` | `/api/admin/bot/start-image` | Admin Bot Start Image |
 | `POST` | `/api/admin/branding/favicon` | Admin Branding Favicon |
 | `POST` | `/api/admin/branding/logo` | Admin Branding Logo |
 | `DELETE` | `/api/admin/branding/{kind}` | Admin Branding Delete |
@@ -51,8 +51,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `PUT` | `/api/admin/cabinet/guides/{platform}` | Admin Cabinet Guide |
 | `GET` | `/api/admin/cabinet/menu` | Admin Cabinet Menu |
 | `POST` | `/api/admin/cabinet/menu` | Admin Cabinet Menu Create |
-| `PUT` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Update |
 | `DELETE` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Delete |
+| `PUT` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Update |
 | `GET` | `/api/admin/content` | Admin Content |
 | `GET` | `/api/admin/corporate-accounts` | List Corporate |
 | `POST` | `/api/admin/corporate-accounts` | Create Corporate |
@@ -72,8 +72,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `PUT` | `/api/admin/enterprise/rules/{rule_id}` | Enterprise Rule Update |
 | `GET` | `/api/admin/enterprise/summary` | Enterprise Summary |
 | `POST` | `/api/admin/fields` | Admin Field |
-| `PUT` | `/api/admin/fields/{field_id}` | Admin Field Update |
 | `DELETE` | `/api/admin/fields/{field_id}` | Admin Field Delete |
+| `PUT` | `/api/admin/fields/{field_id}` | Admin Field Update |
 | `GET` | `/api/admin/financial-ledger` | Admin Financial Ledger |
 | `GET` | `/api/admin/fraud` | Admin Fraud |
 | `POST` | `/api/admin/fraud/scan` | Fraud Scan |
@@ -94,13 +94,13 @@ Legacy callbacks прежних агентов служат только ист�
 | `PATCH` | `/api/admin/marketplace/resellers/{reseller_id}` | Update Reseller |
 | `POST` | `/api/admin/marketplace/resellers/{reseller_id}/rotate-key` | Rotate Reseller Key |
 | `POST` | `/api/admin/menu` | Admin Menu |
-| `PUT` | `/api/admin/menu/{item_id}` | Admin Menu Update |
 | `DELETE` | `/api/admin/menu/{item_id}` | Admin Menu Delete |
-| `POST` | `/api/admin/miniapp/background` | Admin Miniapp Background |
+| `PUT` | `/api/admin/menu/{item_id}` | Admin Menu Update |
 | `DELETE` | `/api/admin/miniapp/background` | Admin Miniapp Background Delete |
+| `POST` | `/api/admin/miniapp/background` | Admin Miniapp Background |
 | `PUT` | `/api/admin/miniapp/config` | Admin Miniapp Config |
-| `POST` | `/api/admin/miniapp/image` | Admin Miniapp Image |
 | `DELETE` | `/api/admin/miniapp/image` | Admin Miniapp Image Delete |
+| `POST` | `/api/admin/miniapp/image` | Admin Miniapp Image |
 | `GET` | `/api/admin/mobile/ops` | Admin Mobile Ops |
 | `GET` | `/api/admin/monitoring` | Admin Monitoring |
 | `GET` | `/api/admin/notifications` | Admin Notifications |
@@ -127,8 +127,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/admin/payouts` | Admin Payouts |
 | `GET` | `/api/admin/plans` | Admin List Plans |
 | `POST` | `/api/admin/plans` | Create Plan |
-| `PUT` | `/api/admin/plans/{plan_id}` | Admin Update Plan |
 | `DELETE` | `/api/admin/plans/{plan_id}` | Admin Delete Plan |
+| `PUT` | `/api/admin/plans/{plan_id}` | Admin Update Plan |
 | `POST` | `/api/admin/plans/{plan_id}/enabled` | Admin Set Plan Enabled |
 | `POST` | `/api/admin/platform/agents` | Create Agent |
 | `POST` | `/api/admin/platform/api-keys` | Create Api Key |
@@ -143,11 +143,11 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/platform/violations/{violation_id}/review` | Review Violation |
 | `POST` | `/api/admin/platform/webhooks` | Create Webhook |
 | `POST` | `/api/admin/promo-codes` | Create Promo Code |
-| `PUT` | `/api/admin/promo-codes/{item_id}` | Update Promo Code |
 | `DELETE` | `/api/admin/promo-codes/{item_id}` | Delete Promo Code |
+| `PUT` | `/api/admin/promo-codes/{item_id}` | Update Promo Code |
 | `POST` | `/api/admin/promotions` | Create Promotion |
-| `PUT` | `/api/admin/promotions/{item_id}` | Update Promotion |
 | `DELETE` | `/api/admin/promotions/{item_id}` | Delete Promotion |
+| `PUT` | `/api/admin/promotions/{item_id}` | Update Promotion |
 | `POST` | `/api/admin/provision-node` | Provision Node |
 | `GET` | `/api/admin/recovery` | Admin Recovery |
 | `GET` | `/api/admin/recovery/operations` | Recovery Operations |
@@ -198,14 +198,17 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/subscription-operations/{operation_id}/refund` | Refund Change |
 | `POST` | `/api/admin/support-pro/sso` | Support Pro Sso |
 | `GET` | `/api/admin/support-pro/status` | Support Pro Status |
+| `DELETE` | `/api/admin/support/attachments/{attachment_id}` | Admin Remove |
+| `GET` | `/api/admin/support/attachments/{attachment_id}` | Admin Download |
 | `GET` | `/api/admin/support/tickets` | Admin Tickets |
+| `POST` | `/api/admin/support/tickets/{ticket_id}/attachments` | Admin Upload |
 | `GET` | `/api/admin/support/tickets/{ticket_id}/messages` | Admin Support Messages |
 | `POST` | `/api/admin/support/tickets/{ticket_id}/reply` | Admin Ticket Reply |
 | `GET` | `/api/admin/system/health` | System Health |
 | `GET` | `/api/admin/tariff-constructors` | Admin Constructors |
 | `POST` | `/api/admin/tariff-constructors` | Admin Constructor Create |
-| `PUT` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Update |
 | `DELETE` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Delete |
+| `PUT` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Update |
 | `GET` | `/api/admin/traffic-packages` | Admin Packages |
 | `POST` | `/api/admin/traffic-packages` | Create Package |
 | `PUT` | `/api/admin/traffic-packages/{package_id}` | Edit Package |
@@ -316,8 +319,14 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/me/subscription/operations` | Commerce History |
 | `POST` | `/api/me/subscription/purchase` | Purchase Change |
 | `POST` | `/api/me/subscription/quote` | Quote Change |
+| `GET` | `/api/me/subscriptions` | List Subscriptions |
+| `PUT` | `/api/me/subscriptions/{subscription_id}` | Rename Subscription |
+| `POST` | `/api/me/subscriptions/{subscription_id}/select` | Select Subscription |
+| `DELETE` | `/api/me/support/attachments/{attachment_id}` | Customer Remove |
+| `GET` | `/api/me/support/attachments/{attachment_id}` | Customer Download |
 | `GET` | `/api/me/support/tickets` | My Support Tickets |
 | `POST` | `/api/me/support/tickets` | Create Support Ticket |
+| `POST` | `/api/me/support/tickets/{ticket_id}/attachments` | Customer Upload |
 | `GET` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Messages |
 | `POST` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Reply |
 | `GET` | `/api/me/traffic` | My Traffic |
@@ -361,4 +370,4 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/health/ready` | Health Ready |
 | `GET` | `/metrics` | Metrics |
 
-Всего операций: 354.
+Всего: 363 операций.

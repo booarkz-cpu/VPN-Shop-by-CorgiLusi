@@ -48,7 +48,7 @@ def _subscription_out(sub: Subscription | None, remote: dict | None = None) -> d
 @router.get("/me/remnawave/subscription")
 async def my_remnawave_subscription(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _user_from_token(request, db)
-    sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id))).scalar_one_or_none()
+    sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id,Subscription.is_primary.is_(True)))).scalar_one_or_none()
     remote = None
     if sub and sub.remnawave_uuid:
         try:
@@ -62,7 +62,7 @@ async def my_remnawave_subscription(request: Request, db: AsyncSession = Depends
 @router.post("/me/remnawave/subscription/refresh")
 async def refresh_my_remnawave_subscription(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _user_from_token(request, db)
-    sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id).with_for_update())).scalar_one_or_none()
+    sub = (await db.execute(select(Subscription).where(Subscription.user_id == user.id,Subscription.is_primary.is_(True)).with_for_update())).scalar_one_or_none()
     if not sub or not sub.remnawave_uuid:
         raise HTTPException(404, "Remnawave subscription is not provisioned yet")
     rw = RemnawaveClient()

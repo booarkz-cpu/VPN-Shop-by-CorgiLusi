@@ -34,7 +34,7 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile.bot
           - name: admin
-            context: ./admin
+            context: .
             dockerfile: ./admin/Dockerfile
           - name: cabinet
             context: ./cabinet

@@ -76,7 +76,10 @@
     "quick_connect": "Быстрое подключение",
     "mark_read": "Прочитано",
     "no_notifications": "Нет уведомлений",
-    "corgi_user": "VPN Shop by Corgi Lusi"
+    "corgi_user": "VPN Shop by Corgi Lusi",
+    "my_subscriptions": "Мои подписки",
+    "selected_subscription": "Выбрана",
+    "select_subscription": "Выбрать подписку"
   },
   "en": {
     "app_name": "VPN shop",
@@ -155,7 +158,10 @@
     "quick_connect": "Quick connect",
     "mark_read": "Mark read",
     "no_notifications": "No notifications",
-    "corgi_user": "VPN Shop by Corgi Lusi"
+    "corgi_user": "VPN Shop by Corgi Lusi",
+    "my_subscriptions": "My subscriptions",
+    "selected_subscription": "Selected",
+    "select_subscription": "Select subscription"
   },
   "uk": {
     "app_name": "VPN Shop by Corgi Lusi",
@@ -234,6 +240,9 @@
     "no_notifications": "Немає сповіщень",
     "mark_read": "Прочитано",
     "security": "Безпека",
-    "corgi_user": "VPN Shop by Corgi Lusi"
+    "corgi_user": "VPN Shop by Corgi Lusi",
+    "my_subscriptions": "Мої підписки",
+    "selected_subscription": "Вибрана",
+    "select_subscription": "Вибрати підписку"
   }
 }
