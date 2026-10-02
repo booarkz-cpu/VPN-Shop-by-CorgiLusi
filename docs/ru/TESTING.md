@@ -90,3 +90,7 @@ docker compose --env-file .env.test -f docker-compose.test.yml logs --tail 80 ba
 ```
 
 Если API не становится готовым, почти всегда виден текст Alembic или `APP_SECRET must be at least 32 characters`. Не ставьте в `.env.test` значение `APP_ENV=production`.
+
+## Alpha.4 и подготовка финального выпуска
+
+Текущие миграции: магазин `0050_account_actions`, Support Pro `0005`. Новые проверки включают конкурентное использование recovery ссылок, сохранение продления конструктора и ожидание позднего оплаченного заказа. [Проверка через Termius и ограничения стенда](FINAL_RELEASE_READINESS.md), [SMTP сценарии](WORKSPACE_ACCOUNT_SECURITY.md). SMTP callback в unit-тесте не доказывает доставку реального письма.

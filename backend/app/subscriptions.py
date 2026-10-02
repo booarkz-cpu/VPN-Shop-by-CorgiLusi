@@ -68,6 +68,37 @@ async def ensure_no_pending_purchase(db,subscription_id):
     if operation or payment:raise HTTPException(409,'Предыдущая покупка ещё обрабатывается')
 
 
+async def pending_absolute_write(db,subscription_id):
+    """Owner row must be locked. Late invoice grants wait for frozen writes."""
+    gift=await db.scalar(select(GiftRedemption.id).where(GiftRedemption.subscription_id==subscription_id,
+        GiftRedemption.status!='completed').limit(1))
+    operation=await db.scalar(select(EntitlementOperation.id).where(EntitlementOperation.subscription_id==subscription_id,
+        EntitlementOperation.status.in_(('queued','applying','refund_pending'))).limit(1))
+    return bool(gift or operation)
+
+
+async def renewal_terms(db,sub,plan):
+    """Keep constructor choices; never guess a legacy changed constructor's price."""
+    if sub.renewal_terms:
+        return dict(sub.renewal_terms)
+    from .tariff_api import linked_constructor_id
+    if not await linked_constructor_id(db,plan.id):
+        from .config import settings
+        return {'amount':str(plan.price),'days':plan.duration_days,'traffic_gb':plan.traffic_limit_gb,
+                'devices':plan.device_limit,'profile_id':plan.remnawave_profile_id,'currency':settings.default_currency}
+    grant=await db.scalar(select(Payment).where(Payment.subscription_id==sub.id,Payment.plan_id==sub.plan_id,
+        Payment.purpose=='subscription',Payment.fulfillment_status=='completed',Payment.status.in_(('paid','fulfilled')),
+        Payment.duration_days_snapshot.is_not(None)).order_by(Payment.id.desc()).limit(1))
+    if not grant:return None
+    from decimal import Decimal
+    total_days=int(grant.duration_days_snapshot)+int(grant.bonus_days or 0)
+    if total_days<=0 or sub.unit_price_per_day is None or abs(Decimal(sub.unit_price_per_day)-Decimal(grant.amount)/total_days)>Decimal('0.00000002'):
+        return None
+    return {'amount':str(grant.original_amount if grant.original_amount is not None else grant.amount),
+            'days':grant.duration_days_snapshot,'traffic_gb':grant.traffic_limit_gb_snapshot,
+            'devices':grant.device_limit_snapshot,'profile_id':grant.remnawave_profile_id_snapshot,'currency':grant.currency}
+
+
 def check_retry(payment,payload):
     sub_id,new=selection(payload)
     if bool(payment.new_subscription)!=new or (sub_id is not None and payment.subscription_id!=sub_id):

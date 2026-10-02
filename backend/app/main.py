@@ -30,7 +30,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.0.0-alpha.3"
+APP_VERSION = "21.0.0-alpha.4"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -103,6 +103,8 @@ app.include_router(v3_router)
 app.include_router(v6_router)
 app.include_router(remnawave_shop_router)
 app.include_router(marketplace_router)
+from .account_actions import router as account_actions_router
+app.include_router(account_actions_router)
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 PACKAGE_UPLOAD_BYTES = 80 * 1024 * 1024
@@ -119,6 +121,11 @@ RATE_LIMITS = {
     "/api/auth/login": 12,
     "/api/auth/mobile/token": 20,
     "/api/auth/register": 8,
+    "/api/auth/password/reset/request": 5,
+    "/api/auth/password/reset/confirm": 5,
+    "/api/auth/email/verification/confirm": 8,
+    "/api/me/email/verification/request": 5,
+    "/api/me/password/change": 5,
     "/api/auth/exchange": 20,
     "/api/payments/create": 20,
     "/api/payments/sandbox/complete": 30,
@@ -472,6 +479,8 @@ async def start_backup_scheduler():
     _track_task(reconciliation_scheduler())
     _track_task(auto_renew_scheduler())
     _track_task(refund_revoke_scheduler())
+    from .account_actions import mail_scheduler
+    _track_task(mail_scheduler())
     _track_task(monitor_checks_scheduler())
 
 @app.get("/health/live")
@@ -1399,7 +1408,8 @@ async def _confirm_and_fulfill_payment(payment_id:int, db:AsyncSession):
         await _release_payment_side_effect_lock(confirm_payment_lock,confirm_payment_token)
         confirm_payment_lock=confirm_payment_token=None
         await fulfill(payment_id,db,existing_user_lock_token=user_token)
-        return {"ok":True,"ignored":False,"reason":"fulfilled"}
+        await db.refresh(confirmed)
+        return {"ok":True,"ignored":False,"reason":"fulfilled" if confirmed.fulfillment_status=='completed' else 'queued'}
     finally:
         if confirm_payment_lock and confirm_payment_token:
             await _release_payment_side_effect_lock(confirm_payment_lock,confirm_payment_token)
@@ -1478,6 +1488,20 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
             payment.fulfillment_status="completed"; payment.fulfillment_terminal=True; payment.fulfillment_attempts=(payment.fulfillment_attempts or 0)+1
             await audit(db,"wallet.topup",f"user:{user.id}",str(payment.id),{"amount":str(amount)}); await db.commit()
             await notify_user_telegram(user.telegram_id, f"Баланс пополнен на {amount} {payment.currency}. Wallet topped up by {amount} {payment.currency}.")
+            return
+        from .subscriptions import pending_absolute_write
+        target=await payment_target(db,payment,lock=True)
+        if target and await pending_absolute_write(db,target.id):
+            # Confirmation may arrive after a gift/change froze an absolute write.
+            # Wait without spending a provisioning attempt or changing that snapshot.
+            payment.fulfillment_status='failed';payment.fulfillment_terminal=False
+            payment.fulfillment_error='Waiting for an earlier subscription operation'
+            payment.next_retry_at=datetime.utcnow()+timedelta(seconds=60)
+            waiting_job=await db.scalar(select(Job).where(Job.job_key==f'fulfillment:{payment.id}').with_for_update())
+            if waiting_job:
+                waiting_job.status='queued';waiting_job.attempts=payment.fulfillment_attempts or 0
+                waiting_job.next_retry_at=payment.next_retry_at;waiting_job.locked_at=None;waiting_job.worker_id=None
+            await db.commit()
             return
         payment.fulfillment_status="processing"; payment.fulfillment_attempts=(payment.fulfillment_attempts or 0)+1; payment.fulfillment_error=None
         job=(await db.execute(select(Job).where(Job.job_key==f"fulfillment:{payment.id}").with_for_update())).scalar_one_or_none()
@@ -1586,6 +1610,11 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
                 sub.remnawave_profile_id_snapshot=profile_id
                 sub.subscription_url=data.get("subscriptionUrl") or data.get("subscription_url")
             sub.lifecycle_status="active";sub.scheduled_cancel_at=None;sub.cancelled_at=None;sub.grace_until=None
+            from .tariff_api import linked_constructor_id
+            sub.renewal_terms=({'amount':str(payment.original_amount if payment.original_amount is not None else payment.amount),
+                'days':payment.duration_days_snapshot or plan.duration_days,'traffic_gb':traffic_limit_gb,
+                'devices':payment.device_limit_snapshot,'profile_id':profile_id,'currency':payment.currency}
+                if await linked_constructor_id(db,plan.id) else None)
             op_row.status="completed"; op_row.completed_at=datetime.utcnow(); op_row.updated_at=datetime.utcnow()
         except Exception as remote_exc:
             op_row.status="retry"; op_row.last_error=str(remote_exc)[:2000]; op_row.updated_at=datetime.utcnow(); job.status="failed" if payment.fulfillment_attempts >= payment.fulfillment_max_attempts else "queued"; job.error=str(remote_exc)[:2000]; job.next_retry_at=datetime.utcnow()+timedelta(minutes=min(30,max(1,2**min(payment.fulfillment_attempts,5)))); job.locked_at=None; await db.commit(); raise
@@ -1914,6 +1943,9 @@ async def auto_renew_scheduler():
                         attempts=(await db.execute(select(Payment).where(Payment.user_id==user.id,Payment.subscription_id==sub.id,or_(Payment.order_id.like(prefix+"%"),Payment.order_id.like(f"auto-renew-{user.id}-{plan.id}-{date_key}%")),Payment.provider=="yookassa").order_by(Payment.id.desc()))).scalars().all()
                         existing=attempts[0] if attempts else None
                         if existing:
+                            if existing.currency!=settings.default_currency:
+                                method.last_error='Recurring payment currency changed; operator reconciliation required'
+                                await db.commit();continue
                             if existing.status=="creating" and existing.provider_payment_id is None:
                                 # YooKassa idempotency is keyed by order_id, so retrying the
                                 # same durable intent is safe even if the previous HTTP response
@@ -1936,6 +1968,8 @@ async def auto_renew_scheduler():
                                             await _release_payment_side_effect_lock(payment_lock, payment_token)
                                         try:
                                             await fulfill(existing.id,db,existing_user_lock_token=user_token)
+                                            await db.refresh(existing)
+                                            if existing.fulfillment_status!='completed':continue
                                             method.last_success_at=datetime.utcnow(); method.failure_count=0; method.status="active"; method.last_error=None; method.next_attempt_at=datetime.utcnow()+timedelta(days=20); sub.next_renewal_at=method.next_attempt_at; sub.lifecycle_status="active"; sub.grace_until=None; sub.last_renewal_failure_at=None; await db.commit()
                                         except Exception as exc:
                                             method.last_error=str(exc)[:1000]; await db.commit()
@@ -1955,20 +1989,32 @@ async def auto_renew_scheduler():
                             failed_count=sum(1 for item in attempts if item.status in {"failed","canceled","cancelled"})
                             order_id=f"{prefix}-retry-{failed_count+1}"
                         token=decrypt_secret(method.external_token_encrypted)
+                        from .subscriptions import ensure_no_pending_purchase,renewal_terms
+                        try:await ensure_no_pending_purchase(db,sub.id)
+                        except HTTPException:continue
+                        terms=await renewal_terms(db,sub,plan)
+                        if not terms:
+                            method.last_error='Constructor renewal terms unavailable; buy or change this subscription explicitly'
+                            await db.commit();continue
+                        if terms.get('currency')!=settings.default_currency:
+                            method.last_error='Renewal currency differs from configured currency; explicit purchase required'
+                            await db.commit();continue
+                        renewal_amount=Decimal(terms['amount'])
+                        if renewal_amount<=0 or int(terms['days'])<=0:continue
                         # Persist the payment intent BEFORE the external charge. If the
                         # process dies after YooKassa accepts the charge but before the
                         # response/DB commit, the next run can safely retry the SAME
                         # idempotency key instead of issuing a second charge.
                         payment=(await db.execute(select(Payment).where(Payment.order_id==order_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
                         if not payment:
-                            payment=Payment(user_id=user.id,subscription_id=sub.id,plan_id=plan.id,provider="yookassa",provider_payment_id=None,order_id=order_id,amount=Decimal(str(plan.price)),original_amount=Decimal(str(plan.price)),discount_amount=Decimal("0"),duration_days_snapshot=plan.duration_days,traffic_limit_gb_snapshot=plan.traffic_limit_gb,device_limit_snapshot=plan.device_limit,remnawave_profile_id_snapshot=plan.remnawave_profile_id,referrer_id_snapshot=user.referred_by_id,currency=settings.default_currency,status="creating",fulfillment_status="pending",paid_at=None)
+                            payment=Payment(user_id=user.id,subscription_id=sub.id,plan_id=plan.id,provider="yookassa",provider_payment_id=None,order_id=order_id,amount=renewal_amount,original_amount=renewal_amount,discount_amount=Decimal("0"),duration_days_snapshot=int(terms['days']),traffic_limit_gb_snapshot=terms['traffic_gb'],device_limit_snapshot=terms['devices'],remnawave_profile_id_snapshot=terms['profile_id'],referrer_id_snapshot=user.referred_by_id,currency=settings.default_currency,status="creating",fulfillment_status="pending",paid_at=None)
                             db.add(payment); await db.flush()
                         method.last_attempt_at=datetime.utcnow(); method.next_attempt_at=datetime.utcnow()+timedelta(hours=24); sub.next_renewal_at=method.next_attempt_at; await db.commit()
-                        result=await YooKassaProvider().charge_recurring(Decimal(str(plan.price)),order_id,f"Auto-renew {plan.name}",token)
+                        result=await YooKassaProvider().charge_recurring(Decimal(str(payment.amount)),order_id,f"Auto-renew {plan.name}",token)
                         payment=(await db.execute(select(Payment).where(Payment.order_id==order_id).execution_options(populate_existing=True).with_for_update())).scalar_one()
                         payment.provider_payment_id=result["id"]; payment.status="pending"; payment.fulfillment_status="pending"; await db.commit()
                         # Never fulfill until YooKassa confirms succeeded + amount/currency.
-                        if await YooKassaProvider().verify_succeeded(result["id"],Decimal(str(plan.price)),settings.default_currency,payment.order_id):
+                        if await YooKassaProvider().verify_succeeded(result["id"],Decimal(str(payment.amount)),payment.currency,payment.order_id):
                             payment_lock, payment_token = await _acquire_payment_side_effect_lock(payment.id)
                             try:
                                 p=(await db.execute(select(Payment).where(Payment.provider_payment_id==result["id"]).execution_options(populate_existing=True).with_for_update())).scalar_one()
@@ -1979,6 +2025,8 @@ async def auto_renew_scheduler():
                                 await _release_payment_side_effect_lock(payment_lock, payment_token)
                             try:
                                 await fulfill(p.id,db,existing_user_lock_token=user_token)
+                                await db.refresh(p)
+                                if p.fulfillment_status!='completed':continue
                                 method.last_success_at=datetime.utcnow(); method.failure_count=0; method.status="active"; method.last_error=None; method.next_attempt_at=datetime.utcnow()+timedelta(days=20); sub.next_renewal_at=method.next_attempt_at; sub.lifecycle_status="active"; sub.grace_until=None; sub.last_renewal_failure_at=None; await db.commit()
                             except Exception as exc:
                                 method.last_error=str(exc)[:1000]; await db.commit()
@@ -2342,7 +2390,11 @@ async def auto_renew_status(request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db); method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id))).scalar_one_or_none()
     last_error="Автопродление не выполнено" if method and method.last_error else None
     sub=await owned_subscription(db,user.id)
-    return {"enabled":bool(sub and sub.auto_renew_enabled),"configured":bool(method and method.enabled and method.provider == "yookassa"),"provider":method.provider if method else None,"last_attempt_at":method.last_attempt_at if method else None,"last_success_at":method.last_success_at if method else None,"last_error":last_error,"supported_providers":["yookassa"]}
+    from .subscriptions import renewal_terms
+    plan=await db.get(Plan,sub.plan_id) if sub else None
+    terms=await renewal_terms(db,sub,plan) if sub and plan else None
+    return {"enabled":bool(sub and sub.auto_renew_enabled),"configured":bool(method and method.enabled and method.provider == "yookassa"),"provider":method.provider if method else None,"last_attempt_at":method.last_attempt_at if method else None,"last_success_at":method.last_success_at if method else None,"last_error":last_error,"supported_providers":["yookassa"],
+        "renewal_terms":{k:v for k,v in terms.items() if k!='profile_id'} if terms else None}
 
 @app.get("/api/me/connection-qr")
 async def connection_qr(request:Request,db:AsyncSession=Depends(get_db)):
@@ -2393,12 +2445,21 @@ async def connection_info(request:Request,db:AsyncSession=Depends(get_db)):
 
 @app.put("/api/me/auto-renew")
 async def set_auto_renew(payload:dict,request:Request,db:AsyncSession=Depends(get_db)):
-    user=await user_from_token(request,db); enabled=bool(payload.get("enabled"))
+    user=await user_from_token(request,db)
+    if not isinstance(payload.get('enabled'),bool):raise HTTPException(400,'enabled must be boolean')
+    enabled=payload['enabled']
     method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id))).scalar_one_or_none()
     if enabled and (not method or not method.enabled or method.provider != "yookassa"): raise HTTPException(409,"No supported recurring payment method is configured")
-    await db.scalar(select(User).where(User.id==user.id).with_for_update())
+    user=await db.scalar(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())
+    if not user or user.deleted_at:raise HTTPException(409,'Аккаунт недоступен')
     sub=await owned_subscription(db,user.id,lock=True)
     if not sub:raise HTTPException(404,"Подписка не найдена")
+    if enabled:
+        from .subscriptions import renewal_terms
+        plan=await db.get(Plan,sub.plan_id)
+        terms=await renewal_terms(db,sub,plan) if plan else None
+        if not terms or terms.get('currency')!=settings.default_currency:
+            raise HTTPException(409,'Условия продления недоступны. Сначала явно купите или измените эту подписку.')
     sub.auto_renew_enabled=enabled
     if enabled:sub.next_renewal_at=None
     await db.flush()
@@ -3035,6 +3096,11 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         await db.execute(__import__('sqlalchemy').update(SupportTicket).where(SupportTicket.user_id==user.id).values(updated_at=datetime.utcnow()))
         if user.telegram_id: user.telegram_id=None
         user.yandex_id=None
+        user.vk_id=None;user.email=None;user.email_password_hash=None;user.email_verified_at=None
+        from .account_actions import revoke_access
+        from .models import AccountAction
+        await revoke_access(db,user)
+        await db.execute(delete(AccountAction).where(AccountAction.user_id==user.id))
         user.username=f"deleted_{user.id}"
         user.referral_code=f"deleted_{user.id}"
         user.auto_renew_enabled=False

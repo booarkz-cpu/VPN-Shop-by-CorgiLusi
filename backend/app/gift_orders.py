@@ -55,6 +55,7 @@ async def purchase_gift(payload,request,db):
         price=main._money(plan.price)
         snapshot={'days':plan.duration_days,'traffic_gb':plan.traffic_limit_gb,'devices':plan.device_limit,'profile_id':plan.remnawave_profile_id}
     if price<=0:raise HTTPException(400,'Gift plan must have a positive price')
+    snapshot['currency']=main.settings.default_currency
     lock,token=await main._acquire_user_fulfillment_lock(user.id,ttl=300)
     try:
         user=await db.scalar(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())
@@ -110,13 +111,13 @@ async def redeem_gift(payload,request,db):
             sub=await owned(db,user.id,redemption.subscription_id,lock=True)
             if not sub:raise HTTPException(409,'Gift subscription is missing')
             if payload.subscription_id is not None and payload.subscription_id!=sub.id:raise HTTPException(409,'Подарок закреплён за другой подпиской')
-        if redemption.before_snapshot and entitlement_state(sub)!=redemption.before_snapshot:
+        if redemption.before_snapshot and any(entitlement_state(sub).get(k)!=v for k,v in redemption.before_snapshot.items()):
             raise HTTPException(409,'Подписка изменилась после начала активации; требуется проверка оператором')
         if not redemption.before_snapshot:redemption.before_snapshot=entitlement_state(sub)
         rw=main.RemnawaveClient();now=datetime.utcnow()
         remote_id=sub.remnawave_uuid or redemption.remote_user_id
-        if sub.remnawave_uuid:
-            await _validate_reduction(db,sub,{'traffic_gb':terms['traffic_gb'],'devices':terms['devices']})
+        if remote_id:
+            await _validate_reduction(db,sub,{'traffic_gb':terms['traffic_gb'],'devices':terms['devices']},remote_id=remote_id,remote_client=rw)
         if redemption.expected_after_expires_at is None:
             before=max(sub.expires_at or now,now)
             if remote_id:before=max(before,await rw.get_expiry(remote_id) or now)
@@ -129,7 +130,9 @@ async def redeem_gift(payload,request,db):
         try:
             if not remote_id:
                 existing=await rw.get_user_by_username(remote_username(user.id,sub))
-                if existing and existing.get('id'):remote_id=str(existing['id'])
+                if existing and existing.get('id'):
+                    remote_id=str(existing['id'])
+                    await _validate_reduction(db,sub,{'traffic_gb':terms['traffic_gb'],'devices':terms['devices']},force_traffic=True,remote_id=remote_id,remote_client=rw)
                 else:
                     data=await rw.create_user(remote_username(user.id,sub),target,terms['traffic_gb']*1024**3 if terms['traffic_gb'] else 0,
                         active_internal_squads=[terms['profile_id']] if terms['profile_id'] else None,telegram_id=user.telegram_id)
@@ -141,6 +144,9 @@ async def redeem_gift(payload,request,db):
             sub.remnawave_uuid=remote_id;sub.plan_id=code.plan_id;sub.expires_at=target;sub.lifecycle_status='active'
             sub.scheduled_cancel_at=None;sub.grace_until=None;sub.unit_price_per_day=Decimal(0)
             sub.traffic_limit_gb_snapshot=terms['traffic_gb'];sub.device_limit_snapshot=terms['devices'];sub.remnawave_profile_id_snapshot=terms['profile_id']
+            from .tariff_api import linked_constructor_id
+            sub.renewal_terms=({**terms,'amount':str(code.purchase_amount)}
+                if code.purchase_amount and code.purchase_amount>0 and terms.get('currency') and await linked_constructor_id(db,code.plan_id) else None)
             if not sub.subscription_url:
                 info=await rw.get_subscription(remote_id);sub.subscription_url=info.get('subscriptionUrl') or info.get('subscription_url')
             code=await db.scalar(select(GiftCode).where(GiftCode.id==code_id).execution_options(populate_existing=True).with_for_update())

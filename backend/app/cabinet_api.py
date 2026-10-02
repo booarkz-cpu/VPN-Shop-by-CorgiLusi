@@ -43,7 +43,7 @@ class GuideIn(BaseModel):
 
 def _normalize_email(value: str) -> str:
     email = (value or "").strip().lower()
-    if "@" not in email or "." not in email.split("@")[-1]:
+    if email.count('@')!=1 or any(ord(c)<33 or ord(c)==127 for c in email) or "." not in email.split("@")[-1]:
         raise HTTPException(400, "Invalid email")
     return email
 
