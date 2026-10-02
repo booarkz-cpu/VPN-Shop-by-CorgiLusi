@@ -119,3 +119,28 @@ async def test_postgres_parallel_polls_lock_cursor_and_do_not_duplicate(env):
         assert await s.scalar(select(func.count()).select_from(Ticket))==1
         assert await s.scalar(select(func.count()).select_from(Message))==1
         assert (await s.get(ShopSyncState,1)).origin==api.origin
+
+async def test_linked_portal_keeps_pending_customer_message_visible_and_rejects_html(env):
+    import httpx,re,secrets
+    from app import main
+    from app.models import PortalAccess
+    from datetime import timedelta
+    api=FakeAPI();await bridge.poll(env['session'],api)
+    raw=secrets.token_urlsafe(32)
+    async with env['session']() as s:
+        t=await s.scalar(select(Ticket));tid=t.id
+        s.add(PortalAccess(token_hash=hashlib.sha256(raw.encode()).hexdigest(),client_id=t.telegram_user_id,expires_at=datetime.now(timezone.utc)+timedelta(days=1)));await s.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app),base_url='https://testserver') as client:
+        assert (await client.get('/portal/access/'+raw)).status_code==303
+        page=await client.get(f'/portal/ticket/{tid}')
+        csrf=re.search('name="csrf-token" content="([^"]+)"',page.text)[1]
+        nonce=re.search('name="nonce" value="([^"]+)"',page.text)[1]
+        result=await client.post(f'/portal/ticket/{tid}',data={'csrf_token':csrf,'nonce':nonce,'text':'Pending question'})
+        assert result.status_code==303
+        page=await client.get(f'/portal/ticket/{tid}')
+        assert 'Pending question' in page.text and 'Передаём сообщение' in page.text
+        nonce=re.search('name="nonce" value="([^"]+)"',page.text)[1]
+        rejected=await client.post(f'/portal/ticket/{tid}',data={'csrf_token':csrf,'nonce':nonce,'text':'Unsafe file'},files={'file':('bad.html',b'<script>', 'text/html')})
+        assert rejected.status_code==400
+    async with env['session']() as s:
+        assert not await s.scalar(select(Message.id).where(Message.text=='Unsafe file'))

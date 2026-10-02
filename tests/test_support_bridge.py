@@ -112,3 +112,15 @@ async def test_import_blocks_live_writers_until_explicit_completion(database,api
         assert (await api.post('/api/internal/support-bridge/imports/1/complete',json={'status':'open','expected_message_id':0})).status_code==200
         assert (await api.get('/api/internal/support-bridge/tickets')).json()['items'][0]['id']==tid
         assert (await api.post(f'/api/internal/support-bridge/tickets/{tid}/reply',json={'body':'Ready'},headers={'Idempotency-Key':'sp:support-main:reply:1'})).status_code==200
+
+@pytest.mark.asyncio
+async def test_portal_shop_identity_is_ticket_scoped(database,api):
+    database.add(SupportTicket(id=1,user_id=1,subject='Portal',message='Question'));await database.commit()
+    async with api:
+        headers={'Idempotency-Key':'sp:support-main:customer:45'}
+        path='/api/internal/support-bridge/tickets/1/customer-message'
+        assert (await api.post(path,headers=headers,json={'user_id':2,'body':'Foreign'})).status_code==409
+        response=await api.post(path,headers=headers,json={'user_id':1,'body':'My reply'})
+        assert response.status_code==200
+        again=await api.post(path,headers=headers,json={'user_id':1,'body':'My reply'})
+        assert response.json()['id']==again.json()['id'] and not again.json()['created']
