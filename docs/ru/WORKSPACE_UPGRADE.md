@@ -86,3 +86,6 @@ APP_ENV=test APP_SECRET=test-only-secret PYTHONPATH=backend .venv/bin/python -m 
 ```
 
 SQLite-тесты новых проекций не проверяют PostgreSQL advisory locks. CI содержит отдельные PostgreSQL-регрессии, миграции, Compose и native-сборки. Для E2E реальной кассы необходим внешний стенд и корректные credentials.
+
+
+Docker-публикация предварительного выпуска использует `preview`, тег ветки и SHA; стабильный `latest` не заменяется alpha-сборкой. Публикуются образы backend, bot, admin, cabinet и miniapp. Для воспроизводимого развёртывания закрепляйте image digest.
