@@ -4,7 +4,7 @@ from decimal import Decimal
 import hashlib,json,secrets
 from fastapi import HTTPException
 from sqlalchemy import select,func
-from .models import User,Plan,GiftCode,GiftRedemption,Subscription,UserDevice,Payment,EntitlementOperation
+from .models import User,Plan,GiftCode,GiftRedemption,Subscription,UserDevice
 from .subscriptions import reserve_target,owned,remote_username,selection
 
 
@@ -103,9 +103,7 @@ async def redeem_gift(payload,request,db):
         terms=code.entitlements_snapshot or {'days':code.duration_days or plan.duration_days,'traffic_gb':plan.traffic_limit_gb,'devices':plan.device_limit,'profile_id':plan.remnawave_profile_id}
         if not redemption:
             sub=await reserve_target(db,user,code.plan_id,payload.model_dump(exclude={'code'}))
-            pending_payment=await db.scalar(select(Payment.id).where(Payment.subscription_id==sub.id,Payment.status.in_(('paid','fulfilled')),Payment.fulfillment_status!='completed').limit(1))
-            pending_change=await db.scalar(select(EntitlementOperation.id).where(EntitlementOperation.subscription_id==sub.id,EntitlementOperation.status.in_(('queued','applying','refund_pending'))).limit(1))
-            if pending_payment or pending_change:raise HTTPException(409,'Предыдущая покупка ещё обрабатывается')
+
             redemption=GiftRedemption(gift_code_id=code.id,user_id=user.id,subscription_id=sub.id,operation_key=f'gift:{code.id}:{user.id}',status='processing')
             db.add(redemption);await db.flush()
         else:

@@ -202,6 +202,7 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/admin/support/attachments/{attachment_id}` | Admin Download |
 | `GET` | `/api/admin/support/tickets` | Admin Tickets |
 | `POST` | `/api/admin/support/tickets/{ticket_id}/attachments` | Admin Upload |
+| `GET` | `/api/admin/support/tickets/{ticket_id}/attachments/drafts` | Admin Drafts |
 | `GET` | `/api/admin/support/tickets/{ticket_id}/messages` | Admin Support Messages |
 | `POST` | `/api/admin/support/tickets/{ticket_id}/reply` | Admin Ticket Reply |
 | `GET` | `/api/admin/system/health` | System Health |
@@ -327,6 +328,7 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/me/support/tickets` | My Support Tickets |
 | `POST` | `/api/me/support/tickets` | Create Support Ticket |
 | `POST` | `/api/me/support/tickets/{ticket_id}/attachments` | Customer Upload |
+| `GET` | `/api/me/support/tickets/{ticket_id}/attachments/drafts` | Customer Drafts |
 | `GET` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Messages |
 | `POST` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Reply |
 | `GET` | `/api/me/traffic` | My Traffic |
@@ -369,5 +371,3 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/health/live` | Health Live |
 | `GET` | `/health/ready` | Health Ready |
 | `GET` | `/metrics` | Metrics |
-
-Всего: 363 операций.

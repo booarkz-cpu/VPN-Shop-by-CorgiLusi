@@ -24,3 +24,14 @@ it('downloads through the protected endpoint with no public media link',async()=
  fireEvent.click(screen.getByRole('button',{name:'log.txt · 1 КБ'}));await waitFor(()=>expect(click).toHaveBeenCalled());
  expect(request).toHaveBeenCalledWith('/api/me/support/attachments/8');expect(create.mock.calls[0][0].type).toBe('application/octet-stream');
 });
+
+it('recovers lost draft ids and allows removing excess files',async()=>{
+ const request=vi.fn(async(path:string,options?:RequestInit)=>options?.method==='DELETE'?{ok:true}:Array.from({length:4},(_,i)=>({id:i+1,name:`log${i+1}.txt`,size:3})));
+ function Host(){const [value,setValue]=useState<any[]>([]);return <AttachmentUpload ticketId={4} request={request} value={value} onChange={setValue}/>}
+ render(<Host/>);fireEvent.click(screen.getByRole('button',{name:'Восстановить загруженные файлы'}));
+ await screen.findByText(/log4.txt/);expect(request).toHaveBeenCalledWith('/api/me/support/tickets/4/attachments/drafts');
+ expect((screen.getByLabelText(/Вложения/) as HTMLInputElement).disabled).toBe(true);
+ fireEvent.click(screen.getAllByRole('button',{name:'Убрать из сообщения'})[0]);
+ await waitFor(()=>expect(screen.queryByText(/log1.txt/)).toBeNull());
+ expect(request).toHaveBeenCalledWith('/api/me/support/attachments/1',{method:'DELETE'});
+});

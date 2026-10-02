@@ -71,3 +71,18 @@ async def test_postgres_attachment_migration_preserves_conversation(database):
     assert (await database.get(SupportTicket,1)).message=='Original'
     file=await files.customer_upload(1,payload(),request('after-migration'),database)
     assert file['size']==18
+
+@pytest.mark.asyncio
+async def test_drafts_recovery_is_actor_scoped_and_excludes_sent_files(database):
+    from types import SimpleNamespace
+    database.add_all([SupportTicket(id=1,user_id=1,subject='VPN',message='Error'),SupportTicket(id=2,user_id=2,subject='Other',message='Private')]);await database.commit()
+    own=await files.customer_upload(1,payload(),request('recover'),database)
+    sent=await files.customer_upload(1,payload(data=b'sent'),request('sent-recovery'),database)
+    await customer_support_reply(1,SupportMessageIn(message='Sent',attachment_ids=[sent['id']]),request('sent-message'),database)
+    ticket=await database.get(SupportTicket,1)
+    staff=await files.upload(database,ticket,payload(), 'admin:one@example.test','staff')
+    assert await files.customer_drafts(1,request(),database)==[own]
+    assert await files.admin_drafts(1,database,SimpleNamespace(email='one@example.test'))==[staff]
+    assert await files.admin_drafts(1,database,SimpleNamespace(email='two@example.test'))==[]
+    with pytest.raises(HTTPException) as error:await files.customer_drafts(2,request(),database)
+    assert error.value.status_code==404
