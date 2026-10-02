@@ -94,7 +94,8 @@ async def list_subscriptions(request:Request,db:AsyncSession=Depends(get_db)):
 async def select_subscription(subscription_id:int,request:Request,db:AsyncSession=Depends(get_db)):
     from .main import audit
     owner=await user(request,db)
-    await db.scalar(select(User).where(User.id==owner.id).with_for_update())
+    current=await db.scalar(select(User).where(User.id==owner.id).execution_options(populate_existing=True).with_for_update())
+    if not current or current.deleted_at:raise HTTPException(409,'Аккаунт недоступен')
     sub=await owned(db,owner.id,subscription_id,lock=True)
     if not sub:raise HTTPException(404,'Подписка не найдена')
     # Clear first, then flush the new primary to respect the partial unique index.
@@ -111,7 +112,10 @@ class RenameIn(BaseModel):
 @router.put('/api/me/subscriptions/{subscription_id}')
 async def rename_subscription(subscription_id:int,payload:RenameIn,request:Request,db:AsyncSession=Depends(get_db)):
     from .main import audit
-    owner=await user(request,db);sub=await owned(db,owner.id,subscription_id,lock=True)
+    owner=await user(request,db)
+    current=await db.scalar(select(User).where(User.id==owner.id).execution_options(populate_existing=True).with_for_update())
+    if not current or current.deleted_at:raise HTTPException(409,'Аккаунт недоступен')
+    sub=await owned(db,owner.id,subscription_id,lock=True)
     if not sub:raise HTTPException(404,'Подписка не найдена')
     if not payload.name.strip():raise HTTPException(400,'Укажите название')
     sub.name=payload.name.strip();await audit(db,'subscription.renamed',f'user:{owner.id}',str(sub.id));await db.commit()

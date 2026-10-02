@@ -200,3 +200,30 @@ async def test_postgres_device_quotas_and_list_follow_the_selected_profile(datab
     await profiles.select_subscription(target_id,request(),database)
     rows=await shop.my_devices(request(),database)
     assert [x['id'] for x in rows]==[third['id']]
+
+@pytest.mark.asyncio
+async def test_profile_mutations_recheck_anonymized_owner_under_lock(database):
+    owner=await database.get(User,1);owner.deleted_at=datetime.utcnow();await database.commit()
+    for operation in (profiles.rename_subscription(1,profiles.RenameIn(name='Secret'),request(),database),profiles.select_subscription(1,request(),database)):
+        with pytest.raises(HTTPException) as error:await operation
+        assert error.value.status_code==409
+    assert (await database.get(Subscription,1)).name=='Подписка'
+
+@pytest.mark.asyncio
+async def test_postgres_privacy_disables_all_profiles_and_erases_names_and_files(database,monkeypatch):
+    if database.bind.dialect.name!='postgresql':pytest.skip('Privacy bulk update uses PostgreSQL')
+    from app.models import SupportTicket,SupportAttachment
+    old=await database.get(Subscription,1);old.name='Private original';old.expires_at=datetime.utcnow()-timedelta(days=1)
+    database.add_all([Subscription(user_id=1,plan_id=2,is_primary=False,name='Private second',lifecycle_status='expired',
+        expires_at=datetime.utcnow()-timedelta(days=1),remnawave_uuid='remote-2'),
+        SupportTicket(id=1,user_id=1,subject='Issue',message='Text')]);await database.flush()
+    database.add(SupportAttachment(ticket_id=1,actor='customer:1',idempotency_key='file',name='private.txt',mime='text/plain',data=b'private',size=7,sha256='0'*64));await database.commit()
+    calls=[]
+    class Remote:
+        async def disable_user(self,uuid):calls.append(uuid)
+    monkeypatch.setattr(shop,'RemnawaveClient',Remote)
+    result=await shop.privacy_delete(request(),database)
+    assert result['anonymized'] and set(calls)=={'remote-1','remote-2'}
+    rows=(await database.execute(select(Subscription).where(Subscription.user_id==1))).scalars().all()
+    assert all(x.name=='Подписка' and x.remnawave_uuid is None and not x.auto_renew_enabled for x in rows)
+    assert await database.scalar(select(func.count()).select_from(SupportAttachment))==0

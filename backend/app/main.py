@@ -3022,7 +3022,7 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
                     await RemnawaveClient().disable_user(active.remnawave_uuid)
                 except Exception as exc:
                     raise HTTPException(503,"Не удалось отключить удалённую VPN-подписку; удаление аккаунта остановлено") from exc
-            active.expires_at=datetime.utcnow();active.lifecycle_status="cancelled";active.auto_renew_enabled=False
+            active.expires_at=datetime.utcnow();active.lifecycle_status="cancelled";active.auto_renew_enabled=False;active.name="Подписка"
             active.subscription_url=None;active.remnawave_uuid=None
         from .models import SupportAttachment
         from sqlalchemy import delete
