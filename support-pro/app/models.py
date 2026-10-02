@@ -60,6 +60,11 @@ class Client(Base):
 
 class Ticket(Base):
     __tablename__ = 'tickets'
+    shop_import_until_id: Mapped[int | None] = mapped_column(Integer)
+    shop_import_complete: Mapped[bool] = mapped_column(Boolean,default=False)
+    shop_ticket_id: Mapped[int | None] = mapped_column(Integer, unique=True)
+    shop_last_message_id: Mapped[int] = mapped_column(Integer, default=0)
+    shop_initial_loaded: Mapped[bool] = mapped_column(Boolean, default=False)
     id: Mapped[int] = mapped_column(primary_key=True)
     telegram_user_id: Mapped[int] = mapped_column(BigInteger, index=True)
     username: Mapped[str] = mapped_column(String(255), default='')
@@ -108,6 +113,7 @@ class Message(Base):
 
 class Attachment(Base):
     __tablename__ = 'attachments'
+    shop_attachment_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     id: Mapped[int] = mapped_column(primary_key=True)
     ticket_id: Mapped[int] = mapped_column(ForeignKey('tickets.id'), index=True)
     message_id: Mapped[int | None] = mapped_column(ForeignKey('messages.id'))
@@ -280,3 +286,12 @@ class IncidentTicket(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     incident_id: Mapped[int] = mapped_column(ForeignKey('incidents.id'))
     ticket_id: Mapped[int] = mapped_column(ForeignKey('tickets.id'))
+
+class ShopSyncState(Base):
+    __tablename__ = 'shop_sync_state'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    origin: Mapped[str] = mapped_column(String(1000))
+    instance: Mapped[str] = mapped_column(String(40))
+    after_id: Mapped[int] = mapped_column(Integer,default=0)
+    last_success: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error: Mapped[str] = mapped_column(String(500),default='')

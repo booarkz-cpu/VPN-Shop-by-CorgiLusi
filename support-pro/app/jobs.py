@@ -30,7 +30,7 @@ def validate_url(url):
 
 async def tick(session_factory):
     async with session_factory() as s:
-        job = await s.scalar(select(WorkItem).where(WorkItem.state.in_(['queued','sending']), WorkItem.due_at <= now())
+        job = await s.scalar(select(WorkItem).where(WorkItem.state.in_(['queued','sending']), WorkItem.kind!='shop_status', WorkItem.due_at <= now())
                              .order_by(WorkItem.id).with_for_update(skip_locked=True).limit(1))
         if not job: return False
         if job.kind == 'event':

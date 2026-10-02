@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     trusted_proxy_cidrs: str = Field(default="", alias="TRUSTED_PROXY_CIDRS")
     cabinet_cors_origins: str = Field(default="", alias="CABINET_CORS_ORIGINS")
 
+    support_bridge_token: str = Field(default="", alias="SUPPORT_BRIDGE_TOKEN")
+
     # ---------- PostgreSQL ----------
     db_user: str = Field(default="vpnshop", alias="DB_USER")
     db_password: str = Field(default="change-me", alias="DB_PASSWORD")

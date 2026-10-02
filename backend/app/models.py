@@ -488,6 +488,7 @@ class RefundRequest(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 class SupportTicket(Base):
+    __table_args__ = (Index("ix_support_tickets_updated","updated_at","id"),)
     __tablename__ = "support_tickets"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
@@ -994,3 +995,9 @@ class PaymentPriceExperiment(Base):
     rules: Mapped[dict|None] = mapped_column(JSON)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+class SupportImportLink(Base):
+    __tablename__ = 'support_import_links'
+    completed: Mapped[bool] = mapped_column(Boolean,default=False,nullable=False)
+    source_key: Mapped[str] = mapped_column(String(80),primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey('support_tickets.id',ondelete='CASCADE'),unique=True,nullable=False)

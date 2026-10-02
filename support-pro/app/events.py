@@ -32,20 +32,29 @@ def prepare(session, context, instances):
                             setattr(obj,field,business_add(now(),remaining/60,config))
                     obj.paused_at = None
             if not session.info.get('automation') and (fresh or session.is_modified(obj)):
-                changes.append((obj, 'ticket.created' if fresh else 'ticket.updated'))
+                changes.append((obj, 'ticket.created' if fresh else 'ticket.updated',status.has_changes()))
         elif isinstance(obj, Message):
-            if obj in session.new: changes.append((obj, 'message.created'))
+            if obj in session.new: changes.append((obj, 'message.created',False))
             elif inspect(obj).attrs.delivery_state.history.has_changes() and obj.delivery_state == 'sent':
-                changes.append((obj, 'message.sent'))
+                changes.append((obj, 'message.sent',False))
         elif isinstance(obj, CallRequest) and obj in session.new:
-            changes.append((obj, 'call.created'))
+            changes.append((obj, 'call.created',False))
 
 @event.listens_for(Session, 'after_flush_postexec')
 def enqueue(session, context):
-    for obj, name in session.info.pop('support_events', []):
+    for obj, name, status_changed in session.info.pop('support_events', []):
         tid = obj.id if isinstance(obj, Ticket) else obj.ticket_id
         session.add(WorkItem(key=str(uuid.uuid4()), kind='event', event=name, ticket_id=tid,
                              payload={'ticket_id': tid, 'record_id': obj.id}, state='queued'))
+
+        if isinstance(obj,Ticket) and obj.shop_ticket_id and obj.shop_initial_loaded and status_changed and not session.info.get('shop_pull'):
+            session.add(WorkItem(key=str(uuid.uuid4()),kind='shop_status',event='ticket.status',ticket_id=obj.id,
+                payload={'status':'resolved' if obj.status=='closed' else 'open','expected_message_id':obj.shop_last_message_id}))
+        if isinstance(obj,Message) and name=='message.created' and obj.sender=='user' and not session.info.get('shop_pull'):
+            ticket=session.get(Ticket,obj.ticket_id)
+            if ticket and ticket.shop_ticket_id:
+                obj.delivery_state='queued'
+
 
 @event.listens_for(Session, 'after_soft_rollback')
 def clear(session, previous):

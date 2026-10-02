@@ -27,7 +27,7 @@ def rating_keyboard(tid):
 
 async def claim_message():
     async with Session() as s:
-        m = await s.scalar(select(Message).where(Message.delivery_state == 'queued',
+        m = await s.scalar(select(Message).join(Ticket,Ticket.id==Message.ticket_id).where(or_(Ticket.shop_import_until_id.is_(None),Ticket.shop_import_complete.is_(True)),Message.delivery_state == 'queued',
             or_(Message.next_attempt_at.is_(None), Message.next_attempt_at <= now()))
             .order_by(Message.id).with_for_update(skip_locked=True).limit(1))
         if not m:
@@ -45,6 +45,18 @@ async def deliver(bot, mid):
             return
         ticket = await s.get(Ticket, m.ticket_id)
         a = await s.scalar(select(Attachment).where(Attachment.message_id == mid))
+        if ticket.shop_ticket_id:
+            from .shop_bridge import deliver as deliver_shop, BridgeError
+            try:
+                await deliver_shop(s,ticket,m)
+            except Exception as exc:
+                m.delivery_state='failed' if m.attempts>=8 or isinstance(exc,BridgeError) else 'queued'
+                m.next_attempt_at=now()+timedelta(seconds=min(3600,10*2**m.attempts))
+                m.error=str(exc) if isinstance(exc,BridgeError) else 'Магазин недоступен; повтор использует прежний ключ'
+                await notify(s,ticket,f'Ответ магазину в #{ticket.id}: {m.error}',f'shop-delivery:{mid}:{m.attempts}')
+                await s.commit()
+            await publish(ticket.id,{'type':'changed'})
+            return
         if ticket.channel == 'web':
             ticket=await s.scalar(select(Ticket).where(Ticket.id==m.ticket_id).with_for_update().execution_options(populate_existing=True))
             m.delivery_state, m.sent_at = 'sent', now()
@@ -147,8 +159,8 @@ async def maintenance():
         stale = (await s.scalars(select(Message).where(Message.delivery_state == 'sending', Message.claimed_at < now() - timedelta(minutes=5))
                                 .with_for_update(skip_locked=True))).all()
         for m in stale:
-            m.delivery_state, m.error = 'uncertain', 'Обработчик прервался. Отправка могла состояться; проверьте перед повтором.'
             t = await s.get(Ticket, m.ticket_id)
+            m.delivery_state, m.error = ('queued', 'Повтор через API магазина с прежним ключом') if t.shop_ticket_id else ('uncertain', 'Обработчик прервался. Отправка могла состояться; проверьте перед повтором.')
             await notify(s, t, f'Неизвестен результат отправки в обращении #{t.id}', f'stale:{m.id}:{m.attempts}')
         await s.commit()
     # Page by primary key, releasing locks after each ticket.
@@ -192,6 +204,7 @@ async def maintenance():
 async def main():
     bot = Bot(os.environ['BOT_TOKEN'])
     last_maintenance = 0
+    last_shop_poll = 0
     try:
         while True:
             try:
@@ -199,6 +212,23 @@ async def main():
                 if time.monotonic() - last_maintenance > 30:
                     await maintenance()
                     last_maintenance = time.monotonic()
+                from . import shop_bridge
+                if shop_bridge.enabled() and time.monotonic()-last_shop_poll>10:
+                    try:
+                        await shop_bridge.poll(Session)
+                        for _ in range(10):
+                            if not await shop_bridge.status_one(Session):break
+                    except Exception as exc:
+                        log.warning('Shop bridge cycle failed: %s',type(exc).__name__)
+                        try:
+                            from .models import ShopSyncState
+                            async with Session() as s:
+                                state=await s.get(ShopSyncState,1)
+                                if state:
+                                    state.error=str(exc) if isinstance(exc,shop_bridge.BridgeError) else 'Синхронизация недоступна; следующий цикл повторит прежний курсор'
+                                    await s.commit()
+                        except Exception:log.warning('Cannot persist shop bridge status')
+                    last_shop_poll=time.monotonic()
                 # Limit a batch so incoming downloads and deadlines are not starved.
                 for _ in range(10):
                     mid = await claim_message()

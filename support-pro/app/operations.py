@@ -18,13 +18,14 @@ async def page(request,op,title,**data):
 @app.get('/operations')
 async def operations(request:Request,op=Depends(m.current_operator)):
     async with m.Session() as s:
+        shop_sync=await s.get(ShopSyncState,1) if op.role=='admin' else None
         views=(await s.scalars(select(SavedView).where(SavedView.operator_id==op.id))).all()
         sessions=(await s.scalars(select(LoginSession).where(LoginSession.operator_id==op.id,LoginSession.revoked.is_(False)))).all()
         jobs=(await s.scalars(select(WorkItem).order_by(WorkItem.id.desc()).limit(100))).all() if op.role=='admin' else []
         teams=(await s.scalars(select(Team))).all() if op.role=='admin' else []
         holidays=(await s.scalars(select(Holiday).order_by(Holiday.day))).all()
         operators=(await s.scalars(select(Operator))).all() if op.role=='admin' else []
-    return await page(request,op,'Рабочие инструменты',views=views,sessions=sessions,jobs=jobs,teams=teams,holidays=holidays,operators=operators)
+    return await page(request,op,'Рабочие инструменты',views=views,sessions=sessions,jobs=jobs,teams=teams,holidays=holidays,operators=operators,shop_sync=shop_sync)
 
 @app.post('/views')
 async def save_view(request:Request,op=Depends(m.current_operator)):
@@ -146,6 +147,7 @@ async def bulk(request:Request,op=Depends(m.current_operator)):
 async def merge_preview(request:Request,tid:int,source:int,op=Depends(m.current_operator)):
     async with m.Session() as s:
         t=await m.ticket_get(s,tid);a=await m.ticket_get(s,source)
+        if t.shop_ticket_id or a.shop_ticket_id:raise HTTPException(409,'Связанные обращения нельзя объединять только в локальной копии')
         if t.id==a.id or t.telegram_user_id!=a.telegram_user_id or t.channel!=a.channel or t.team_id!=a.team_id:raise HTTPException(400,'Нужны разные обращения одного клиента, команды и канала')
         count=await s.scalar(select(func.count()).select_from(Message).where(Message.ticket_id==source))
     request.session['merge_confirm']={'target':tid,'source':source,'version':str(a.updated_at),'target_version':str(t.updated_at)}
