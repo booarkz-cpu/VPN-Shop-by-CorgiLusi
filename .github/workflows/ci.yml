@@ -87,6 +87,21 @@ jobs:
   support:
     name: Support Pro • runtime tests
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: support
+          POSTGRES_PASSWORD: ci-support-password
+          POSTGRES_DB: support
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U support -d support"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AUDIT_TEST_SUPPORT_DATABASE_URL: postgresql+asyncpg://support:ci-support-password@127.0.0.1:5432/support
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6

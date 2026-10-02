@@ -30,7 +30,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.0.0-alpha.2"
+APP_VERSION = "21.0.0-alpha.3"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -91,6 +91,8 @@ app.include_router(subscription_commerce_router)
 app.include_router(subscriptions_router)
 from .support_attachments import router as support_attachments_router
 app.include_router(support_attachments_router)
+from .support_bridge import router as support_bridge_router
+app.include_router(support_bridge_router)
 app.include_router(mobile_router)
 app.include_router(production_router)
 app.include_router(production_launch_router)
@@ -2427,7 +2429,7 @@ async def my_referral(request:Request,db:AsyncSession=Depends(get_db)):
 
 
 # ---------- V24-V28 customer/support/security operations ----------
-# Store support uses one conversation; Support Pro remains an independent operator component.
+# Store support is canonical; Support Pro uses the scoped bridge API.
 @app.post("/api/me/support/tickets")
 async def create_support_ticket(payload:TicketIn, request:Request, db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
@@ -2436,7 +2438,7 @@ async def create_support_ticket(payload:TicketIn, request:Request, db:AsyncSessi
     db.add(t); await db.commit(); await db.refresh(t)
     return {"id":t.id,"status":t.status}
 
-# Store support uses one conversation; Support Pro remains an independent operator component.
+# Store support is canonical; Support Pro uses the scoped bridge API.
 @app.get("/api/me/support/tickets")
 async def my_support_tickets(request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
@@ -2727,13 +2729,13 @@ async def retry_refund_revoke(refund_id:int,db:AsyncSession=Depends(get_db),admi
 async def mark_refunded(refund_id:int,admin=Depends(require_permission("payments.refund"))):
     raise HTTPException(410,"Manual mark-refunded is disabled; execute or reconcile the provider refund instead")
 
-# Store support uses one conversation; Support Pro remains an independent operator component.
+# Store support is canonical; Support Pro uses the scoped bridge API.
 @app.get("/api/admin/support/tickets")
 async def admin_tickets(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.read"))):
     rows=(await db.execute(select(SupportTicket).order_by(SupportTicket.id.desc()).limit(200))).scalars().all()
     return [{"id":x.id,"user_id":x.user_id,"subject":x.subject,"message":x.message,"status":x.status,"admin_reply":x.admin_reply,"created_at":x.created_at,"updated_at":x.updated_at} for x in rows]
 
-# Store support uses one conversation; Support Pro remains an independent operator component.
+# Store support is canonical; Support Pro uses the scoped bridge API.
 @app.post("/api/admin/support/tickets/{ticket_id}/reply")
 async def admin_ticket_reply(ticket_id:int,payload:AdminTicketReplyIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.write")),request:Request=None):
     from .support_threads import append_message
@@ -3010,6 +3012,9 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         user=(await db.execute(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
         if user.deleted_at is not None:
             raise HTTPException(409,"Account is already anonymized")
+        from .models import SupportImportLink
+        pending_import=await db.scalar(select(SupportImportLink.source_key).join(SupportTicket,SupportTicket.id==SupportImportLink.ticket_id).where(SupportTicket.user_id==user.id,SupportImportLink.completed.is_(False)).limit(1))
+        if pending_import:raise HTTPException(409,"Сначала завершите перенос истории поддержки")
         unresolved_gift=await db.scalar(select(GiftRedemption.id).where(GiftRedemption.user_id==user.id,GiftRedemption.status!="completed").limit(1))
         unresolved_payment=await db.scalar(select(Payment.id).where(Payment.user_id==user.id,Payment.status.in_(("creating","pending","creation_unknown","paid","fulfilled","refunded_pending_revoke")),Payment.fulfillment_status!="completed").limit(1))
         if unresolved_gift or unresolved_payment:raise HTTPException(409,"Сначала завершите обработку покупок и подарков")
@@ -3027,6 +3032,7 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         from .models import SupportAttachment
         from sqlalchemy import delete
         await db.execute(delete(SupportAttachment).where(SupportAttachment.ticket_id.in_(select(SupportTicket.id).where(SupportTicket.user_id==user.id))))
+        await db.execute(__import__('sqlalchemy').update(SupportTicket).where(SupportTicket.user_id==user.id).values(updated_at=datetime.utcnow()))
         if user.telegram_id: user.telegram_id=None
         user.yandex_id=None
         user.username=f"deleted_{user.id}"

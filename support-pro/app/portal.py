@@ -4,7 +4,7 @@ import hashlib, secrets
 from datetime import timedelta
 from fastapi import Request, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import select,or_,and_
 from . import main as m
 from .models import PortalAccess, Client, Ticket, Message, Attachment, now
 from .services import create_ticket, notify
@@ -91,7 +91,7 @@ async def ticket(request:Request,tid:int):
     async with m.Session() as s:
         t=await s.get(Ticket,tid)
         if not t or t.telegram_user_id!=uid:raise HTTPException(404)
-        messages=(await s.scalars(select(Message).where(Message.ticket_id==tid,Message.sender!='note',Message.delivery_state.in_(['received','sent','legacy'])).order_by(Message.id))).all()
+        messages=(await s.scalars(select(Message).where(Message.ticket_id==tid,Message.sender!='note',or_(and_(Message.sender=='user',Message.delivery_state.in_(['received','queued','sending','failed','sent','legacy'])),and_(Message.sender!='user',Message.delivery_state.in_(['sent','legacy'])))).order_by(Message.id))).all()
         atts=(await s.scalars(select(Attachment).where(Attachment.message_id.in_([msg.id for msg in messages]),Attachment.state=='ready'))).all()
     return await m.render(request,'portal.html',None,t=t,messages=messages,attachments=atts,nonce=secrets.token_urlsafe(24))
 
@@ -110,6 +110,11 @@ async def reply(request:Request,tid:int):
             msg=Message(ticket_id=tid,sender='user',text=text,source_key=key,delivery_state='received');s.add(msg);await s.flush()
             if upload and upload.filename:
                 path,size=await save_upload(upload)
+                if t.shop_ticket_id:
+                    from .shop_bridge import validate_file, MAX_BYTES
+                    if size>MAX_BYTES:raise HTTPException(413,'Вложения магазина: до 2 МБ')
+                    try:validate_file(upload.filename,path.read_bytes())
+                    except ValueError as exc:raise HTTPException(400,str(exc))
                 s.add(Attachment(ticket_id=tid,message_id=msg.id,filename=safe_name(upload.filename),path=str(path),size=size,content_type=upload.content_type or 'application/octet-stream'))
             t.status='open';t.closed_at=None;t.updated_at=now();t.waiting_since=now();t.last_customer_message_id=msg.id
             await notify(s,t,f'Новое сообщение в #{tid}');await s.commit()

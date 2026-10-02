@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select, text, func
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from app.models import SupportTicket, SupportMessage, SupportAttachment
+from app.models import SupportTicket, SupportMessage, SupportAttachment, SupportImportLink
 from app.support_threads import append_message
 
 
@@ -33,6 +33,7 @@ async def support_pg():
             await conn.run_sync(SupportTicket.__table__.create)
             await conn.run_sync(SupportMessage.__table__.create)
             await conn.run_sync(SupportAttachment.__table__.create)
+            await conn.run_sync(SupportImportLink.__table__.create)
         yield engine
     finally:
         await engine.dispose()

@@ -39,7 +39,7 @@ from .jobs import validate_rule, validate_url
 from .storage import save_upload, checked_path, safe_name, MAX_BYTES
 
 ROOT = Path(__file__).resolve().parent
-app = FastAPI(title='Support Pro 3.4', docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title='Support Pro 3.5', docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(SessionMiddleware, secret_key=session_secret(os.getenv('SESSION_SECRET', '')),
                    https_only=os.getenv('COOKIE_SECURE', 'true').lower() == 'true',
                    same_site='lax', max_age=28800)
@@ -334,7 +334,7 @@ async def ticket_page(request: Request, tid: int, op=Depends(current_operator)):
         grouped[item.message_id].append(item)
     return await render(request, 'ticket.html', op, t=ticket, messages=msgs, attachments=grouped,
                         ops=ops, operator_names={o.id: o.login for o in ops}, cats=cats, macros=macros,
-                        client=client, nonce=secrets.token_urlsafe(24), max_upload=MAX_BYTES // 1024 // 1024,
+                        client=client, nonce=secrets.token_urlsafe(24), max_upload=2 if ticket.shop_ticket_id else MAX_BYTES // 1024 // 1024,
                         ai_enabled=bool(os.getenv('AI_BASE_URL') and os.getenv('AI_MODEL') and os.getenv('AI_API_KEY')))
 
 
@@ -415,6 +415,10 @@ async def reply(request: Request, tid: int, op=Depends(current_operator)):
             if upload and upload.filename:
                 try:
                     path, size = await save_upload(upload)
+                    if t.shop_ticket_id and not internal:
+                        from .shop_bridge import validate_file, MAX_BYTES as SHOP_MAX_BYTES
+                        if size>SHOP_MAX_BYTES:raise ValueError('Вложения магазина: до 2 МБ')
+                        validate_file(upload.filename,path.read_bytes())
                 except ValueError as exc:
                     raise HTTPException(413, str(exc))
                 s.add(Attachment(ticket_id=tid, message_id=m.id, filename=safe_name(upload.filename),
@@ -517,6 +521,7 @@ async def split(request: Request, tid: int, op=Depends(current_operator)):
         original = await ticket_get(s, tid)
         c = await s.scalar(select(Client).where(Client.telegram_user_id == original.telegram_user_id).with_for_update())
         original = await ticket_get(s, tid, True)
+        if original.shop_ticket_id:raise HTTPException(409,'Разделение связанной переписки выполняется в магазине')
         if not c:
             raise HTTPException(404)
         messages = (await s.scalars(select(Message).where(Message.id.in_(ids), Message.ticket_id == tid,
@@ -953,6 +958,7 @@ async def merge_ticket(request: Request, tid: int, op=Depends(current_operator))
     async with Session() as s:
         target = await ticket_get(s, tid, True)
         source = await ticket_get(s, source_id, True)
+        if source.shop_ticket_id or target.shop_ticket_id:raise HTTPException(409,'Объединение связанных обращений выполняется в магазине')
         if source.telegram_user_id != target.telegram_user_id or source.team_id != target.team_id or source.channel != target.channel:
             raise HTTPException(400, 'Объединять можно обращения одного клиента')
         confirmation = request.session.get('merge_confirm',{})

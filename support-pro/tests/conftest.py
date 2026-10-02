@@ -1,12 +1,14 @@
 import os
 import re
+import uuid
+import pytest
 from pathlib import Path
 import pytest_asyncio
 import httpx
 import pyotp
 from fakeredis.aioredis import FakeRedis
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy import event
+from sqlalchemy import event,text
 
 os.environ.setdefault('SESSION_SECRET', 'test-session-secret-0123456789-not-for-deployment')
 os.environ.setdefault('BOT_TOKEN', '123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi')
@@ -20,11 +22,18 @@ from app.sla import DEFAULTS
 
 
 @pytest_asyncio.fixture
-async def env(tmp_path, monkeypatch):
-    engine = create_async_engine('sqlite+aiosqlite:///' + str(tmp_path / 'test.db'))
+async def env(tmp_path, monkeypatch,request):
+    root=None;schema=None
+    if getattr(request,'param','sqlite')=='postgres':
+        url=os.getenv('AUDIT_TEST_SUPPORT_DATABASE_URL')
+        if not url:pytest.skip('PostgreSQL bridge concurrency verified in CI')
+        root=create_async_engine(url);schema='support_bridge_'+uuid.uuid4().hex
+        async with root.begin() as c:await c.execute(text(f'CREATE SCHEMA {schema}'))
+        engine=create_async_engine(url,connect_args={'server_settings':{'search_path':schema,'statement_timeout':'15000'}})
+    else:engine = create_async_engine('sqlite+aiosqlite:///' + str(tmp_path / 'test.db'))
     @event.listens_for(engine.sync_engine, 'connect')
     def foreign_keys(connection, _):
-        connection.execute('PRAGMA foreign_keys=ON')
+        if engine.dialect.name=='sqlite':connection.execute('PRAGMA foreign_keys=ON')
     session = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -51,6 +60,9 @@ async def env(tmp_path, monkeypatch):
         yield {'session': session, 'client': client, 'csrf': csrf, 'redis': redis, 'oid': oid, 'secret': secret, 'tmp_path': tmp_path}
     await redis.aclose()
     await engine.dispose()
+    if root:
+        async with root.begin() as c:await c.execute(text(f'DROP SCHEMA {schema} CASCADE'))
+        await root.dispose()
 
 
 async def post(env, path, **data):

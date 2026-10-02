@@ -99,7 +99,7 @@ env_line() {
 }
 
 # Previous release contract: INSTALLER_VERSION="1.0.0-realise"
-INSTALLER_VERSION="21.0.0-alpha.2"
+INSTALLER_VERSION="21.0.0-alpha.3"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.8"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.7"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.6"
@@ -134,7 +134,7 @@ INSTALLER_VERSION="21.0.0-alpha.2"
 # Previous release contract: INSTALLER_VERSION="45.0.0-enterprise"
 # V44.5 Enterprise legacy contract marker
 # INSTALLER_VERSION="43.1.0-production" legacy regression marker
-log "Remnawave VPN Shop — 21.0.0-alpha.2 preview installer"
+log "Remnawave VPN Shop — 21.0.0-alpha.3 preview installer"
 # Historical compatibility marker: 3.1.3 русскоязычный production installer
 # Historical compatibility marker: 3.1.2 русскоязычный production installer
 # Historical compatibility marker: 3.1.1 русскоязычный production installer
@@ -287,6 +287,7 @@ APP_SECRET="$(openssl rand -hex 32)"
 DB_PASSWORD="$(openssl rand -hex 24)"
 SUPPORT_PRO_DB_PASSWORD="$(openssl rand -hex 24)"
 SUPPORT_PRO_SSO_SECRET="$(openssl rand -hex 32)"
+SUPPORT_BRIDGE_TOKEN="$(openssl rand -hex 32)"
 SUPPORT_PRO_SESSION_SECRET="$(openssl rand -hex 32)"
 SUPPORT_PRO_ADMIN_PASSWORD="$(openssl rand -hex 16)"
 SUPPORT_REDIS_PASSWORD="$(openssl rand -hex 32)"
@@ -314,6 +315,7 @@ umask 077
 {
   env_line APP_VERSION "$INSTALLER_VERSION"
   env_line APP_SECRET "$APP_SECRET"
+  env_line SUPPORT_BRIDGE_TOKEN "$SUPPORT_BRIDGE_TOKEN"
   env_line DATABASE_URL "postgresql+asyncpg://vpnshop:${DB_PASSWORD}@db:5432/vpnshop"
   env_line REDIS_URL "redis://redis:6379/0"
   env_line REDIS_PASSWORD "$(openssl rand -hex 32)"
@@ -415,6 +417,9 @@ chmod 600 .env
   env_line REDIS_URL "redis://support_redis:6379/0"
   env_line REDIS_PASSWORD "$SUPPORT_REDIS_PASSWORD"
   env_line SSO_SECRET "$SUPPORT_PRO_SSO_SECRET"
+  env_line SHOP_BRIDGE_URL "https://${API_DOMAIN}"
+  env_line SHOP_BRIDGE_TOKEN "$SUPPORT_BRIDGE_TOKEN"
+  env_line SHOP_BRIDGE_INSTANCE "support-main"
 } > support-pro/.env
 chmod 600 support-pro/.env
 

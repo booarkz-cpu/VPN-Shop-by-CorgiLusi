@@ -95,8 +95,10 @@ def test_installer_produces_both_env_files_without_corrupting_secrets(tmp_path):
     env = {**os.environ, **inputs}
     env.pop("SUPPORT_REDIS_PASSWORD", None)
     generation = 'SUPPORT_REDIS_PASSWORD="$(openssl rand -hex 32)"\n'
+    bridge_generation = 'SUPPORT_BRIDGE_TOKEN="$(openssl rand -hex 32)"\n'
+    assert bridge_generation in script[:script.index("umask 077\n{")]
     assert generation in script[:script.index("umask 077\n{")]
-    run = subprocess.run(["bash", "-c", "set -Eeuo pipefail\ndie(){ echo \"$*\" >&2; exit 1; }\n" + functions + generation + writer],
+    run = subprocess.run(["bash", "-c", "set -Eeuo pipefail\ndie(){ echo \"$*\" >&2; exit 1; }\n" + functions + generation + bridge_generation + writer],
                          cwd=tmp_path, env=env, text=True, capture_output=True)
     assert run.returncode == 0, run.stderr
     shop = (tmp_path / ".env").read_text()
@@ -113,6 +115,9 @@ def test_installer_produces_both_env_files_without_corrupting_secrets(tmp_path):
     support_redis = next(line.split("=", 1)[1] for line in shop.splitlines() if line.startswith("SUPPORT_REDIS_PASSWORD="))
     assert len(support_redis) == 66  # 64 hex digits enclosed in quotes
     assert f"REDIS_PASSWORD={support_redis}" in support.splitlines()
+    bridge_token = next(line.split("=",1)[1] for line in shop.splitlines() if line.startswith("SUPPORT_BRIDGE_TOKEN="))
+    assert len(bridge_token)==66 and f"SHOP_BRIDGE_TOKEN={bridge_token}" in support.splitlines()
+    assert "SHOP_BRIDGE_URL='https://api.example.com'" in support
     assert (tmp_path / ".env").stat().st_mode & 0o777 == 0o600
     assert (tmp_path / "support-pro/.env").stat().st_mode & 0o777 == 0o600
 

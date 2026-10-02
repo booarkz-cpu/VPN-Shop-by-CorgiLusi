@@ -17,7 +17,11 @@ async def preserve_previous_reply(db, ticket):
         await db.flush()
 
 
-async def append_message(db, ticket, role, body, key=None, attachment_ids=None, actor=None):
+async def append_message(db, ticket, role, body, key=None, attachment_ids=None, actor=None, importing=False):
+    if not importing:
+        from .models import SupportImportLink
+        if await db.scalar(select(SupportImportLink.source_key).where(SupportImportLink.ticket_id==ticket.id,SupportImportLink.completed.is_(False))):
+            raise HTTPException(409,'Дождитесь завершения переноса истории обращения')
     attachment_ids=attachment_ids or []
     actor=actor or f"customer:{ticket.user_id}"
     # Caller holds the ticket row lock, so state changes and retry checks serialize.

@@ -268,6 +268,18 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/internal/staging-e2e/refund-status` | Internal Staging Refund Status |
 | `POST` | `/api/internal/staging-e2e/remnawave` | Internal Staging Remnawave |
 | `POST` | `/api/internal/staging-e2e/verify` | Internal Staging Verify |
+| `GET` | `/api/internal/support-bridge/attachments/{attachment_id}` | Attachment |
+| `POST` | `/api/internal/support-bridge/imports/{source_id}` | Import Ticket |
+| `POST` | `/api/internal/support-bridge/imports/{source_id}/attachments` | Import Attachment |
+| `POST` | `/api/internal/support-bridge/imports/{source_id}/complete` | Complete Import |
+| `POST` | `/api/internal/support-bridge/imports/{source_id}/messages` | Import Message |
+| `GET` | `/api/internal/support-bridge/tickets` | Tickets |
+| `GET` | `/api/internal/support-bridge/tickets/recent` | Recent |
+| `POST` | `/api/internal/support-bridge/tickets/{ticket_id}/attachments` | Add Attachment |
+| `POST` | `/api/internal/support-bridge/tickets/{ticket_id}/customer-message` | Customer Message |
+| `GET` | `/api/internal/support-bridge/tickets/{ticket_id}/messages` | Messages |
+| `POST` | `/api/internal/support-bridge/tickets/{ticket_id}/reply` | Reply |
+| `POST` | `/api/internal/support-bridge/tickets/{ticket_id}/status` | Status |
 | `GET` | `/api/me` | Api Me |
 | `GET` | `/api/me/auto-renew` | Auto Renew Status |
 | `PUT` | `/api/me/auto-renew` | Set Auto Renew |

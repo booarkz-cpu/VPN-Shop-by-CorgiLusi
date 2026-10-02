@@ -2,9 +2,11 @@
 
 Единый магазин VPN-подписок: админ-панель, веб кабинет пользователя, Telegram-бот и Mini App, приложения Android и iOS. Интерфейсы оформлены в сине-фиолетовой палитре.
 
-**v21.0.0-alpha.2 — предварительный выпуск для проверки на стенде.** Торговые функции используют существующее ядро, базу пользователей и финансовые операции. Добавлены независимые подписки, их выбор в Android/iOS и подарки из конструктора. Полное функциональное совпадение со всеми запрошенными решениями пока не достигнуто: [карта покрытия и оставшихся работ](docs/ru/WORKSPACE_COVERAGE.md).
+**v21.0.0-alpha.3 — предварительный выпуск для проверки на стенде.** Торговые функции используют существующее ядро, базу пользователей и финансовые операции. Добавлены независимые подписки, их выбор в Android/iOS, подарки из конструктора и защищённая синхронизация переписки Support Pro. Полное функциональное совпадение со всеми запрошенными решениями пока не достигнуто: [карта покрытия и оставшихся работ](docs/ru/WORKSPACE_COVERAGE.md).
 
 Последний стабильный выпуск: [v20.0.29](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v20.0.29). Изменения рабочего пространства описаны в [CHANGELOG.md](CHANGELOG.md). Старое содержание README вынесено в [архив](docs/archive/README_BEFORE_WORKSPACE.md); архивные инструкции не являются текущим руководством.
+
+Сведение поддержки и перенос старой истории: [отдельная инструкция](docs/ru/WORKSPACE_SUPPORT_BRIDGE.md).
 
 ## Что входит в проект
 
@@ -24,7 +26,7 @@
 Для проверки без настоящих касс, Telegram и Remnawave нужны Docker Engine, Compose и Python 3:
 
 ```bash
-git clone --branch v21.0.0-alpha.2 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.0-alpha.3 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
@@ -34,7 +36,7 @@ bash scripts/test-up.sh
 Установка на VDS через SSH или Termius:
 
 ```bash
-git clone --branch v21.0.0-alpha.2 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.0-alpha.3 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 sudo bash deploy/install-vps.sh
 ```
