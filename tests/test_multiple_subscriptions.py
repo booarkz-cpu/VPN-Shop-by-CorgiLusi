@@ -182,3 +182,21 @@ async def test_pending_gift_stops_privacy_deletion(database):
     with pytest.raises(HTTPException) as error:await shop.privacy_delete(request(),database)
     assert error.value.status_code==409
     assert (await database.get(User,1)).deleted_at is None
+
+@pytest.mark.asyncio
+async def test_postgres_device_quotas_and_list_follow_the_selected_profile(database):
+    if database.bind.dialect.name!='postgresql':pytest.skip('Advisory device locks run in CI')
+    owner=await database.get(User,1)
+    target=await profiles.reserve_target(database,owner,2,{'new_subscription':True})
+    target.device_limit_snapshot=1;target.unit_price_per_day=0;await database.commit();target_id=target.id
+    await shop.register_device(shop.DeviceRegisterIn(device_key='device-primary-0001'),request(),database)
+    await shop.register_device(shop.DeviceRegisterIn(device_key='device-primary-0002'),request(),database)
+    third=await shop.register_device(shop.DeviceRegisterIn(device_key='device-secondary-0003',subscription_id=target_id),request(),database)
+    with pytest.raises(HTTPException) as error:
+        await shop.register_device(shop.DeviceRegisterIn(device_key='device-primary-0001',subscription_id=target_id),request(),database)
+    assert error.value.status_code==409
+    await database.rollback()
+    assert len(await shop.my_devices(request(),database))==2
+    await profiles.select_subscription(target_id,request(),database)
+    rows=await shop.my_devices(request(),database)
+    assert [x['id'] for x in rows]==[third['id']]

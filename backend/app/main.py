@@ -742,8 +742,9 @@ async def promo_discount(db, code:str|None, plan_id:int, price, user_id:int|None
 @app.get("/api/me/devices")
 async def my_devices(request: Request, db: AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
-    rows=(await db.execute(select(UserDevice).where(UserDevice.user_id==user.id).order_by(UserDevice.created_at.desc()))).scalars().all()
-    return [{"id":x.id,"name":x.name,"platform":x.platform,"last_seen_at":x.last_seen_at,"status":x.status,"created_at":x.created_at} for x in rows]
+    sub=await owned_subscription(db,user.id)
+    rows=(await db.execute(select(UserDevice).where(UserDevice.user_id==user.id,UserDevice.subscription_id==(sub.id if sub else None)).order_by(UserDevice.created_at.desc()))).scalars().all()
+    return [{"id":x.id,"subscription_id":x.subscription_id,"name":x.name,"platform":x.platform,"last_seen_at":x.last_seen_at,"status":x.status,"created_at":x.created_at} for x in rows]
 
 class DeviceRegisterIn(BaseModel):
     device_key: str = Field(min_length=16, max_length=128)
@@ -761,6 +762,8 @@ async def register_device(payload:DeviceRegisterIn, request:Request, db:AsyncSes
     # Serialize device-limit checks per user. Without this lock, two concurrent
     # registrations could both observe the same active_count and exceed the plan limit.
     await db.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": 710000000 + int(user.id)})
+    user=await db.scalar(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())
+    if not user or user.deleted_at:raise HTTPException(409,"Аккаунт недоступен")
     x=(await db.execute(select(UserDevice).where(UserDevice.device_key==payload.device_key))).scalar_one_or_none()
     if x and x.user_id!=user.id: raise HTTPException(409,"Устройство уже привязано к другому аккаунту")
     sub=await owned_subscription(db,user.id,payload.subscription_id)

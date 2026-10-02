@@ -915,6 +915,7 @@ function App() {
                   <h2 className="section-title">Мои устройства</h2>
                   <p className="section-sub">Управляйте устройствами, которым разрешён доступ к VPN.</p>
                   <div className="plan-list">
+                    <p className="section-sub">Устройства выбранной подписки. Выбрать другой профиль можно в «Моей подписке».</p>
                     {devices.map((device:any)=><article className="plan-item" key={device.id}><div><h3>{device.name}</h3><p className="section-sub">{device.platform || "unknown"} · {device.last_seen_at ? formatDate(device.last_seen_at) : "ещё не подключалось"}</p></div><span className={`status ${device.status === "active" ? "ok" : "warn"}`}>{device.status === "active" ? "Активно" : device.status}</span></article>)}
                     {!devices.length && <p className="section-sub">Устройства появятся после первого подключения.</p>}
                   </div>

@@ -37,6 +37,11 @@ async def database(monkeypatch,request):
                 remnawave_uuid='remote-1',traffic_limit_gb_snapshot=100,device_limit_snapshot=2,unit_price_per_day=Decimal(100)/30),
             TrafficPackage(id=1,name='50 GB',traffic_gb=50,price=25)])
         await db.commit()
+        if engine.dialect.name=='postgresql':
+            # Explicit fixture IDs do not advance PostgreSQL serial sequences.
+            for table in ('users','plans','subscriptions','traffic_packages'):
+                await db.execute(text(f"SELECT setval(pg_get_serial_sequence('{table}','id'), (SELECT max(id) FROM {table}), true)"))
+            await db.commit()
         async def owner(request,session):return await session.get(User,1)
         async def lock(*args,**kwargs):return ('test-lock','token')
         async def noop(*args,**kwargs):pass
