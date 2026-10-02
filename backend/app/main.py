@@ -4,7 +4,7 @@ import hashlib, hmac, ipaddress, json, os, urllib.parse, secrets, pathlib, async
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
-from fastapi import FastAPI, Depends, Request, HTTPException, UploadFile, File, Form, Response
+from fastapi import FastAPI, Depends, Request, HTTPException, UploadFile, File, Form, Response, Query
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -200,10 +200,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     async def _dispatch(self, request, call_next):
         from fastapi.responses import JSONResponse
-        limit = RATE_LIMITS.get(request.url.path)
+        rate_path = request.url.path
+        if request.method == "POST" and rate_path.startswith("/api/me/support/tickets/"):
+            rate_path = "/api/me/support/tickets"
+        limit = RATE_LIMITS.get(rate_path)
         if limit is None and request.url.path.startswith("/api/admin/"):
             limit = 120 if request.method == "GET" else 40
-        if limit and not await _redis_allowed(f"rl:{_client_ip(request)}:{request.url.path}", limit, RATE_WINDOW):
+        if limit and not await _redis_allowed(f"rl:{_client_ip(request)}:{rate_path}", limit, RATE_WINDOW):
             from fastapi.responses import JSONResponse
             return JSONResponse({"detail": "Too many requests"}, status_code=429, headers={"Retry-After": str(RATE_WINDOW)})
         try:
@@ -2487,7 +2490,7 @@ async def my_referral(request:Request,db:AsyncSession=Depends(get_db)):
 
 
 # ---------- V24-V28 customer/support/security operations ----------
-# LEGACY COMPATIBILITY: Support Pro is the canonical support system.
+# Store support uses one conversation; Support Pro remains an independent operator component.
 @app.post("/api/me/support/tickets")
 async def create_support_ticket(payload:TicketIn, request:Request, db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
@@ -2496,7 +2499,7 @@ async def create_support_ticket(payload:TicketIn, request:Request, db:AsyncSessi
     db.add(t); await db.commit(); await db.refresh(t)
     return {"id":t.id,"status":t.status}
 
-# LEGACY COMPATIBILITY: Support Pro is the canonical support system.
+# Store support uses one conversation; Support Pro remains an independent operator component.
 @app.get("/api/me/support/tickets")
 async def my_support_tickets(request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
@@ -2787,26 +2790,35 @@ async def retry_refund_revoke(refund_id:int,db:AsyncSession=Depends(get_db),admi
 async def mark_refunded(refund_id:int,admin=Depends(require_permission("payments.refund"))):
     raise HTTPException(410,"Manual mark-refunded is disabled; execute or reconcile the provider refund instead")
 
-# LEGACY COMPATIBILITY: Support Pro is the canonical support system.
+# Store support uses one conversation; Support Pro remains an independent operator component.
 @app.get("/api/admin/support/tickets")
 async def admin_tickets(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.read"))):
     rows=(await db.execute(select(SupportTicket).order_by(SupportTicket.id.desc()).limit(200))).scalars().all()
     return [{"id":x.id,"user_id":x.user_id,"subject":x.subject,"message":x.message,"status":x.status,"admin_reply":x.admin_reply,"created_at":x.created_at,"updated_at":x.updated_at} for x in rows]
 
-# LEGACY COMPATIBILITY: Support Pro is the canonical support system.
+# Store support uses one conversation; Support Pro remains an independent operator component.
 @app.post("/api/admin/support/tickets/{ticket_id}/reply")
-async def admin_ticket_reply(ticket_id:int,payload:AdminTicketReplyIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.write"))):
+async def admin_ticket_reply(ticket_id:int,payload:AdminTicketReplyIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.write")),request:Request=None):
+    from .support_threads import append_message
     t=(await db.execute(select(SupportTicket).where(SupportTicket.id==ticket_id).with_for_update())).scalar_one_or_none()
     if not t: raise HTTPException(404,"Ticket not found")
     reply=payload.reply.strip()
     if not reply: raise HTTPException(400,"Ответ не может быть пустым")
-    if t.admin_reply==reply and t.status=="resolved": return {"ok":True,"status":t.status}
-    t.admin_reply=reply; t.status="resolved"; t.updated_at=datetime.utcnow()
-    dedupe=f"support:{t.id}:"+hashlib.sha256(reply.encode()).hexdigest()
-    if not await db.scalar(select(Notification.id).where(Notification.user_id==t.user_id,Notification.dedupe_key==dedupe)):
-        db.add(Notification(user_id=t.user_id,channel="in_app",kind="support.reply",title=f"Ответ на обращение #{t.id}",body=reply,status="sent",dedupe_key=dedupe,sent_at=datetime.utcnow()))
-    await audit(db,"support.ticket.replied",admin.email,str(t.id)); await db.commit()
-    return {"ok":True,"status":t.status}
+    key=request.headers.get("Idempotency-Key") if request else None
+    if not key and t.admin_reply==reply and t.status=="resolved": return {"ok":True,"status":t.status}
+    message,created=await append_message(db,t,"admin",reply,key)
+    if created:
+        db.add(Notification(user_id=t.user_id,channel="in_app",kind="support.reply",title=f"Ответ на обращение #{t.id}",body=reply,status="sent",dedupe_key=f"support-message:{message.id}",sent_at=datetime.utcnow()))
+        await audit(db,"support.ticket.replied",admin.email,str(t.id))
+    await db.commit()
+    return {"ok":True,"status":t.status,"message_id":message.id,"created":created}
+
+@app.get("/api/admin/support/tickets/{ticket_id}/messages")
+async def admin_support_messages(ticket_id:int,after:int=Query(0,ge=0),db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.read"))):
+    from .support_threads import read_thread
+    ticket=await db.get(SupportTicket,ticket_id)
+    if not ticket: raise HTTPException(404,"Ticket not found")
+    return await read_thread(db,ticket,after)
 
 @app.get("/api/admin/referrals/withdrawals")
 async def admin_withdrawals(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("referrals.withdrawals.read"))):
@@ -3048,7 +3060,9 @@ async def privacy_export(request:Request,db:AsyncSession=Depends(get_db)):
     payments=(await db.execute(select(Payment).where(Payment.user_id==user.id).order_by(Payment.id))).scalars().all()
     tickets=(await db.execute(select(SupportTicket).where(SupportTicket.user_id==user.id).order_by(SupportTicket.id))).scalars().all()
     withdrawals=(await db.execute(select(WithdrawalRequest).where(WithdrawalRequest.user_id==user.id).order_by(WithdrawalRequest.id))).scalars().all()
-    return {"exported_at":datetime.utcnow(),"user":{"id":user.id,"telegram_id":user.telegram_id,"yandex_id":user.yandex_id,"username":user.username,"referral_code":user.referral_code,"created_at":user.created_at},"subscription":None if not sub else {"plan_id":sub.plan_id,"remnawave_uuid":sub.remnawave_uuid,"expires_at":sub.expires_at},"payments":[{"id":x.id,"amount":str(x.amount),"currency":x.currency,"provider":x.provider,"status":x.status,"created_at":x.created_at} for x in payments],"tickets":[{"id":x.id,"subject":x.subject,"status":x.status,"created_at":x.created_at} for x in tickets],"withdrawals":[{"id":x.id,"amount":str(x.amount),"status":x.status,"created_at":x.created_at} for x in withdrawals]}
+    from .models import SupportMessage
+    messages=(await db.execute(select(SupportMessage).join(SupportTicket,SupportMessage.ticket_id==SupportTicket.id).where(SupportTicket.user_id==user.id).order_by(SupportMessage.id))).scalars().all()
+    return {"exported_at":datetime.utcnow(),"user":{"id":user.id,"telegram_id":user.telegram_id,"yandex_id":user.yandex_id,"username":user.username,"referral_code":user.referral_code,"created_at":user.created_at},"subscription":None if not sub else {"plan_id":sub.plan_id,"remnawave_uuid":sub.remnawave_uuid,"expires_at":sub.expires_at},"payments":[{"id":x.id,"amount":str(x.amount),"currency":x.currency,"provider":x.provider,"status":x.status,"created_at":x.created_at} for x in payments],"tickets":[{"id":x.id,"subject":x.subject,"message":x.message,"admin_reply":x.admin_reply,"status":x.status,"created_at":x.created_at} for x in tickets],"support_messages":[{"ticket_id":x.ticket_id,"role":x.role,"body":x.body,"created_at":x.created_at} for x in messages],"withdrawals":[{"id":x.id,"amount":str(x.amount),"status":x.status,"created_at":x.created_at} for x in withdrawals]}
 
 @app.delete("/api/me/privacy/account")
 async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):

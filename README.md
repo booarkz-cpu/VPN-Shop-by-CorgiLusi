@@ -11,7 +11,7 @@
 | Компонент | Возможности |
 | --- | --- |
 | Админ-панель | Поиск разделов, таблицы с поиском и страницами, тарифы и конструктор, платежи и возвраты, поиск клиента по ID/Telegram/email/имени, читаемая карточка клиента, обращения и ответы, реферальные выплаты, маркетинг, серверы, агенты, антиабуз, роли и 2FA, резервные копии |
-| Кабинет | Регистрация и вход, подписка, тарифы, кошелёк и история, подарки и подарочные карты, история платежей и PDF-квитанции, управление автопродлением, подключение по ссылке/QR, устройства, рефералы и заявки на выплаты, уведомления, обращения и ответы |
+| Кабинет | Регистрация и вход, подписка, тарифы, кошелёк и история, подарки и подарочные карты, история платежей и PDF-квитанции, управление автопродлением, подключение по ссылке/QR, устройства, рефералы и заявки на выплаты, уведомления, обращения с перепиской |
 | Telegram Mini App | Тот же кабинет и API; настраиваемые изображение, инструкции и кнопки бота; авторизация Telegram |
 | Бот | `/start`, `/buy`, `/subscription`, `/promo`, `/account`, `/balance`, `/payments`, `/gifts`, `/referral`, `/support`, `/devices`, `/ops`; рассылки и переходы в нужные страницы кабинета |
 | Android и iOS | Сохранены приложения клиента и администратора, мобильная авторизация и VPN-компоненты; обновлены цвета |
@@ -24,7 +24,7 @@
 Для проверки без настоящих касс, Telegram и Remnawave нужны Docker Engine, Compose и Python 3:
 
 ```bash
-git clone https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch rework/unified-workspace-20261001 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
@@ -34,7 +34,7 @@ bash scripts/test-up.sh
 Установка на VDS через SSH или Termius:
 
 ```bash
-git clone https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch rework/unified-workspace-20261001 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 sudo bash deploy/install-vps.sh
 ```

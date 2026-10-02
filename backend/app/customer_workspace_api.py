@@ -1,14 +1,43 @@
 """Customer history projections. Business operations stay in the existing core."""
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_db
-from .models import FinancialLedger, GiftCode, GiftRedemption, Plan
+from .models import FinancialLedger, GiftCode, GiftRedemption, Plan, SupportTicket
+from .support_threads import append_message, read_thread
 
 router = APIRouter()
+
+
+class SupportMessageIn(BaseModel):
+    message: str = Field(min_length=1, max_length=5000)
+
+
+@router.get("/api/me/support/tickets/{ticket_id}/messages")
+async def customer_support_messages(ticket_id: int, request: Request, after: int = Query(0, ge=0), db: AsyncSession = Depends(get_db)):
+    from .main import user_from_token
+    user = await user_from_token(request, db)
+    ticket = await db.scalar(select(SupportTicket).where(SupportTicket.id == ticket_id, SupportTicket.user_id == user.id))
+    if not ticket:
+        raise HTTPException(404, "Обращение не найдено")
+    return await read_thread(db, ticket, after)
+
+
+@router.post("/api/me/support/tickets/{ticket_id}/messages")
+async def customer_support_reply(ticket_id: int, payload: SupportMessageIn, request: Request, db: AsyncSession = Depends(get_db)):
+    from .main import user_from_token
+    user = await user_from_token(request, db)
+    ticket = await db.scalar(select(SupportTicket).where(
+        SupportTicket.id == ticket_id, SupportTicket.user_id == user.id).with_for_update())
+    if not ticket:
+        raise HTTPException(404, "Обращение не найдено")
+    message, created = await append_message(db, ticket, "customer", payload.message, request.headers.get("Idempotency-Key"))
+    await db.commit()
+    return {"id": message.id, "status": ticket.status, "created": created}
 
 
 @router.get("/api/me/wallet/history")

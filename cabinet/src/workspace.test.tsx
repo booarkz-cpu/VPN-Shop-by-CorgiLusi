@@ -31,3 +31,14 @@ it("marks a notification and updates its state",async()=>{
 it("distinguishes payment confirmation from pending VPN fulfillment",async()=>{
  const request=vi.fn(async()=>({payments:[{id:1,amount:"100.00",currency:"RUB",status:"paid",fulfillment_status:"pending",created_at:"2026-10-01T10:00:00Z"}]}));render(<Workspace {...base} kind="payments" request={request}/>);await screen.findByText("Оплачен");expect(screen.getByText("Ожидает выдачи")).toBeTruthy();expect((screen.getByRole("link",{name:/Квитанция/}) as HTMLAnchorElement).getAttribute("href")).toBe("/api/me/payments/1/invoice");
 });
+it("opens a support conversation and retries the same follow-up safely",async()=>{
+ let attempt=0;const request=vi.fn(async(p:string,o?:RequestInit)=>{
+  if(p.endsWith("/messages")&&o?.method==="POST"){if(++attempt===1)throw Error("Связь потеряна");return {created:true}}
+  if(p.endsWith("/messages"))return {status:attempt>1?"open":"resolved",messages:[{id:0,role:"customer",body:"Вопрос",created_at:"2026-10-02T10:00:00Z"},{id:1,role:"admin",body:"Первый ответ",created_at:"2026-10-02T10:01:00Z"}],next_cursor:null};
+  return [{id:4,subject:"VPN",message:"Вопрос",status:"resolved",admin_reply:"Первый ответ"}]
+ });
+ render(<Workspace {...base} kind="support" request={request}/>);await screen.findByText("Открыть переписку");fireEvent.click(screen.getByRole("button",{name:"Открыть переписку"}));await screen.findByText("Ответ получен");
+ const input=screen.getByLabelText("Ответ в обращение #4");fireEvent.change(input,{target:{value:"Нужна ещё помощь"}});fireEvent.click(screen.getByRole("button",{name:"Отправить сообщение"}));await screen.findByText("Связь потеряна");
+ expect((input as HTMLTextAreaElement).value).toBe("Нужна ещё помощь");await waitFor(()=>expect((screen.getByRole("button",{name:"Отправить сообщение"}) as HTMLButtonElement).disabled).toBe(false));fireEvent.click(screen.getByRole("button",{name:"Отправить сообщение"}));await screen.findByText("Ожидает ответа поддержки");
+ const calls=request.mock.calls.filter(([p,o])=>p.endsWith("messages")&&o?.method==="POST");expect(calls).toHaveLength(2);expect((calls[0][1]!.headers as any)["Idempotency-Key"]).toBe((calls[1][1]!.headers as any)["Idempotency-Key"]);expect(JSON.parse(String(calls[1][1]!.body))).toEqual({message:"Нужна ещё помощь"});expect((screen.getByLabelText("Ответ в обращение #4") as HTMLTextAreaElement).value).toBe("");
+});

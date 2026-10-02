@@ -532,6 +532,7 @@ export const EN: Record<string, string> = {
 
 let activeLang: Lang = "ru";
 
+Object.assign(EN, {"Открыть переписку": "Open conversation", "Закрыть переписку": "Close conversation", "Загрузка переписки…": "Loading conversation…", "Ожидает ответа поддержки": "Waiting for support", "Ответ получен": "Reply received", "Поддержка": "Support", "Вы": "You", "Клиент": "Customer", "Повторить загрузку": "Retry loading", "Загрузить следующие сообщения": "Load next messages", "Сообщение отправлено": "Message sent", "Отправить сообщение": "Send message", "Ваш ответ снова откроет обращение. Переписка сохранится.": "Your reply will reopen the ticket. The conversation is saved.", "Последний ответ поддержки": "Latest support reply"});
 Object.assign(EN, {
   "Кошелёк": "Wallet",
   "Моя подписка": "My subscription",

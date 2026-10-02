@@ -196,3 +196,66 @@ def test_miniapp_docker_copy_sources_exist_in_root_context():
         if words and words[0] == "COPY" and not words[1].startswith("--from="):
             for source in words[1:-1]:
                 assert list(root.glob(source)), f"Missing Docker context source: {source}"
+
+@pytest.mark.asyncio
+async def test_support_conversation_preserves_legacy_reply_and_reopens(database):
+    from app.models import SupportTicket, SupportMessage, Notification
+    from app.customer_workspace_api import customer_support_messages, customer_support_reply, SupportMessageIn
+    from sqlalchemy import select, func
+    from types import SimpleNamespace
+    ticket=SupportTicket(id=1,user_id=1,subject="VPN",message="Первый вопрос",admin_reply="Старый ответ",status="resolved")
+    database.add(ticket);await database.commit()
+    req=Request({"type":"http","headers":[(b"idempotency-key",b"customer-retry")]})
+    payload=SupportMessageIn(message="Проблема осталась")
+    first=await customer_support_reply(1,payload,req,database)
+    second=await customer_support_reply(1,payload,req,database)
+    assert first["created"] and not second["created"] and first["id"]==second["id"]
+    assert ticket.status=="open"
+    with pytest.raises(HTTPException) as error:
+        await customer_support_reply(1,SupportMessageIn(message="Изменённый текст"),req,database)
+    assert error.value.status_code==409
+    admin_req=Request({"type":"http","headers":[(b"idempotency-key",b"admin-retry")]})
+    admin=SimpleNamespace(email="admin@example.com")
+    await shop.admin_ticket_reply(1,shop.AdminTicketReplyIn(reply="Новый ответ"),database,admin,admin_req)
+    await shop.admin_ticket_reply(1,shop.AdminTicketReplyIn(reply="Новый ответ"),database,admin,admin_req)
+    thread=await customer_support_messages(1,req,0,database)
+    assert [m["body"] for m in thread["messages"]]==["Первый вопрос","Старый ответ","Проблема осталась","Новый ответ"]
+    assert thread["status"]=="resolved" and thread["next_cursor"] is None
+    assert await database.scalar(select(func.count()).select_from(Notification))==1
+    assert await database.scalar(select(func.count()).select_from(SupportMessage))==3
+
+@pytest.mark.asyncio
+async def test_support_thread_cannot_read_or_write_another_customer_ticket(database):
+    from app.models import SupportTicket
+    from app.customer_workspace_api import customer_support_messages, customer_support_reply, SupportMessageIn
+    database.add(SupportTicket(id=2,user_id=2,subject="Чужое",message="Секрет"));await database.commit()
+    req=Request({"type":"http","headers":[]})
+    for operation in (customer_support_messages(2,req,0,database),customer_support_reply(2,SupportMessageIn(message="Ответ"),req,database)):
+        with pytest.raises(HTTPException) as error:await operation
+        assert error.value.status_code==404
+
+@pytest.mark.asyncio
+async def test_support_thread_pagination_does_not_skip_or_repeat_messages(database):
+    from app.models import SupportTicket,SupportMessage
+    from app.support_threads import read_thread
+    ticket=SupportTicket(id=1,user_id=1,subject="VPN",message="Начало")
+    database.add(ticket);await database.flush()
+    database.add_all([SupportMessage(ticket_id=1,role="customer",body=str(i)) for i in range(105)])
+    await database.commit()
+    first=await read_thread(database,ticket)
+    second=await read_thread(database,ticket,first["next_cursor"])
+    assert len(first["messages"])==101 and len(second["messages"])==5
+    assert first["messages"][0]["id"]==0 and second["next_cursor"] is None
+    assert [m["body"] for m in first["messages"][1:]+second["messages"]]==[str(i) for i in range(105)]
+
+@pytest.mark.asyncio
+async def test_blank_support_followup_cannot_reopen_or_append(database):
+    from app.models import SupportTicket,SupportMessage
+    from app.customer_workspace_api import customer_support_reply,SupportMessageIn
+    from sqlalchemy import select,func
+    ticket=SupportTicket(id=1,user_id=1,subject="VPN",message="Вопрос",status="resolved")
+    database.add(ticket);await database.commit()
+    with pytest.raises(HTTPException) as error:
+        await customer_support_reply(1,SupportMessageIn(message="  "),Request({"type":"http","headers":[]}),database)
+    assert error.value.status_code==400 and ticket.status=="resolved"
+    assert await database.scalar(select(func.count()).select_from(SupportMessage))==0

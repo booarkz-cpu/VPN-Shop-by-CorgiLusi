@@ -197,6 +197,7 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/support-pro/sso` | Support Pro Sso |
 | `GET` | `/api/admin/support-pro/status` | Support Pro Status |
 | `GET` | `/api/admin/support/tickets` | Admin Tickets |
+| `GET` | `/api/admin/support/tickets/{ticket_id}/messages` | Admin Support Messages |
 | `POST` | `/api/admin/support/tickets/{ticket_id}/reply` | Admin Ticket Reply |
 | `GET` | `/api/admin/system/health` | System Health |
 | `GET` | `/api/admin/tariff-constructors` | Admin Constructors |
@@ -308,6 +309,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/me/subscription/lifecycle` | Subscription Lifecycle |
 | `GET` | `/api/me/support/tickets` | My Support Tickets |
 | `POST` | `/api/me/support/tickets` | Create Support Ticket |
+| `GET` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Messages |
+| `POST` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Reply |
 | `GET` | `/api/me/traffic` | My Traffic |
 | `POST` | `/api/me/trial` | Claim Trial |
 | `GET` | `/api/me/v15/bootstrap` | V15 Bootstrap |
