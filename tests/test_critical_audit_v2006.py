@@ -20,7 +20,7 @@ def test_live_version_is_20_0_6():
     assert builder.index('VERSION="3.1.6"') < builder.index('VERSION="3.1.5"')
     first = main.index('APP_VERSION = "')
     current = main[first:].split('"', 2)[1]
-    assert tuple(map(int, current.split('.'))) >= (20, 0, 6)
+    assert tuple(map(int, current.split('-', 1)[0].split('.'))) >= (20, 0, 6)
     assert f'INSTALLER_VERSION="{current}"' in installer
     assert f'VERSION="{current}"' in builder
 

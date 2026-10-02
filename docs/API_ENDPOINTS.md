@@ -194,6 +194,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/admin/status/components` | Admin Status Components |
 | `POST` | `/api/admin/status/components` | Admin Status Component Create |
 | `PUT` | `/api/admin/status/components/{component_id}` | Admin Status Component Update |
+| `GET` | `/api/admin/subscription-operations` | Admin Operations |
+| `POST` | `/api/admin/subscription-operations/{operation_id}/refund` | Refund Change |
 | `POST` | `/api/admin/support-pro/sso` | Support Pro Sso |
 | `GET` | `/api/admin/support-pro/status` | Support Pro Status |
 | `GET` | `/api/admin/support/tickets` | Admin Tickets |
@@ -204,6 +206,9 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/tariff-constructors` | Admin Constructor Create |
 | `PUT` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Update |
 | `DELETE` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Delete |
+| `GET` | `/api/admin/traffic-packages` | Admin Packages |
+| `POST` | `/api/admin/traffic-packages` | Create Package |
+| `PUT` | `/api/admin/traffic-packages/{package_id}` | Edit Package |
 | `POST` | `/api/admin/v15/deployments/{deployment_id}/rollback` | Rollback |
 | `GET` | `/api/admin/v15/operations` | Operations |
 | `POST` | `/api/admin/v16/nodes/register` | Register Node |
@@ -306,7 +311,11 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/me/servers` | My Servers |
 | `GET` | `/api/me/subscription` | My Subscription |
 | `GET` | `/api/me/subscription-file` | Subscription File |
+| `GET` | `/api/me/subscription/commerce` | Commerce Catalog |
 | `POST` | `/api/me/subscription/lifecycle` | Subscription Lifecycle |
+| `GET` | `/api/me/subscription/operations` | Commerce History |
+| `POST` | `/api/me/subscription/purchase` | Purchase Change |
+| `POST` | `/api/me/subscription/quote` | Quote Change |
 | `GET` | `/api/me/support/tickets` | My Support Tickets |
 | `POST` | `/api/me/support/tickets` | Create Support Ticket |
 | `GET` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Messages |
@@ -351,3 +360,5 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/health/live` | Health Live |
 | `GET` | `/health/ready` | Health Ready |
 | `GET` | `/metrics` | Metrics |
+
+Всего операций: 354.

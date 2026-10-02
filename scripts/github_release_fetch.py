@@ -23,11 +23,16 @@ MAX_ARCHIVE_BYTES = 80 * 1024 * 1024
 
 
 def version_tuple(value: str) -> tuple:
-    numbers = []
-    for piece in value.lstrip("v").split("."):
-        digits = "".join(ch for ch in piece if ch.isdigit())
-        numbers.append(int(digits or 0))
-    return tuple(numbers)
+    match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?", value)
+    if not match:
+        raise ValueError("Invalid version")
+    base = tuple(int(piece) for piece in match.groups()[:3])
+    suffix = match.group(4)
+    preview = re.fullmatch(r"(alpha|beta|rc)(?:[.-]?(\d+))?", suffix or "")
+    if preview:
+        return base + ({"alpha": 0, "beta": 1, "rc": 2}[preview.group(1)], int(preview.group(2) or 0))
+    # Historical -realise/-audited labels denote stable legacy versions.
+    return base + (3, 0)
 
 
 def current_version(app_dir: Path) -> str:
