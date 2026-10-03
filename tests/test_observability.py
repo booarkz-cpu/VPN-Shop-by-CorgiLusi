@@ -35,3 +35,33 @@ def test_dashboard_panels_have_unique_ids_and_fit_grid():
         assert panel['gridPos']['x']+panel['gridPos']['w']<=24
         assert panel['datasource']['uid']=='${datasource}'
         assert 'job="$job"' in panel['targets'][0]['expr']
+
+
+@pytest.mark.asyncio
+async def test_metrics_database_failure_is_explicit_not_zero_counts(monkeypatch):
+    from app import main as shop, db as database_module
+    from starlette.requests import Request
+    class BrokenSession:
+        async def __aenter__(self):raise RuntimeError('unavailable database with private details')
+        async def __aexit__(self,*args):pass
+    monkeypatch.setattr(database_module,'SessionLocal',BrokenSession)
+    monkeypatch.setattr(shop.settings,'metrics_enabled',True)
+    monkeypatch.setattr(shop.settings,'metrics_token','metrics-test-token')
+    response=await shop.metrics(Request({'type':'http','headers':[(b'x-metrics-token',b'metrics-test-token')]}))
+    output=response.body.decode()
+    assert 'vpnshop_database_metrics_available 0' in output
+    assert 'vpnshop_jobs{' not in output and 'vpnshop_payments{' not in output
+    assert 'private' not in output
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('enabled,token,header,status',[(False,'secret','secret',404),(True,'','',503),(True,'secret','wrong',401)])
+async def test_metrics_authentication_fails_closed(monkeypatch,enabled,token,header,status):
+    from app import main as shop
+    from fastapi import HTTPException
+    from starlette.requests import Request
+    monkeypatch.setattr(shop.settings,'metrics_enabled',enabled)
+    monkeypatch.setattr(shop.settings,'metrics_token',token)
+    with pytest.raises(HTTPException) as error:
+        await shop.metrics(Request({'type':'http','headers':[(b'x-metrics-token',header.encode())]}))
+    assert error.value.status_code==status

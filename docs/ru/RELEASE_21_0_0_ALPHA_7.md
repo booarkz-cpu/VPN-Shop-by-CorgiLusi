@@ -16,7 +16,7 @@ CI также выполняет отдельный Chromium virtual authenticat
 
 Существующие backend/Support Pro тесты, Alembic, audits, три web build/typecheck, Docker/non-root/Redis и Android/iOS compile checks остаются обязательными. Конкретный CI run, commit и статус включаются в detached release manifest после успешного main CI.
 
-Локальная общая suite: **680 passed, 144 skipped** (PostgreSQL проверки входят в CI). Аудиты pip/npm не обнаружили известных уязвимостей. Админка прошла typecheck/build. Promtool 3.15.0 проверил scrape config, пять alert rules, их пять сценариев срабатывания и 14 PromQL запросов dashboard.
+Локальная общая suite: **684 passed, 144 skipped** (PostgreSQL проверки входят в CI). Аудиты pip/npm не обнаружили известных уязвимостей. Админка прошла typecheck/build. Promtool 3.15.0 проверил scrape config, пять alert rules, их пять сценариев срабатывания и 14 PromQL запросов dashboard.
 
 ## Границы
 

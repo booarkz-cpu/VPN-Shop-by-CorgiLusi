@@ -563,7 +563,7 @@ async def metrics(request:Request):
     extra=""
     try:
         from .platform_api import prometheus_lines
-        extra=await prometheus_lines()
+        extra=await asyncio.wait_for(prometheus_lines(), timeout=3)
     except Exception:
         extra=""
     try:
