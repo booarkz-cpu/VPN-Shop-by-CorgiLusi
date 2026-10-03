@@ -75,6 +75,8 @@ jobs:
       - name: Compile Python
         working-directory: backend
         run: python -m compileall -q app worker.py
+      - name: Current release documentation contract
+        run: python scripts/check-current-docs.py
       - name: Alembic heads
         working-directory: backend
         run: alembic heads

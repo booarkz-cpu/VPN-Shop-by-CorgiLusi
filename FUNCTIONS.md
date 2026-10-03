@@ -24,17 +24,17 @@
 | Роли, 2FA, аудит и секреты | [Безопасность](SECURITY.md) |
 | HTTP API и идемпотентность | [API](API_REFERENCE_RU.md) |
 
-Многоуровневые рефералы, merge аккаунтов, клиентский/native passkeys login, общий merge/split поддержки, безопасный импорт чужой базы, удалённый терминал, полный plugin runtime и native push/виджеты ещё не завершены. Данный выпуск добавляет конкурсы и колесо, но не объявляет остальные функции реализованными.
+Многоуровневые рефералы, browser passkeys клиента, merge/split поддержки и безопасный профильный импорт реализованы в обозначенных границах. Merge аккаунтов, native passkeys, исторический импорт VPN/платежей произвольной схемы, удалённый терминал, полный plugin runtime и native push/виджеты ещё не завершены. Полный реестр без скрытых пунктов: [критерии завершения v21.5.1](docs/ru/MATRIX_COMPLETION_21_5_1.md).
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
 
-## Дополнения v21.5.0
+## Текущие дополнения
 
 [Многоуровневые рефералы и сеть](docs/ru/REFERRALS_CURRENT.md), [согласованный CLI backup](docs/ru/BACKUP_CURRENT.md), [актуальная установка через SSH/Termius](docs/ru/DEPLOYMENT_CURRENT.md).
 
 Импорт users.db и массовые операции доступны роли admin в «Клиенты → Импорт и массовые операции». Порядок mapping, preview, применения и границы переноса: [инструкция](docs/ru/CUSTOMER_OPERATIONS_CURRENT.md).
 
-В v21.5.0: [редакторы новостей, лендингов и юридических страниц](docs/ru/CONTENT_PUBLISHING_CURRENT.md), [промогруппы и персональные офферы](docs/ru/PERSONAL_OFFERS_CURRENT.md), пять previewed массовых действий включая ограничение/восстановление доступа в магазин.
+В v21.3.0 добавлены [редакторы новостей, лендингов и юридических страниц](docs/ru/CONTENT_PUBLISHING_CURRENT.md), [промогруппы и персональные офферы](docs/ru/PERSONAL_OFFERS_CURRENT.md), пять previewed массовых действий включая ограничение/восстановление доступа в магазин.
 
 В v21.4.0 добавлены [вложенные меню Telegram и Mini App](docs/ru/MENU_TREE_CURRENT.md): папки до четырёх уровней, стили, custom emoji, безопасные миниатюры и предпросмотр.
 

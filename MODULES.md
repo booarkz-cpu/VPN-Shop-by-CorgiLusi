@@ -1,4 +1,4 @@
-> Актуальная инструкция v21.5.0. Head магазина `0062_support_delivery_identity`, Support Pro `0006`.
+> Актуальная инструкция v21.5.1. Head магазина `0062_support_delivery_identity`, Support Pro `0006`.
 
 # Компоненты проекта
 

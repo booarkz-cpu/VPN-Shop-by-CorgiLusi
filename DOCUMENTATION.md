@@ -1,6 +1,6 @@
 # Документация VPN Shop by Corgi
 
-Текущий исходный выпуск: **v21.5.0**, миграция **0054_referral_levels**. Это stable-выпуск текущего проверенного ядра; production-ready не подтверждён. Рабочие сценарии и незавершённые функции описаны отдельно; реальные платежи не сертифицированы.
+Текущий исходный выпуск: **v21.5.1**, миграция магазина **0062_support_delivery_identity**, Support Pro **0006** / 3.6. Это stable-выпуск текущего проверенного ядра; production-ready не подтверждён. Рабочие сценарии и незавершённые функции описаны отдельно; реальные платежи не сертифицированы.
 
 | Задача | Инструкция |
 | --- | --- |
@@ -21,24 +21,20 @@
 | Резервирование, диагностика и инциденты | [Эксплуатация](OPERATIONS_RUNBOOK_RU.md) |
 | Права и защита данных | [SECURITY.md](SECURITY.md) |
 | HTTP API | [API_REFERENCE_RU.md](API_REFERENCE_RU.md) |
-| Проверки этого выпуска | [Отчёт](docs/ru/RELEASE_21_3_0_STABLE.md) |
-| Что ещё не реализовано | [Матрица покрытия](docs/ru/WORKSPACE_COVERAGE.md) |
+| Проверки этого выпуска | [Отчёт v21.5.1](docs/ru/RELEASE_21_5_1_STABLE.md) |
+| Что ещё не реализовано | [Матрица покрытия](docs/ru/WORKSPACE_COVERAGE.md), [критерии завершения](docs/ru/MATRIX_COMPLETION_21_5_1.md) |
 
 Исторические корневые справочники сохранены в `docs/archive/*_BEFORE_ALPHA_6.md`. Они фиксируют прежние версии и могут описывать отключённые кассы, старую структуру кода и неподтверждённые сценарии. Для текущей установки используйте инструкции выше. Исторические release notes остаются без изменения.
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
 
-## Дополнения v21.5.0
+## Выпуск v21.5.1
 
-[Многоуровневые рефералы и сеть](docs/ru/REFERRALS_CURRENT.md), [согласованный CLI backup](docs/ru/BACKUP_CURRENT.md), [актуальная установка через SSH/Termius](docs/ru/DEPLOYMENT_CURRENT.md).
-
-## Новые функции v21.5.0
-
-Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.
+Согласованы runtime, установщик, release manifest и актуальные инструкции. [Матрица покрытия](docs/ru/WORKSPACE_COVERAGE.md) дополнена полным [реестром критериев завершения](docs/ru/MATRIX_COMPLETION_21_5_1.md). Открытые внешние проверки и отсутствующие подсистемы не объявлены готовыми; production gate закрыт.
 
 Импорт users.db и массовые операции доступны роли admin в «Клиенты → Импорт и массовые операции». Порядок mapping, preview, применения и границы переноса: [инструкция](docs/ru/CUSTOMER_OPERATIONS_CURRENT.md).
 
-В v21.5.0: [редакторы новостей, лендингов и юридических страниц](docs/ru/CONTENT_PUBLISHING_CURRENT.md), [промогруппы и персональные офферы](docs/ru/PERSONAL_OFFERS_CURRENT.md), пять previewed массовых действий включая ограничение/восстановление доступа в магазин.
+В v21.3.0 добавлены [редакторы новостей, лендингов и юридических страниц](docs/ru/CONTENT_PUBLISHING_CURRENT.md), [промогруппы и персональные офферы](docs/ru/PERSONAL_OFFERS_CURRENT.md), пять previewed массовых действий включая ограничение/восстановление доступа в магазин.
 
 В v21.4.0 добавлены [вложенные меню Telegram и Mini App](docs/ru/MENU_TREE_CURRENT.md): папки до четырёх уровней, стили, custom emoji, безопасные миниатюры и предпросмотр.
 

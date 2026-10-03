@@ -1,4 +1,4 @@
-> v21.5.0: API 18080, admin 18081, cabinet 18082, Mini App 18083. [Current testing guide](../ru/TESTING.md).
+> v21.5.1: API 18080, admin 18081, cabinet 18082, Mini App 18083. [Current testing guide](../ru/TESTING.md).
 
 # Trying the shop without payment gateways
 

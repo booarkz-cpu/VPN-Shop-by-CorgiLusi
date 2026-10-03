@@ -1,4 +1,4 @@
-# Архитектура — v21.5.0
+# Архитектура — v21.5.1
 
 Актуальная пошаговая инструкция: [Архитектура](docs/ru/WORKSPACE_ARCHITECTURE.md). Общий каталог: [DOCUMENTATION.md](DOCUMENTATION.md).
 

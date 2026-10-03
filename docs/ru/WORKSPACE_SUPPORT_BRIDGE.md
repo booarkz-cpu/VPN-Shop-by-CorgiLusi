@@ -1,6 +1,6 @@
 # Единая переписка магазина и Support Pro
 
-Инструкция для v21.5.0. Магазин хранит клиентскую историю и файлы. Support Pro показывает её операторам, сохраняет назначения, SLA и внутренние заметки, а ответы передаёт через закрытый машинный API. Кабинет и админка магазина видят те же сообщения. Это дополнение к существующему SSO, а не новая система входа.
+Инструкция для v21.5.1. Магазин хранит клиентскую историю и файлы. Support Pro показывает её операторам, сохраняет назначения, SLA и внутренние заметки, а ответы передаёт через закрытый машинный API. Кабинет и админка магазина видят те же сообщения. Это дополнение к существующему SSO, а не новая система входа.
 
 ## Подключение действующей установки через Termius
 
@@ -11,7 +11,7 @@
 ```bash
 cd /opt/vpn-shop
 git fetch origin
-git switch --detach v21.5.0
+git switch --detach v21.5.1
 docker compose stop backend worker support_pro support_worker
 docker compose build backend worker support_migrate support_pro support_worker
 docker compose run --rm backend alembic upgrade head

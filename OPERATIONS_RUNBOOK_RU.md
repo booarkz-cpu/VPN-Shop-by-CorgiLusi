@@ -21,11 +21,11 @@ docker compose logs --tail=100 backend worker bot
 Для alpha используйте отдельный стенд и [WORKSPACE_UPGRADE.md](docs/ru/WORKSPACE_UPGRADE.md). Production обновляется только по stable GitHub Releases. Для выбранного stable тега:
 
 ```bash
-# Для v21.5.0 с Support Pro 0006 используйте согласованное ручное обновление.
+# Для v21.5.1 с Support Pro 0006 используйте согласованное ручное обновление.
 # scripts/update.sh не восстанавливает автоматически вторую БД.
 ```
 
-`v21.5.0` — тег этого выпуска. Перед запуском убедитесь, что он опубликован и вложения доступны. Скрипт проверяет источник и SHA256, сохраняет `.env`, вызывает резервирование и health/recovery. Без RELEASE_TAG выбирается последний stable; downgrade не выполняется.
+`v21.5.1` — тег этого выпуска. Перед запуском убедитесь, что он опубликован и вложения доступны. Скрипт проверяет источник и SHA256, сохраняет `.env`, вызывает резервирование и health/recovery. Без RELEASE_TAG выбирается последний stable; downgrade не выполняется.
 
 GitHub Deploy использует обязательный `release_tag`, secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PORT`, `DEPLOY_PATH` и environment `production`. Он не публикует исходники и не запускается при выпуске alpha. Старый updater без поддержки RELEASE_TAG должен быть сначала обновлён вручную. Указатель Git HEAD установленного через архив дерева может не совпадать с содержимым; ориентируйтесь на APP_VERSION и проверенный release manifest.
 
@@ -35,7 +35,7 @@ GitHub Deploy использует обязательный `release_tag`, secre
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
 
-## Новые функции v21.5.0
+## Новые функции v21.5.1
 
 Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.
 

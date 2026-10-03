@@ -1,4 +1,4 @@
-# Платежи — v21.5.0
+# Платежи — v21.5.1
 
 Актуальная пошаговая инструкция: [Платежи](WORKSPACE_PAYMENTS.md). Общий каталог: [DOCUMENTATION.md](../../DOCUMENTATION.md).
 

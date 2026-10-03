@@ -1,12 +1,12 @@
 # VPN Shop by Corgi
 
-Актуальное описание проекта, команды запуска, функциональные ограничения и разрешения: [README.md](README.md). Все инструкции: [DOCUMENTATION.md](DOCUMENTATION.md). Текущий выпуск v21.5.0 stable фиксирует проверенное ядро и его ограничения; [отчёт](docs/ru/RELEASE_21_3_0_STABLE.md).
+Актуальное описание проекта, команды запуска, функциональные ограничения и разрешения: [README.md](README.md). Все инструкции: [DOCUMENTATION.md](DOCUMENTATION.md). Текущий выпуск v21.5.1 stable фиксирует проверенное ядро и его ограничения; [отчёт](docs/ru/RELEASE_21_5_1_STABLE.md), [критерии завершения матрицы](docs/ru/MATRIX_COMPLETION_21_5_1.md).
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
 
 Импорт users.db и массовые операции доступны роли admin в «Клиенты → Импорт и массовые операции». Порядок mapping, preview, применения и границы переноса: [инструкция](docs/ru/CUSTOMER_OPERATIONS_CURRENT.md).
 
-В v21.5.0: [редакторы новостей, лендингов и юридических страниц](docs/ru/CONTENT_PUBLISHING_CURRENT.md), [промогруппы и персональные офферы](docs/ru/PERSONAL_OFFERS_CURRENT.md), пять previewed массовых действий включая ограничение/восстановление доступа в магазин.
+В v21.3.0 добавлены [редакторы новостей, лендингов и юридических страниц](docs/ru/CONTENT_PUBLISHING_CURRENT.md), [промогруппы и персональные офферы](docs/ru/PERSONAL_OFFERS_CURRENT.md), пять previewed массовых действий включая ограничение/восстановление доступа в магазин.
 
 В v21.4.0 добавлены [вложенные меню Telegram и Mini App](docs/ru/MENU_TREE_CURRENT.md): папки до четырёх уровней, стили, custom emoji, безопасные миниатюры и предпросмотр.
 
