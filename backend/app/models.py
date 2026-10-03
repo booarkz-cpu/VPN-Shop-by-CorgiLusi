@@ -1213,3 +1213,57 @@ class PartnerWithdrawal(Base):
     reference: Mapped[str|None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ContentPage(Base):
+    __tablename__='content_pages'
+    __table_args__=(UniqueConstraint('slug','locale',name='uq_content_page_slug_locale'),)
+    id: Mapped[int]=mapped_column(primary_key=True)
+    slug: Mapped[str]=mapped_column(String(80))
+    locale: Mapped[str]=mapped_column(String(2))
+    kind: Mapped[str]=mapped_column(String(16))
+    version: Mapped[int]=mapped_column(Integer,default=1)
+    draft: Mapped[dict]=mapped_column(JSON)
+    published_revision: Mapped[int|None]=mapped_column(Integer)
+    archived: Mapped[bool]=mapped_column(Boolean,default=False)
+    created_at: Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+    updated_at: Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+
+
+class ContentRevision(Base):
+    __tablename__='content_revisions'
+    __table_args__=(UniqueConstraint('page_id','version',name='uq_content_revision_version'),)
+    id: Mapped[int]=mapped_column(primary_key=True)
+    page_id: Mapped[int]=mapped_column(ForeignKey('content_pages.id',ondelete='RESTRICT'),index=True)
+    version: Mapped[int]=mapped_column(Integer)
+    snapshot: Mapped[dict]=mapped_column(JSON)
+    actor: Mapped[str]=mapped_column(String(320))
+    starts_at: Mapped[datetime|None]=mapped_column(DateTime)
+    ends_at: Mapped[datetime|None]=mapped_column(DateTime)
+    created_at: Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+
+
+class PromoGroup(Base):
+    __tablename__='promo_groups'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    name: Mapped[str]=mapped_column(String(200))
+    segment: Mapped[str]=mapped_column(String(16))
+    enabled: Mapped[bool]=mapped_column(Boolean,default=True)
+    version: Mapped[int]=mapped_column(Integer,default=1)
+
+
+class PromoGroupMember(Base):
+    __tablename__='promo_group_members'
+    group_id: Mapped[int]=mapped_column(ForeignKey('promo_groups.id',ondelete='RESTRICT'),primary_key=True)
+    user_id: Mapped[int]=mapped_column(ForeignKey('users.id',ondelete='RESTRICT'),primary_key=True)
+
+
+class PromoAudience(Base):
+    __tablename__='promo_audiences'
+    promo_id: Mapped[int]=mapped_column(ForeignKey('promo_codes.id',ondelete='RESTRICT'),primary_key=True)
+    title: Mapped[str]=mapped_column(String(200))
+    description: Mapped[str]=mapped_column(Text,default='')
+    group_id: Mapped[int|None]=mapped_column(ForeignKey('promo_groups.id',ondelete='RESTRICT'))
+    user_ids: Mapped[list]=mapped_column(JSON,default=list)
+    enabled: Mapped[bool]=mapped_column(Boolean,default=True)
+    version: Mapped[int]=mapped_column(Integer,default=1)

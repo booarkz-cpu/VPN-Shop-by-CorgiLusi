@@ -1,3 +1,5 @@
+import {PersonalOffers} from "./personal-offers";
+import {PublicPages} from "./public-pages";
 import React, {useEffect, useState, useRef} from "react";
 import {createRoot} from "react-dom/client";
 import "./style.css";
@@ -280,7 +282,7 @@ function App() {
         const base = normalized.some((m) => m.slug === "devices") ? normalized : [...normalized, {slug:"devices", title:"Устройства", kind:"devices" as MenuKind, body:""}];
         const menuWithServers = withServers(base);
         setMenu(menuWithServers);
-        setTab((prev) => (menuWithServers.some((m) => m.slug === prev) ? prev : menuWithServers[0].slug));
+        setTab((prev) => ((prev==="pages"||prev.startsWith("page/")||menuWithServers.some((m) => m.slug === prev)) ? prev : menuWithServers[0].slug));
         return;
       }
     } catch {}
@@ -552,6 +554,8 @@ function App() {
     else if(button.type==="field")document.getElementById(`field-${button.field_key}`)?.scrollIntoView({behavior:"smooth"});
   }
 
+  if(tab==="pages"||tab.startsWith("page/"))return <DomLocalizer><PublicPages request={req} route={tab} locale={lang}/></DomLocalizer>;
+
   if (booting) {
     return (
       <DomLocalizer>
@@ -765,6 +769,7 @@ function App() {
                 </>
               )}
 
+              {activeItem?.kind === "plans" && <PersonalOffers request={req} onSelect={setPromo}/>}
               {activeItem?.kind === "plans" && (
                 <>
                   <h2 className="section-title">Тарифы</h2>

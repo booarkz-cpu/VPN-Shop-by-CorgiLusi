@@ -19,7 +19,7 @@ from app.db import get_db
 from app.models import Base, AdminUser, FeatureFlag, User
 from app.security import hash_password
 
-engine=create_async_engine('sqlite+aiosqlite:///:memory:')
+engine=create_async_engine('sqlite+aiosqlite:///'+str(Path(test_files.name)/'browser.sqlite3'))
 
 
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.router.routes.extend(shop.app.router.routes)
 app.dependency_overrides[get_db]=database
 shop.app.dependency_overrides[get_db]=database
 app.add_middleware(shop.SecurityHeadersMiddleware)
+app.mount('/cabinet',StaticFiles(directory=str(Path(__file__).resolve().parents[1]/'cabinet/dist'),html=True))
 app.mount('/',StaticFiles(directory=str(Path(__file__).resolve().parents[1]/'admin/dist'),html=True))
 
 if __name__=='__main__':

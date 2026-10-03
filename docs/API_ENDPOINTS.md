@@ -1,6 +1,6 @@
-# Каталог API — v21.2.0
+# Каталог API — v21.3.0
 
-Сгенерирован из OpenAPI текущих исходников. Миграция: `0058_customer_operations`.
+Сгенерирован из OpenAPI текущих исходников. Миграция: `0060_promo_audiences`.
 Авторизация, права, CSRF и принадлежность записей проверяются сервером; схема маршрута не заменяет права роли.
 Сценарии: [руководство](ru/WORKSPACE_USER_GUIDE.md), [рефералы](ru/REFERRALS_CURRENT.md), [HTTP API](../API_REFERENCE_RU.md).
 
@@ -134,6 +134,14 @@ production gate остаётся закрытым без полного applicat
 | `POST` | `/api/admin/ops/withdrawals/{withdrawal_id}/approve` | Admin Withdrawal Approve |
 | `POST` | `/api/admin/ops/withdrawals/{withdrawal_id}/paid` | Admin Withdrawal Paid |
 | `GET` | `/api/admin/overview` | Admin Overview |
+| `GET` | `/api/admin/pages` | Pages |
+| `POST` | `/api/admin/pages` | Create |
+| `GET` | `/api/admin/pages/{page_id}` | Get |
+| `PUT` | `/api/admin/pages/{page_id}` | Save |
+| `POST` | `/api/admin/pages/{page_id}/archive` | Archive |
+| `POST` | `/api/admin/pages/{page_id}/publish` | Publish |
+| `POST` | `/api/admin/pages/{page_id}/restore` | Restore |
+| `GET` | `/api/admin/pages/{page_id}/revisions` | Revisions |
 | `POST` | `/api/admin/payment/gift-cards` | Create Gift Card |
 | `GET` | `/api/admin/payments` | Admin Payments |
 | `GET` | `/api/admin/payments/analytics` | Payment Analytics |
@@ -150,6 +158,7 @@ production gate остаётся закрытым без полного applicat
 | `POST` | `/api/admin/payments/{payment_id}/retry` | Retry Payment |
 | `POST` | `/api/admin/payments/{payment_id}/risk/recheck` | Payment Risk Recheck |
 | `GET` | `/api/admin/payouts` | Admin Payouts |
+| `POST` | `/api/admin/personal-offers` | Create Offer |
 | `GET` | `/api/admin/plans` | Admin List Plans |
 | `POST` | `/api/admin/plans` | Create Plan |
 | `DELETE` | `/api/admin/plans/{plan_id}` | Admin Delete Plan |
@@ -167,9 +176,14 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/admin/platform/summary` | Platform Summary |
 | `POST` | `/api/admin/platform/violations/{violation_id}/review` | Review Violation |
 | `POST` | `/api/admin/platform/webhooks` | Create Webhook |
+| `GET` | `/api/admin/promo-audiences` | Audiences |
+| `PUT` | `/api/admin/promo-audiences/{promo_id}` | Set Audience |
 | `POST` | `/api/admin/promo-codes` | Create Promo Code |
 | `DELETE` | `/api/admin/promo-codes/{item_id}` | Delete Promo Code |
 | `PUT` | `/api/admin/promo-codes/{item_id}` | Update Promo Code |
+| `GET` | `/api/admin/promo-groups` | Groups |
+| `POST` | `/api/admin/promo-groups` | Create Group |
+| `PUT` | `/api/admin/promo-groups/{group_id}` | Update Group |
 | `POST` | `/api/admin/promotions` | Create Promotion |
 | `DELETE` | `/api/admin/promotions/{item_id}` | Delete Promotion |
 | `PUT` | `/api/admin/promotions/{item_id}` | Update Promotion |
@@ -356,6 +370,7 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/me/mobile/privacy` | Mobile Privacy |
 | `GET` | `/api/me/notifications` | My Notifications |
 | `POST` | `/api/me/notifications/{notification_id}/read` | Read Notification |
+| `GET` | `/api/me/offers` | Offers |
 | `GET` | `/api/me/partner` | Portal |
 | `POST` | `/api/me/partner/withdrawals` | Withdraw |
 | `POST` | `/api/me/password/change` | Change Password |
@@ -421,6 +436,8 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/public/branding` | Public Branding |
 | `GET` | `/api/public/cabinet-menu` | Public Cabinet Menu |
 | `GET` | `/api/public/config` | Public Config |
+| `GET` | `/api/public/pages` | Catalog |
+| `GET` | `/api/public/pages/{slug}` | Public Page |
 | `GET` | `/api/public/servers` | Public Servers |
 | `GET` | `/api/public/status` | Public Status |
 | `GET` | `/api/public/v15/privacy` | Public Privacy |

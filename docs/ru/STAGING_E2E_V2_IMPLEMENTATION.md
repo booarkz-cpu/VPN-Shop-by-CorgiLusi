@@ -1,4 +1,4 @@
-> Актуальная инструкция v21.2.0. Head магазина `0058_customer_operations`, Support Pro `0005`.
+> Актуальная инструкция v21.3.0. Head магазина `0060_promo_audiences`, Support Pro `0005`.
 
 # Реализация и проверка staging E2E v2
 

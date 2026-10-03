@@ -239,3 +239,25 @@ async def test_postgres_parallel_bulk_retry_delivers_each_notice_once(database):
     assert results[0]==results[1]
     assert await database.scalar(select(func.count()).select_from(Notification))==2
     assert await database.scalar(select(func.count()).select_from(CustomerBatchOperation))==1
+
+
+@pytest.mark.asyncio
+async def test_bulk_shop_restriction_revokes_auth_disables_renew_and_restore_preserves_vpn(database):
+    from app import main as shop
+    user=await database.get(User,1);sub=await database.get(Subscription,1)
+    user.auto_renew_enabled=True;sub.auto_renew_enabled=True;sub.next_renewal_at=datetime.utcnow()
+    database.add(UserSession(user_id=1,jti_hash='restrict-session',expires_at=datetime.utcnow()+timedelta(days=1)))
+    await database.commit()
+    for action in ('restrict_shop','restore_shop'):
+        payload=operations.BulkIn(user_ids=[1],action=action,reason='Owner-reviewed shop access')
+        stage=await operations.bulk_preview(payload,database,ADMIN)
+        exact=payload.model_copy(update={'fingerprint':stage['fingerprint']})
+        result=await operations.bulk_apply(exact,request(action),database,ADMIN)
+        assert await operations.bulk_apply(exact,request(action),database,ADMIN)==result
+        assert sub.lifecycle_status=='active' and sub.remnawave_uuid=='remote-1'
+        assert not user.auto_renew_enabled and not sub.auto_renew_enabled and sub.next_renewal_at is None
+        if action=='restrict_shop':
+            assert user.restricted_at and (await database.scalar(select(UserSession))).revoked_at
+            with pytest.raises(HTTPException) as e:await shop.create_user_session(database,user,request())
+            assert e.value.status_code==403
+        else:assert user.restricted_at is None
