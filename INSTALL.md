@@ -1,13 +1,13 @@
-# Установка v21.0.0-alpha.7
+# Установка v21.0.0
 
-Это предварительный выпуск. Для знакомства используйте отдельный локальный контур либо отдельный VDS. Не заменяйте действующий магазин без проверенной копии базы, файлов и сохранённых серверных настроек.
+Это v21.0.0 stable текущего ядра. Production-платежи закрыты до завершения application E2E v2. Для знакомства используйте отдельный локальный контур либо отдельный VDS. Не заменяйте действующий магазин без проверенной копии базы, файлов и сохранённых серверных настроек.
 
 ## Локально
 
 Нужны Git, Python 3, Docker Engine и Compose. На Windows используйте WSL2/Docker Desktop.
 
 ```bash
-git clone --branch v21.0.0-alpha.7 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.0 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
@@ -19,7 +19,7 @@ bash scripts/test-up.sh
 Подключитесь к отдельному Ubuntu-серверу через SSH/Termius и выполните:
 
 ```bash
-git clone --branch v21.0.0-alpha.7 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.0 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 sudo bash deploy/install-vps.sh
 ```

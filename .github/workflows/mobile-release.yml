@@ -2,10 +2,10 @@ name: Mobile packages
 
 on:
   pull_request:
-    paths: ['mobile/**', 'scripts/build-android-apk.sh', 'scripts/build-ios-*.sh', '.github/workflows/mobile-release.yml']
+    paths: ['release-manifest.template.json', 'mobile/**', 'scripts/build-android-apk.sh', 'scripts/build-ios-*.sh', '.github/workflows/mobile-release.yml']
   push:
     branches: [main]
-    paths: ['mobile/**', 'scripts/build-android-apk.sh', 'scripts/build-ios-*.sh', '.github/workflows/mobile-release.yml']
+    paths: ['release-manifest.template.json', 'mobile/**', 'scripts/build-android-apk.sh', 'scripts/build-ios-*.sh', '.github/workflows/mobile-release.yml']
   workflow_dispatch:
 
 permissions:

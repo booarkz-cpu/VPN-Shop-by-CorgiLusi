@@ -1,5 +1,5 @@
 {
-  "version": "21.0.0-alpha.7",
+  "version": "21.0.0",
   "legacy_v3_1_5_contract": {
     "version": "3.1.5"
   },
@@ -68,7 +68,7 @@
   "legacy_v2_0_2_contract": {
     "version": "2.0.2-audited"
   },
-  "artifact": "remnawave_vpn_shop_v21_0_0-alpha_7_full_release.zip",
+  "artifact": "remnawave_vpn_shop_v21_0_0_full_release.zip",
   "legacy_v3_1_5_artifact": "remnawave_vpn_shop_v3_1_5_full_release.zip",
   "legacy_v3_1_4_artifact": "remnawave_vpn_shop_v3_1_4_full_release.zip",
   "legacy_v3_1_3_artifact": "remnawave_vpn_shop_v3_1_3_full_release.zip",
@@ -98,7 +98,7 @@
   "previous_migration_head_legacy_marker": "0021_v43_hardening_docs",
   "tests": null,
   "signed": false,
-  "detached_manifest": "remnawave_vpn_shop_v21_0_0-alpha_7_full_release_manifest.json",
+  "detached_manifest": "remnawave_vpn_shop_v21_0_0_full_release_manifest.json",
   "legacy_v3_1_5_detached_manifest": "remnawave_vpn_shop_v3_1_5_full_release_manifest.json",
   "legacy_v3_1_4_detached_manifest": "remnawave_vpn_shop_v3_1_4_full_release_manifest.json",
   "legacy_v3_1_3_detached_manifest": "remnawave_vpn_shop_v3_1_3_full_release_manifest.json",
@@ -158,8 +158,10 @@
     "version": "2.0.0-realise"
   },
   "support_migration_head": "0005",
-  "prerelease": true,
+  "prerelease": false,
   "full_function_transfer": false,
   "production_e2e_verified": false,
-  "release_scope": "Free contests and weighted prize wheels, deployment hardening and current release documentation"
+  "release_scope": "Stable release of the verified current core: admin WebAuthn, operations monitoring and existing commerce. Full roadmap transfer, production E2E and owner mobile signing remain incomplete.",
+  "release_channel": "stable",
+  "production_ready": false
 }
