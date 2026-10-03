@@ -3,6 +3,11 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 import sys
+import os
+import tempfile
+
+test_files=tempfile.TemporaryDirectory(prefix="vpnshop-browser-")
+os.environ["MEDIA_DIR"]=str(Path(test_files.name)/"media")
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from fastapi import FastAPI
@@ -26,6 +31,7 @@ async def lifespan(app):
         await db.commit()
     yield
     await engine.dispose()
+    test_files.cleanup()
 
 
 async def database():

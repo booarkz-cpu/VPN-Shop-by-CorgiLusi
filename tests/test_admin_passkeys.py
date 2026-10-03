@@ -224,3 +224,12 @@ async def test_disabled_feature_blocks_existing_key_login(database,monkeypatch):
     with pytest.raises(HTTPException) as error:await keys.login_options(request(),Response(),database)
     assert error.value.status_code==503
     assert await database.scalar(select(func.count()).select_from(AdminSession))==0
+
+
+@pytest.mark.asyncio
+async def test_unsigned_32_bit_signature_counter_fits_postgres(database,monkeypatch):
+    owner,private,identifier=await registered(database,monkeypatch)
+    response=Response();result=await keys.login_options(request(),response,database)
+    data=assertion(result['options'],private,identifier,owner.passkey_user_handle,count=2**32-1)
+    await keys.login_verify(keys.VerifyIn(ticket=result['ticket'],credential=data),request(binding(response)),Response(),database)
+    assert (await database.scalar(select(WebAuthnCredential))).sign_count==2**32-1

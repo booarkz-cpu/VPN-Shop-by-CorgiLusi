@@ -9,6 +9,7 @@ depends_on = None
 
 
 def upgrade():
+    op.alter_column('webauthn_credentials', 'sign_count', existing_type=sa.Integer(), type_=sa.BigInteger(), existing_nullable=False)
     op.add_column('admin_users', sa.Column('passkey_user_handle', sa.String(64)))
     op.create_unique_constraint('uq_admin_passkey_user_handle', 'admin_users', ['passkey_user_handle'])
     op.create_table('webauthn_challenges',
@@ -27,6 +28,7 @@ def downgrade():
         op.execute('LOCK TABLE webauthn_credentials, admin_users IN ACCESS EXCLUSIVE MODE')
     if op.get_bind().execute(sa.text('SELECT 1 FROM webauthn_credentials LIMIT 1')).first():
         raise RuntimeError('Remove registered passkeys before downgrading: their opaque identities must be preserved')
+    op.alter_column('webauthn_credentials', 'sign_count', existing_type=sa.BigInteger(), type_=sa.Integer(), existing_nullable=False)
     op.drop_table('webauthn_challenges')
     op.drop_constraint('uq_admin_passkey_user_handle', 'admin_users', type_='unique')
     op.drop_column('admin_users', 'passkey_user_handle')

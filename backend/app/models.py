@@ -709,7 +709,7 @@ class WebAuthnCredential(Base):
     admin_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     credential_id: Mapped[str] = mapped_column(String(1024), unique=True, index=True, nullable=False)
     public_key: Mapped[str] = mapped_column(Text, nullable=False)
-    sign_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    sign_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     transports: Mapped[str|None] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(100), default="Passkey", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
