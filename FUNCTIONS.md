@@ -27,3 +27,7 @@
 Многоуровневые рефералы, merge аккаунтов, клиентский/native passkeys login, общий merge/split поддержки, безопасный импорт чужой базы, удалённый терминал, полный plugin runtime и native push/виджеты ещё не завершены. Данный выпуск добавляет конкурсы и колесо, но не объявляет остальные функции реализованными.
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
+
+## Дополнения v21.0.1
+
+[Многоуровневые рефералы и сеть](docs/ru/REFERRALS_CURRENT.md), [согласованный CLI backup](docs/ru/BACKUP_CURRENT.md), [актуальная установка через SSH/Termius](docs/ru/DEPLOYMENT_CURRENT.md).

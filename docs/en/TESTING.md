@@ -1,3 +1,5 @@
+> v21.0.1: API 18080, admin 18081, cabinet 18082, Mini App 18083. [Current testing guide](../ru/TESTING.md).
+
 # Trying the shop without payment gateways
 
 This stack runs the API, admin panel, cabinet and Mini App on your computer. YooKassa, Platega, RollyPay, Stripe, PayPal, the crypto gateway, Telegram and Remnawave are not required.

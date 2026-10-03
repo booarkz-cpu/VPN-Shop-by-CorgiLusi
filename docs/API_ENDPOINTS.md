@@ -1,26 +1,31 @@
-# Каталог API текущего проекта
+# Каталог API — v21.0.1
 
-Получен из OpenAPI текущих исходников. Авторизация, права, CSRF и принадлежность записей проверяются сервером. Сценарии описаны в [руководстве](ru/WORKSPACE_USER_GUIDE.md).
+Сгенерирован из OpenAPI текущих исходников. Миграция: `0054_referral_levels`.
+Авторизация, права, CSRF и принадлежность записей проверяются сервером; схема маршрута не заменяет права роли.
+Сценарии: [руководство](ru/WORKSPACE_USER_GUIDE.md), [рефералы](ru/REFERRALS_CURRENT.md), [HTTP API](../API_REFERENCE_RU.md).
 
-Legacy callbacks прежних агентов служат только историческим операциям. `POST /api/payments/mobile/verify` закрыт ответом 410.
+Legacy callbacks прежних агентов служат историческим операциям. Новые покупки используют YooKassa/Platega/RollyPay;
+production gate остаётся закрытым без полного application E2E. Mobile purchase verify закрыт ответом 410.
+
+Обновление: `PYTHONPATH=backend python scripts/generate-api-docs.py`; проверка: добавьте `--check`.
 
 | Метод | Путь | Операция |
 | --- | --- | --- |
 | `GET` | `/api/admin/admins` | List Admins |
 | `POST` | `/api/admin/admins` | Create Admin |
-| `PUT` | `/api/admin/admins/{admin_id}` | Update Admin |
 | `DELETE` | `/api/admin/admins/{admin_id}` | Delete Admin |
+| `PUT` | `/api/admin/admins/{admin_id}` | Update Admin |
 | `POST` | `/api/admin/advertisements` | Create Ad |
-| `PUT` | `/api/admin/advertisements/{item_id}` | Update Ad |
 | `DELETE` | `/api/admin/advertisements/{item_id}` | Delete Ad |
+| `PUT` | `/api/admin/advertisements/{item_id}` | Update Ad |
 | `GET` | `/api/admin/analytics` | Admin Analytics |
 | `GET` | `/api/admin/apps` | Admin Apps |
 | `PUT` | `/api/admin/apps` | Save Apps |
-| `POST` | `/api/admin/apps/logo` | Upload Client Logo |
 | `DELETE` | `/api/admin/apps/logo` | Delete Client Logo |
+| `POST` | `/api/admin/apps/logo` | Upload Client Logo |
 | `GET` | `/api/admin/apps/{app_id}/download` | Admin App Download |
-| `POST` | `/api/admin/apps/{app_id}/file` | Upload App File |
 | `DELETE` | `/api/admin/apps/{app_id}/file` | Delete App File |
+| `POST` | `/api/admin/apps/{app_id}/file` | Upload App File |
 | `GET` | `/api/admin/audit` | Admin Audit |
 | `POST` | `/api/admin/auth/login` | Admin Login |
 | `POST` | `/api/admin/auth/logout` | Admin Logout |
@@ -28,6 +33,10 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/auth/mfa/enable` | Mfa Enable |
 | `POST` | `/api/admin/auth/mfa/setup` | Mfa Setup |
 | `GET` | `/api/admin/auth/mfa/status` | Mfa Status |
+| `POST` | `/api/admin/auth/passkeys/login/options` | Login Options |
+| `POST` | `/api/admin/auth/passkeys/login/verify` | Login Verify |
+| `POST` | `/api/admin/auth/passkeys/registration/options` | Registration Options |
+| `POST` | `/api/admin/auth/passkeys/registration/verify` | Registration Verify |
 | `POST` | `/api/admin/auth/telegram` | Admin Telegram Login |
 | `GET` | `/api/admin/backups` | List Backups |
 | `GET` | `/api/admin/backups/config` | Backup Config |
@@ -40,8 +49,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/backups/{backup_id}/restore/request` | Request Restore |
 | `POST` | `/api/admin/backups/{backup_id}/validate` | Validate Backup Archive |
 | `POST` | `/api/admin/backups/{backup_id}/verify` | Verify Backup |
-| `POST` | `/api/admin/bot/start-image` | Admin Bot Start Image |
 | `DELETE` | `/api/admin/bot/start-image` | Admin Bot Start Image Delete |
+| `POST` | `/api/admin/bot/start-image` | Admin Bot Start Image |
 | `POST` | `/api/admin/branding/favicon` | Admin Branding Favicon |
 | `POST` | `/api/admin/branding/logo` | Admin Branding Logo |
 | `DELETE` | `/api/admin/branding/{kind}` | Admin Branding Delete |
@@ -51,8 +60,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `PUT` | `/api/admin/cabinet/guides/{platform}` | Admin Cabinet Guide |
 | `GET` | `/api/admin/cabinet/menu` | Admin Cabinet Menu |
 | `POST` | `/api/admin/cabinet/menu` | Admin Cabinet Menu Create |
-| `PUT` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Update |
 | `DELETE` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Delete |
+| `PUT` | `/api/admin/cabinet/menu/{item_id}` | Admin Cabinet Menu Update |
 | `GET` | `/api/admin/content` | Admin Content |
 | `GET` | `/api/admin/corporate-accounts` | List Corporate |
 | `POST` | `/api/admin/corporate-accounts` | Create Corporate |
@@ -72,8 +81,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `PUT` | `/api/admin/enterprise/rules/{rule_id}` | Enterprise Rule Update |
 | `GET` | `/api/admin/enterprise/summary` | Enterprise Summary |
 | `POST` | `/api/admin/fields` | Admin Field |
-| `PUT` | `/api/admin/fields/{field_id}` | Admin Field Update |
 | `DELETE` | `/api/admin/fields/{field_id}` | Admin Field Delete |
+| `PUT` | `/api/admin/fields/{field_id}` | Admin Field Update |
 | `GET` | `/api/admin/financial-ledger` | Admin Financial Ledger |
 | `GET` | `/api/admin/fraud` | Admin Fraud |
 | `POST` | `/api/admin/fraud/scan` | Fraud Scan |
@@ -81,6 +90,13 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/admin/gifts` | Admin Gifts |
 | `POST` | `/api/admin/gifts` | Admin Gift Create |
 | `GET` | `/api/admin/github-update` | Admin Github Update |
+| `GET` | `/api/admin/giveaways` | Admin List |
+| `POST` | `/api/admin/giveaways` | Create |
+| `DELETE` | `/api/admin/giveaways/{giveaway_id}` | Delete Draft |
+| `POST` | `/api/admin/giveaways/{giveaway_id}/close` | Close |
+| `POST` | `/api/admin/giveaways/{giveaway_id}/draw` | Draw |
+| `GET` | `/api/admin/giveaways/{giveaway_id}/entries` | Entries |
+| `POST` | `/api/admin/giveaways/{giveaway_id}/publish` | Publish |
 | `GET` | `/api/admin/health/summary` | Health Summary |
 | `POST` | `/api/admin/images` | Admin Image |
 | `DELETE` | `/api/admin/images/{image_id}` | Admin Image Delete |
@@ -94,13 +110,13 @@ Legacy callbacks прежних агентов служат только ист�
 | `PATCH` | `/api/admin/marketplace/resellers/{reseller_id}` | Update Reseller |
 | `POST` | `/api/admin/marketplace/resellers/{reseller_id}/rotate-key` | Rotate Reseller Key |
 | `POST` | `/api/admin/menu` | Admin Menu |
-| `PUT` | `/api/admin/menu/{item_id}` | Admin Menu Update |
 | `DELETE` | `/api/admin/menu/{item_id}` | Admin Menu Delete |
-| `POST` | `/api/admin/miniapp/background` | Admin Miniapp Background |
+| `PUT` | `/api/admin/menu/{item_id}` | Admin Menu Update |
 | `DELETE` | `/api/admin/miniapp/background` | Admin Miniapp Background Delete |
+| `POST` | `/api/admin/miniapp/background` | Admin Miniapp Background |
 | `PUT` | `/api/admin/miniapp/config` | Admin Miniapp Config |
-| `POST` | `/api/admin/miniapp/image` | Admin Miniapp Image |
 | `DELETE` | `/api/admin/miniapp/image` | Admin Miniapp Image Delete |
+| `POST` | `/api/admin/miniapp/image` | Admin Miniapp Image |
 | `GET` | `/api/admin/mobile/ops` | Admin Mobile Ops |
 | `GET` | `/api/admin/monitoring` | Admin Monitoring |
 | `GET` | `/api/admin/notifications` | Admin Notifications |
@@ -127,8 +143,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/admin/payouts` | Admin Payouts |
 | `GET` | `/api/admin/plans` | Admin List Plans |
 | `POST` | `/api/admin/plans` | Create Plan |
-| `PUT` | `/api/admin/plans/{plan_id}` | Admin Update Plan |
 | `DELETE` | `/api/admin/plans/{plan_id}` | Admin Delete Plan |
+| `PUT` | `/api/admin/plans/{plan_id}` | Admin Update Plan |
 | `POST` | `/api/admin/plans/{plan_id}/enabled` | Admin Set Plan Enabled |
 | `POST` | `/api/admin/platform/agents` | Create Agent |
 | `POST` | `/api/admin/platform/api-keys` | Create Api Key |
@@ -143,15 +159,17 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/platform/violations/{violation_id}/review` | Review Violation |
 | `POST` | `/api/admin/platform/webhooks` | Create Webhook |
 | `POST` | `/api/admin/promo-codes` | Create Promo Code |
-| `PUT` | `/api/admin/promo-codes/{item_id}` | Update Promo Code |
 | `DELETE` | `/api/admin/promo-codes/{item_id}` | Delete Promo Code |
+| `PUT` | `/api/admin/promo-codes/{item_id}` | Update Promo Code |
 | `POST` | `/api/admin/promotions` | Create Promotion |
-| `PUT` | `/api/admin/promotions/{item_id}` | Update Promotion |
 | `DELETE` | `/api/admin/promotions/{item_id}` | Delete Promotion |
+| `PUT` | `/api/admin/promotions/{item_id}` | Update Promotion |
 | `POST` | `/api/admin/provision-node` | Provision Node |
 | `GET` | `/api/admin/recovery` | Admin Recovery |
 | `GET` | `/api/admin/recovery/operations` | Recovery Operations |
 | `POST` | `/api/admin/recovery/operations/{operation_id}/retry` | Retry Operation |
+| `GET` | `/api/admin/referrals/program` | Get Program |
+| `PUT` | `/api/admin/referrals/program` | Set Program |
 | `POST` | `/api/admin/referrals/reconcile` | Reconcile Referrals |
 | `GET` | `/api/admin/referrals/withdrawals` | Admin Withdrawals |
 | `POST` | `/api/admin/referrals/withdrawals/{withdrawal_id}/approve` | Approve Withdrawal |
@@ -198,8 +216,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/subscription-operations/{operation_id}/refund` | Refund Change |
 | `POST` | `/api/admin/support-pro/sso` | Support Pro Sso |
 | `GET` | `/api/admin/support-pro/status` | Support Pro Status |
-| `GET` | `/api/admin/support/attachments/{attachment_id}` | Admin Download |
 | `DELETE` | `/api/admin/support/attachments/{attachment_id}` | Admin Remove |
+| `GET` | `/api/admin/support/attachments/{attachment_id}` | Admin Download |
 | `GET` | `/api/admin/support/tickets` | Admin Tickets |
 | `POST` | `/api/admin/support/tickets/{ticket_id}/attachments` | Admin Upload |
 | `GET` | `/api/admin/support/tickets/{ticket_id}/attachments/drafts` | Admin Drafts |
@@ -207,16 +225,16 @@ Legacy callbacks прежних агентов служат только ист�
 | `POST` | `/api/admin/support/tickets/{ticket_id}/reply` | Admin Ticket Reply |
 | `GET` | `/api/admin/surveys` | Admin List |
 | `POST` | `/api/admin/surveys` | Create |
-| `PUT` | `/api/admin/surveys/{survey_id}` | Edit |
 | `DELETE` | `/api/admin/surveys/{survey_id}` | Delete Draft |
+| `PUT` | `/api/admin/surveys/{survey_id}` | Edit |
 | `POST` | `/api/admin/surveys/{survey_id}/close` | Close |
 | `POST` | `/api/admin/surveys/{survey_id}/publish` | Publish |
 | `GET` | `/api/admin/surveys/{survey_id}/responses` | Responses |
 | `GET` | `/api/admin/system/health` | System Health |
 | `GET` | `/api/admin/tariff-constructors` | Admin Constructors |
 | `POST` | `/api/admin/tariff-constructors` | Admin Constructor Create |
-| `PUT` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Update |
 | `DELETE` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Delete |
+| `PUT` | `/api/admin/tariff-constructors/{constructor_id}` | Admin Constructor Update |
 | `GET` | `/api/admin/traffic-packages` | Admin Packages |
 | `POST` | `/api/admin/traffic-packages` | Create Package |
 | `PUT` | `/api/admin/traffic-packages/{package_id}` | Edit Package |
@@ -307,6 +325,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/me/gifts` | Purchased Gifts |
 | `POST` | `/api/me/gifts/purchase` | Purchase Gift |
 | `POST` | `/api/me/gifts/redeem` | Redeem Gift |
+| `GET` | `/api/me/giveaways` | Customer List |
+| `POST` | `/api/me/giveaways/{giveaway_id}/enter` | Enter |
 | `GET` | `/api/me/identity` | Identity |
 | `POST` | `/api/me/lusi/action` | Lusi Action |
 | `GET` | `/api/me/mobile/alerts` | Mobile Alerts |
@@ -330,6 +350,7 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/me/referral` | My Referral |
 | `POST` | `/api/me/referral/apply` | Apply Referral |
 | `GET` | `/api/me/referral/ledger` | My Referral Ledger |
+| `GET` | `/api/me/referral/network` | My Network |
 | `GET` | `/api/me/referral/withdrawals` | My Withdrawals |
 | `POST` | `/api/me/referral/withdrawals` | Request Withdrawal |
 | `GET` | `/api/me/remnawave/subscription` | My Remnawave Subscription |
@@ -348,8 +369,8 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/me/subscriptions` | List Subscriptions |
 | `PUT` | `/api/me/subscriptions/{subscription_id}` | Rename Subscription |
 | `POST` | `/api/me/subscriptions/{subscription_id}/select` | Select Subscription |
-| `GET` | `/api/me/support/attachments/{attachment_id}` | Customer Download |
 | `DELETE` | `/api/me/support/attachments/{attachment_id}` | Customer Remove |
+| `GET` | `/api/me/support/attachments/{attachment_id}` | Customer Download |
 | `GET` | `/api/me/support/tickets` | My Support Tickets |
 | `POST` | `/api/me/support/tickets` | Create Support Ticket |
 | `POST` | `/api/me/support/tickets/{ticket_id}/attachments` | Customer Upload |
@@ -399,22 +420,3 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/health/live` | Health Live |
 | `GET` | `/health/ready` | Health Ready |
 | `GET` | `/metrics` | Metrics |
-
-## Конкурсы и колесо — alpha.6
-
-| Метод | Путь | Описание |
-| --- | --- | --- |
-| GET/POST | `/api/admin/giveaways` | Просмотр / создание черновика |
-| POST | `/api/admin/giveaways/{giveaway_id}/publish` | Публикация |
-| POST | `/api/admin/giveaways/{giveaway_id}/close` | Закрытие |
-| DELETE | `/api/admin/giveaways/{giveaway_id}` | Удаление черновика |
-| POST | `/api/admin/giveaways/{giveaway_id}/draw` | Единственный розыгрыш конкурса |
-| GET | `/api/admin/giveaways/{giveaway_id}/entries` | Приватные участники для оператора |
-| GET | `/api/me/giveaways` | Акции и свои результаты |
-| POST | `/api/me/giveaways/{giveaway_id}/enter` | Однократное бесплатное участие |
-
-[Схемы и права](../API_REFERENCE_RU.md), [пошаговая инструкция](ru/WORKSPACE_GIVEAWAYS.md).
-
-## Alpha.7: admin passkeys
-
-POST `/api/admin/auth/passkeys/registration/options`, `/registration/verify`, `/login/options`, `/login/verify`: [контракт и настройка](ru/ADMIN_PASSKEYS.md). `/metrics` дополнен агрегатами БД при существующей token authentication: [мониторинг](ru/OPERATIONS_MONITORING.md).

@@ -1,3 +1,5 @@
+> Актуальная инструкция v21.0.1. Head магазина `0054_referral_levels`, Support Pro `0005`.
+
 # Три платёжных агента
 
 Новые подписки и пополнения кошелька создают счета только через YooKassa, RollyPay или Platega. Каталог определён в `backend/app/payment_policy.py`. Его используют выбор checkout и публичный каталог возможностей. Передача `stripe`, `paypal`, `crypto`, `apple_iap`, `google_play` или `sepa` в новом checkout отклоняется независимо от старых строк health и наличия credentials.

@@ -1,3 +1,5 @@
+> v21.0.1: API 18080, admin 18081, cabinet 18082, Mini App 18083. [Current testing guide](../ru/TESTING.md).
+
 # Перевірка магазину без платіжних систем
 
 Цей контур піднімає API, адмінку, кабінет і Mini App на вашому комп’ютері. YooKassa, Platega, RollyPay, Stripe, PayPal, крипто-шлюз, Telegram і Remnawave не потрібні.

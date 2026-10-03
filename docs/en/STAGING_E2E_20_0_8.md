@@ -1,3 +1,5 @@
+> Current v21.0.1: [operator documentation](../../DOCUMENTATION.md). Production payments are closed; this historical provider test does not certify application E2E v2.
+
 # Staging E2E and payment gate — v20.0.8
 
 ## Scope of the current runner

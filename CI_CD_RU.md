@@ -1,15 +1,13 @@
-# VPN Shop CI/CD
+# CI/CD — v21.0.1
 
-После push в `main` GitHub Actions автоматически:
-- запускает backend compile/tests;
-- проверяет Alembic migrations;
-- собирает admin;
-- валидирует Docker Compose;
-- собирает и публикует backend/bot/admin/miniapp в GHCR;
-- запускает pip-audit и npm audit.
+GitHub CI проверяет Python/backend с PostgreSQL и миграциями, Support Pro, аудит зависимостей, три web-сборки, настоящий Chromium WebAuthn, Compose/контейнеры с Redis AUTH, Android и iOS. Локальные SQLite-тесты не заменяют PostgreSQL-проверки конкуренции.
 
-Production deploy запускается вручную из Actions и требует GitHub Environment `production`
-с секретами `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH` и при необходимости
-`DEPLOY_PORT`.
+После полного успешного push CI точного `main` workflow `publish-release.yml` упаковывает исходники, создаёт SHA256 и detached manifest, проверяет загрузку и публикует релиз. Публикация уже существующего релиза не заменяет его вложения. Каждый новый выпуск получает собственный тег.
 
-Никакие реальные payment/Remnawave credentials в workflow не хранятся.
+Docker workflow публикует пять образов: backend, bot, admin, cabinet, miniapp. Stable использует `latest`, alpha — `preview`. Для воспроизводимости сохраняйте digest нужного образа.
+
+Mobile workflow запускается при изменении mobile/build scripts/манифеста. Production APK/IPA требуют Android/Apple signing secrets; без них публикуется только правдивый `mobile-production-status.json`. Успешная компиляция не доказывает подпись или VPN-туннель.
+
+Production Deploy запускается вручную с точным опубликованным `release_tag`. Нужны environment `production` и secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH`, при необходимости `DEPLOY_PORT`. Он вызывает проверенный updater и не разворачивает магазин при самой публикации релиза. [Обновление](docs/ru/WORKSPACE_UPGRADE.md), [backup](docs/ru/BACKUP_CURRENT.md).
+
+Перегенерация API-каталога: `PYTHONPATH=backend python scripts/generate-api-docs.py`. Проверка актуальности: добавьте `--check`. Регистр текущих руководств: [docs/current-guides.json](docs/current-guides.json). [Основная документация](DOCUMENTATION.md).

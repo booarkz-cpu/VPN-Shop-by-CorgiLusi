@@ -15,7 +15,7 @@ def test_extend_has_remote_expiry_reconciliation():
     assert "expected_after_expires_at" in MAIN and "extend_idempotent" in MAIN and "already_applied" in MAIN
 
 def test_referral_withdrawal_is_atomic_and_reversible():
-    assert "UPDATE users SET referral_balance=referral_balance-:amount" in MAIN
+    assert "values(referral_balance=User.referral_balance-reward.amount)" in MAIN
     assert "withdrawal_reversal:" in MAIN
 
 def test_refund_revoke_recovery_exists():

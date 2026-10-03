@@ -16,8 +16,11 @@ def test_provider_success_does_not_reenable_operator_disabled_provider():
 
 def test_referral_is_snapshotted_at_payment_creation_and_not_current_user_state():
     assert 'referrer_id_snapshot=user.referred_by_id' in MAIN
-    assert 'if payment.referrer_id_snapshot:' in MAIN
-    assert 'ReferralReward(referrer_id=payment.referrer_id_snapshot' in MAIN
+    assert 'referral_terms_snapshot=await referral_snapshot(db,user)' in MAIN
+    program = (ROOT / 'backend/app/referral_program.py').read_text()
+    assert 'terms = payment.referral_terms_snapshot' in program
+    assert 'payment.referrer_id_snapshot' in program
+    assert 'user.referred_by_id' not in program[program.index('async def credit('):program.index('async def reverse_extra(')]
 
 
 def test_referral_attribution_is_serialized():

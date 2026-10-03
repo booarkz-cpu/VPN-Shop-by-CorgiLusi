@@ -5,6 +5,7 @@ from .models import User
 
 async def bind_referrer(db, user, code: str):
     await db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": 1400000005})
+    await db.refresh(user)
     if user.referred_by_id:
         raise HTTPException(409, "Referral is already set")
     ref = (await db.execute(select(User).where(func.upper(User.referral_code)==code.strip().upper(), User.deleted_at.is_(None)))).scalar_one_or_none()
