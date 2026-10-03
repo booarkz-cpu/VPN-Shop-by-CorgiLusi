@@ -1,3 +1,4 @@
+import {ButtonTree} from "./button-tree";
 import {PersonalOffers} from "./personal-offers";
 import {PublicPages} from "./public-pages";
 import React, {useEffect, useState, useRef} from "react";
@@ -593,7 +594,7 @@ function App() {
         {MINI_APP&&(m.image||m.instructions||(m.buttons||[]).length>0)&&<section className="miniapp-extras form-card">
           {mediaUrl(m.image)&&<img src={mediaUrl(m.image)} alt="" className="miniapp-banner"/>}
           {m.subtitle&&<h2>{m.subtitle}</h2>}{m.instructions&&<p>{m.instructions}</p>}
-          <div className="btn-row">{(m.buttons||[]).map((button:any,i:number)=><button type="button" className="btn-ghost" key={i} onClick={()=>runButton(button)}>{button.title}</button>)}</div>
+          <ButtonTree buttons={m.buttons||[]} run={runButton} request={req} assetBase={API}/>
           {(cfg.fields||[]).map((field:any)=><div id={`field-${field.key}`} key={field.key}><h3>{field.label}</h3><p>{field.value}</p></div>)}
         </section>}
 

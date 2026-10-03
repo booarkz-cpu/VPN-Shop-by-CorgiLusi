@@ -1,17 +1,17 @@
-# VPN Shop — v21.3.0
+# VPN Shop — v21.4.0
 
-Поточне стабільне ядро: API, адмінка, кабінет/Mini App, бот, Support Pro і мобільні вихідні коди. Міграція магазину: `0060_promo_audiences`; Support Pro: `0005`. Додано багаторівневі реферали зі знімками умов та приватним графом, узгоджені зашифровані CLI-копії двох баз і файлів.
+Поточне стабільне ядро: API, адмінка, кабінет/Mini App, бот, Support Pro і мобільні вихідні коди. Міграція магазину: `0061_menu_hierarchy`; Support Pro: `0005`. Додано багаторівневі реферали зі знімками умов та приватним графом, узгоджені зашифровані CLI-копії двох баз і файлів.
 
 Справжні платежі залишаються закритими до завершення application E2E v2. Повне перенесення функцій та підписані APK/IPA ще не завершено. Stable визначає канал поточного ядра.
 
 [Поточна документація оператора (російською)](../../DOCUMENTATION.md), [SSH/Termius](../ru/DEPLOYMENT_CURRENT.md), [оновлення](../ru/WORKSPACE_UPGRADE.md), [резервування](../ru/BACKUP_CURRENT.md), [реферали](../ru/REFERRALS_CURRENT.md), [мобільні застосунки](../../MOBILE.md), [API](../API_ENDPOINTS.md), [ліцензія](../../LICENSE).
 
-Для локального тесту клонуйте тег `v21.3.0` і виконайте `bash scripts/test-up.sh`. Loopback-порти: API 18080, адмінка 18081, кабінет 18082, Mini App 18083. Sandbox-підписка не створює VPN-тунель.
+Для локального тесту клонуйте тег `v21.4.0` і виконайте `bash scripts/test-up.sh`. Loopback-порти: API 18080, адмінка 18081, кабінет 18082, Mini App 18083. Sandbox-підписка не створює VPN-тунель.
 
 Нова установка через root SSH/Termius:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/shop-by-boo/v21.3.0/install.sh -o /root/shop-install.sh && BRANCH=v21.3.0 bash /root/shop-install.sh
+curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/shop-by-boo/v21.4.0/install.sh -o /root/shop-install.sh && BRANCH=v21.4.0 bash /root/shop-install.sh
 ```
 
 Для чинного магазину використовуйте регламент оновлення, збережіть секрети й перевірте узгоджену копію.

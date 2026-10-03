@@ -1,4 +1,4 @@
-# Support Pro — v21.3.0
+# Support Pro — v21.4.0
 
 Актуальная пошаговая инструкция: [Support Pro](docs/ru/WORKSPACE_SUPPORT_BRIDGE.md). Общий каталог: [DOCUMENTATION.md](DOCUMENTATION.md).
 

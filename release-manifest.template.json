@@ -1,5 +1,5 @@
 {
-  "version": "21.3.0",
+  "version": "21.4.0",
   "legacy_v3_1_5_contract": {
     "version": "3.1.5"
   },
@@ -68,7 +68,7 @@
   "legacy_v2_0_2_contract": {
     "version": "2.0.2-audited"
   },
-  "artifact": "remnawave_vpn_shop_v21_3_0_full_release.zip",
+  "artifact": "remnawave_vpn_shop_v21_4_0_full_release.zip",
   "legacy_v3_1_5_artifact": "remnawave_vpn_shop_v3_1_5_full_release.zip",
   "legacy_v3_1_4_artifact": "remnawave_vpn_shop_v3_1_4_full_release.zip",
   "legacy_v3_1_3_artifact": "remnawave_vpn_shop_v3_1_3_full_release.zip",
@@ -90,7 +90,7 @@
   "legacy_v2_3_0_artifact": "remnawave_vpn_shop_v2_3_0_full_release.zip",
   "legacy_v2_2_1_artifact": "remnawave_vpn_shop_v2_2_1_full_release.zip",
   "sha256": null,
-  "migration_head": "0060_promo_audiences",
+  "migration_head": "0061_menu_hierarchy",
   "previous_migration_head_v2_5_0": "0037_v2_5_0_tariff_constructor",
   "previous_migration_head_v2_4_0": "0036_v2_4_0_cabinet",
   "previous_migration_head_v2_3_0": "0035_v2_3_0_wallet_gifts",
@@ -98,7 +98,7 @@
   "previous_migration_head_legacy_marker": "0021_v43_hardening_docs",
   "tests": null,
   "signed": false,
-  "detached_manifest": "remnawave_vpn_shop_v21_3_0_full_release_manifest.json",
+  "detached_manifest": "remnawave_vpn_shop_v21_4_0_full_release_manifest.json",
   "legacy_v3_1_5_detached_manifest": "remnawave_vpn_shop_v3_1_5_full_release_manifest.json",
   "legacy_v3_1_4_detached_manifest": "remnawave_vpn_shop_v3_1_4_full_release_manifest.json",
   "legacy_v3_1_3_detached_manifest": "remnawave_vpn_shop_v3_1_3_full_release_manifest.json",
@@ -161,8 +161,8 @@
   "prerelease": false,
   "full_function_transfer": false,
   "production_e2e_verified": false,
-  "release_scope": "Verified structured public pages, immutable publications, targeted offers and previewed shop-access operations; full coverage and external production certification remain incomplete.",
+  "release_scope": "Verified bounded Telegram/Mini App menu trees, native button styles, server-side custom emoji previews and optimistic editor updates; full coverage and external production certification remain incomplete.",
   "release_channel": "stable",
   "production_ready": false,
-  "upgrade_from": "21.2.0"
+  "upgrade_from": "21.3.0"
 }
