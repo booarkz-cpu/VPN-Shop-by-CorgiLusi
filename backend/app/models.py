@@ -1183,3 +1183,25 @@ class PartnerWithdrawal(Base):
     reference: Mapped[str|None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CustomerOperation(Base):
+    __tablename__ = 'customer_operations'
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    actor: Mapped[str] = mapped_column(String(320), index=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(16))
+    payload: Mapped[dict] = mapped_column(JSON)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class UserImportIdentity(Base):
+    __tablename__ = 'user_import_identities'
+    telegram_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'))
+    operation_id: Mapped[str] = mapped_column(ForeignKey('customer_operations.id', ondelete='RESTRICT'))

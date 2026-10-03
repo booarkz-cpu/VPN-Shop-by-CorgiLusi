@@ -65,6 +65,11 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/admin/content` | Admin Content |
 | `GET` | `/api/admin/corporate-accounts` | List Corporate |
 | `POST` | `/api/admin/corporate-accounts` | Create Corporate |
+| `POST` | `/api/admin/customer-operations/bulk/preview` | Preview Bulk |
+| `POST` | `/api/admin/customer-operations/import/inspect` | Inspect Import |
+| `POST` | `/api/admin/customer-operations/import/preview` | Preview Import |
+| `GET` | `/api/admin/customer-operations/journal` | Journal |
+| `POST` | `/api/admin/customer-operations/{operation_id}/apply` | Apply Operation |
 | `GET` | `/api/admin/customers/{user_id}/360` | Customer 360 |
 | `GET` | `/api/admin/deployments` | Deployment List |
 | `POST` | `/api/admin/deployments` | Deployment Create |

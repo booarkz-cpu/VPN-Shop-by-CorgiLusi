@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — customer import and bulk operations
+
+- SQLite users.db mapping and bounded preview for Telegram identities and names; existing accounts stay unchanged.
+- Durable import deduplication, owned expiring previews, atomic apply/retry and administrator journal (migration 0058).
+- Previewed bulk shop access restriction/restoration with session revocation and a shared restricted-account guard.
+- CRM/Customer 360 interface and production/migration instructions. Balances, subscriptions and remote VPN state are outside this import stage.
+
 ## 21.1.0 — 2026-10-03
 
 - Customer browser WebAuthn with single-use DB challenges, owner confirmation, revocable sessions and cabinet UI.
