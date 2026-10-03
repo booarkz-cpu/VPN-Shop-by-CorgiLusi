@@ -11,7 +11,7 @@
 ```bash
 cd /opt/vpn-shop
 git fetch origin
-git switch --detach v21.0.0-alpha.4
+git switch --detach v21.0.0-alpha.5
 docker compose stop backend worker support_pro support_worker
 docker compose build backend worker support_migrate support_pro support_worker
 docker compose run --rm backend alembic upgrade head

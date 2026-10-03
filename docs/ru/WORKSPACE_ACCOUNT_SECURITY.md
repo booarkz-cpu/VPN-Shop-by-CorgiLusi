@@ -16,7 +16,7 @@ docker compose run --rm backend alembic upgrade head
 docker compose up -d backend worker cabinet miniapp
 ```
 
-В head должно быть `0050_account_actions`; Support Pro остаётся на `0005`. Не добавляйте `.env` в репозиторий. Секреты вводите в файл с правами 0600, а не в команды, сохраняемые в history. Письма отправляет worker, либо scheduler совмещённого backend при соответствующей роли. Запущенный API без worker не гарантирует отправку очереди.
+Для alpha.5 в head должно быть `0051_surveys` (включает `0050_account_actions`); Support Pro остаётся на `0005`. Не добавляйте `.env` в репозиторий. Секреты вводите в файл с правами 0600, а не в команды, сохраняемые в history. Письма отправляет worker, либо scheduler совмещённого backend при соответствующей роли. Запущенный API без worker не гарантирует отправку очереди.
 
 ## Восстановить забытый пароль
 

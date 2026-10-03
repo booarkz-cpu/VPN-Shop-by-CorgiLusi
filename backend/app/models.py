@@ -1025,3 +1025,35 @@ class AccountMail(Base):
     attempts: Mapped[int] = mapped_column(Integer,default=0,nullable=False)
     next_retry_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.utcnow,nullable=False)
     error: Mapped[str|None] = mapped_column(String(40))
+
+class Survey(Base):
+    __tablename__='surveys'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(255),nullable=False)
+    description: Mapped[str] = mapped_column(Text,default='',nullable=False)
+    questions: Mapped[list] = mapped_column(JSON,nullable=False)
+    state: Mapped[str] = mapped_column(String(16),default='draft',nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime,nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime,nullable=False)
+    max_responses: Mapped[int] = mapped_column(Integer,nullable=False)
+    response_count: Mapped[int] = mapped_column(Integer,default=0,nullable=False)
+    reward_amount: Mapped[Decimal] = mapped_column(Numeric(12,2),default=0,nullable=False)
+    currency: Mapped[str] = mapped_column(String(3),nullable=False)
+    require_verified_email: Mapped[bool] = mapped_column(Boolean,default=False,nullable=False)
+    require_subscription: Mapped[bool] = mapped_column(Boolean,default=False,nullable=False)
+    results_mode: Mapped[str] = mapped_column(String(16),default='after_vote',nullable=False)
+    statistics: Mapped[dict] = mapped_column(JSON,default=dict,nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.utcnow,nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.utcnow,nullable=False)
+
+class SurveyResponse(Base):
+    __tablename__='survey_responses'
+    __table_args__=(UniqueConstraint('survey_id','user_id',name='uq_survey_responses_owner'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    survey_id: Mapped[int] = mapped_column(ForeignKey('surveys.id',ondelete='RESTRICT'),nullable=False,index=True)
+    user_id: Mapped[int|None] = mapped_column(ForeignKey('users.id',ondelete='SET NULL'),index=True)
+    answers: Mapped[list] = mapped_column(JSON,nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64),nullable=False)
+    reward_amount: Mapped[Decimal] = mapped_column(Numeric(12,2),nullable=False)
+    currency: Mapped[str] = mapped_column(String(3),nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.utcnow,nullable=False)

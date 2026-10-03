@@ -12,8 +12,8 @@ from .config import settings
 from .db import engine
 from .models import Payment, Subscription, User
 
-PAGES = {"account": "overview", "balance": "wallet", "payments": "payments", "gifts": "gifts", "referral": "referral", "support": "support", "devices": "devices"}
-TITLES = {"account": "Мой кабинет", "balance": "Кошелёк", "payments": "Платежи", "gifts": "Подарки", "referral": "Реферальная программа", "support": "Поддержка", "devices": "Устройства"}
+PAGES = {"surveys": "surveys", "account": "overview", "balance": "wallet", "payments": "payments", "gifts": "gifts", "referral": "referral", "support": "support", "devices": "devices"}
+TITLES = {"surveys": "Опросы", "account": "Мой кабинет", "balance": "Кошелёк", "payments": "Платежи", "gifts": "Подарки", "referral": "Реферальная программа", "support": "Поддержка", "devices": "Устройства"}
 
 
 def page_url(page: str) -> str:
