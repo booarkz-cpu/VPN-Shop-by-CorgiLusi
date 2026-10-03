@@ -3141,6 +3141,13 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         unresolved_gift=await db.scalar(select(GiftRedemption.id).where(GiftRedemption.user_id==user.id,GiftRedemption.status!="completed").limit(1))
         unresolved_payment=await db.scalar(select(Payment.id).where(Payment.user_id==user.id,Payment.status.in_(("creating","pending","creation_unknown","paid","fulfilled","refunded_pending_revoke")),Payment.fulfillment_status!="completed").limit(1))
         if unresolved_gift or unresolved_payment:raise HTTPException(409,"Сначала завершите обработку покупок и подарков")
+        from .models import Reseller, PartnerWithdrawal, CustomerPasskey, CustomerPasskeyChallenge
+        partner=await db.scalar(select(Reseller).where(Reseller.owner_user_id==user.id).execution_options(populate_existing=True).with_for_update())
+        if partner:
+            pending_payout=await db.scalar(select(PartnerWithdrawal.id).where(PartnerWithdrawal.reseller_id==partner.id,PartnerWithdrawal.status.in_(("pending","approved"))).limit(1))
+            pending_partner_purchase=await db.scalar(select(Payment.id).where(Payment.reseller_id==partner.id,Payment.status.in_(("creating","pending","creation_unknown","paid","fulfilled","refunded_pending_revoke")),Payment.fulfillment_status!="completed").limit(1))
+            if partner.balance != 0 or pending_payout or pending_partner_purchase:
+                raise HTTPException(409,"Сначала завершите партнёрские расчёты и выплаты")
         subscriptions=(await db.execute(select(Subscription).where(Subscription.user_id==user.id).execution_options(populate_existing=True).with_for_update())).scalars().all()
         if any(x.lifecycle_status in {"active","cancel_scheduled","grace","revoke_pending"} and (x.expires_at is None or x.expires_at>datetime.utcnow()) for x in subscriptions):
             raise HTTPException(409,"Active subscription must expire before account deletion")
@@ -3163,6 +3170,12 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         from .models import AccountAction
         await revoke_access(db,user)
         await db.execute(delete(AccountAction).where(AccountAction.user_id==user.id))
+        await db.execute(delete(CustomerPasskey).where(CustomerPasskey.user_id==user.id))
+        await db.execute(delete(CustomerPasskeyChallenge).where(CustomerPasskeyChallenge.user_id==user.id))
+        user.passkey_user_handle=None
+        if partner:
+            partner.enabled=False
+            partner.api_key_hash=hashlib.sha256(secrets.token_bytes(32)).hexdigest()
         from .surveys import anonymize as anonymize_surveys
         await anonymize_surveys(db,user.id)
         from .giveaways import anonymize as anonymize_giveaways

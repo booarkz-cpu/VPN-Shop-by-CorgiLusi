@@ -52,6 +52,10 @@ async def test_merge_keeps_files_roots_legacy_reply_and_retry(database):
     assert await topology.apply(exact,request(),database,ADMIN)==result
     assert await database.scalar(select(func.count()).select_from(SupportTopologyOperation))==1
     with pytest.raises(HTTPException):await append_message(database,a,'customer','new','retry')
+    from app import support_bridge
+    with pytest.raises(HTTPException) as error:
+        await support_bridge.status(a.id,support_bridge.StatusIn(status='open',expected_message_id=0),database,'integration')
+    assert error.value.status_code==409 and a.status=='merged'
 
 
 @pytest.mark.asyncio

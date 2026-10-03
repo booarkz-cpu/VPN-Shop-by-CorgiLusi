@@ -102,6 +102,7 @@ class StatusIn(BaseModel):
 @router.post('/tickets/{ticket_id}/status')
 async def status(ticket_id:int,payload:StatusIn,db:AsyncSession=Depends(get_db),instance=Depends(identity)):
     t=await ticket_for_write(db,ticket_id)
+    if t.merged_into_id is not None:raise HTTPException(409,'Обращение объединено; откройте целевое обращение')
     latest=await db.scalar(select(func.coalesce(func.max(SupportMessage.id),0)).where(SupportMessage.ticket_id==ticket_id))
     if latest!=payload.expected_message_id:raise HTTPException(409,'Переписка изменилась; обновите обращение')
     if t.status!=payload.status:
