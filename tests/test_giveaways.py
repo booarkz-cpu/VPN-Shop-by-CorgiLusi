@@ -65,6 +65,9 @@ async def test_wheel_lost_response_and_closed_retry_credit_once(database):
     assert row.entry_count == 1 and row.budget_credited == 5 and row.budget_limit == 10
     assert await database.scalar(select(func.count()).select_from(FinancialLedger)) == 1
     assert await database.scalar(select(func.count()).select_from(GiveawayEntry)) == 1
+    from app.customer_workspace_api import wallet_history
+    history = await wallet_history(request(), database)
+    assert len(history['items']) == 1 and history['items'][0]['kind'] == 'giveaway_reward'
 
 
 @pytest.mark.asyncio
