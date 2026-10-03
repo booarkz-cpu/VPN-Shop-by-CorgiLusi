@@ -31,3 +31,5 @@ GitHub Deploy использует обязательный `release_tag`, secre
 ## Инцидент
 
 Отключите новые оплаты/акцию, сохраните ID операций и журналы аудита. Свяжите заказ, provider ID, выбранную подписку и выдачу. Не меняйте paid/refunded и финансовые строки вручную. Для наград сверяйте giveaway entry, ключ финансового события и бюджет. Для восстановления используйте изолированную копию; не удаляйте volumes действующего магазина. [Безопасность](SECURITY.md), [платежи](docs/ru/WORKSPACE_PAYMENTS.md).
+
+Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.

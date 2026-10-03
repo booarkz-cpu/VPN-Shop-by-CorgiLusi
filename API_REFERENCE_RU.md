@@ -19,3 +19,5 @@
 | POST | `/api/me/giveaways/{id}/enter` | Сессия клиента, однократное участие; без суммы/победителя в запросе |
 
 Схемы и ограничения: `backend/app/giveaways.py`, [отдельная инструкция](docs/ru/WORKSPACE_GIVEAWAYS.md). Клиентские ответы имеют `Cache-Control: private, no-store`. Участие возвращает один сохранённый исход на аккаунт; новая попытка не требует нового idempotency key.
+
+Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.

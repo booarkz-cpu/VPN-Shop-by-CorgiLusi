@@ -3,7 +3,7 @@
 | Каталог / сервис | Назначение |
 | --- | --- |
 | `backend/app`, `backend/worker.py` | API магазина, checkout, выдача, финансовый журнал, задачи и бот |
-| `backend/alembic` | Миграции PostgreSQL; текущий head `0052_giveaways` |
+| `backend/alembic` | Миграции PostgreSQL; текущий head `0053_admin_passkeys` |
 | `admin` | Административная React-панель, поиск, таблицы и операторские действия |
 | `cabinet` | Общий пользовательский React-интерфейс |
 | `miniapp` | Telegram-поверхность, импортирующая общий кабинет |
@@ -15,3 +15,5 @@
 | `tests`, `.github/workflows` | Регрессии, CI, сборки и публикация |
 
 [Архитектура](docs/ru/WORKSPACE_ARCHITECTURE.md), [точная функциональная матрица](docs/ru/WORKSPACE_COVERAGE.md), [эксплуатация](OPERATIONS_RUNBOOK_RU.md).
+
+Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.

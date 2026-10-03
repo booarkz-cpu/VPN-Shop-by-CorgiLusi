@@ -141,11 +141,13 @@ class EntitlementOperation(Base):
 
 class AdminUser(Base):
     __tablename__ = "admin_users"
+    __table_args__ = (UniqueConstraint("passkey_user_handle", name="uq_admin_passkey_user_handle"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     telegram_id: Mapped[int|None] = mapped_column(BigInteger, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     role: Mapped[str] = mapped_column(String(32), default="viewer", nullable=False)
+    passkey_user_handle: Mapped[str|None] = mapped_column(String(64))
     totp_secret_encrypted: Mapped[str|None] = mapped_column(Text)
     recovery_codes_encrypted: Mapped[str|None] = mapped_column(Text)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -707,7 +709,7 @@ class WebAuthnCredential(Base):
     admin_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     credential_id: Mapped[str] = mapped_column(String(1024), unique=True, index=True, nullable=False)
     public_key: Mapped[str] = mapped_column(Text, nullable=False)
-    sign_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    sign_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     transports: Mapped[str|None] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(100), default="Passkey", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
@@ -1088,3 +1090,14 @@ class GiveawayEntry(Base):
     prize_index: Mapped[int|None] = mapped_column(Integer)
     reward_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class WebAuthnChallenge(Base):
+    __tablename__ = "webauthn_challenges"
+    ticket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    binding_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(24), nullable=False)
+    admin_id: Mapped[int|None] = mapped_column(Integer, ForeignKey("admin_users.id", ondelete="CASCADE"))
+    challenge: Mapped[str] = mapped_column(String(128), nullable=False)
+    context: Mapped[dict] = mapped_column(JSON, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
