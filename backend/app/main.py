@@ -96,6 +96,8 @@ from .support_bridge import router as support_bridge_router
 app.include_router(support_bridge_router)
 from .support_topology import router as support_topology_router
 app.include_router(support_topology_router)
+from .customer_operations import router as customer_operations_router
+app.include_router(customer_operations_router)
 app.include_router(mobile_router)
 app.include_router(production_router)
 app.include_router(production_launch_router)
@@ -655,6 +657,8 @@ async def user_from_token(request:Request, db:AsyncSession):
     except (KeyError,TypeError,ValueError): raise HTTPException(401,"Invalid user token")
     user=await db.get(User,user_id)
     if not user or user.deleted_at is not None: raise HTTPException(401,"User not found")
+    from .platform_api import reject_restricted
+    reject_restricted(user)
     jti=claims.get("jti")
     if not jti: raise HTTPException(401,"User session is not registered")
     session=(await db.execute(select(UserSession).where(UserSession.jti_hash==hashlib.sha256(jti.encode()).hexdigest(),UserSession.revoked_at.is_(None)))).scalar_one_or_none()
