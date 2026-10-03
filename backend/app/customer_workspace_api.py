@@ -49,7 +49,7 @@ async def wallet_history(request: Request, db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(
         select(FinancialLedger).where(
             FinancialLedger.user_id == user.id,
-            FinancialLedger.kind.in_(("wallet_topup", "wallet_spend", "gift_purchase", "wallet_topup_refund", "wallet_purchase_refund", "gift_card")),
+            FinancialLedger.kind.in_(("wallet_topup", "wallet_spend", "gift_purchase", "wallet_topup_refund", "wallet_purchase_refund", "gift_card", "survey_reward")),
         ).order_by(FinancialLedger.id.desc()).limit(100)
     )).scalars().all()
     return {"balance": str(user.wallet_balance or 0), "items": [

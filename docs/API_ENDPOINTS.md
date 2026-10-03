@@ -205,6 +205,13 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/admin/support/tickets/{ticket_id}/attachments/drafts` | Admin Drafts |
 | `GET` | `/api/admin/support/tickets/{ticket_id}/messages` | Admin Support Messages |
 | `POST` | `/api/admin/support/tickets/{ticket_id}/reply` | Admin Ticket Reply |
+| `GET` | `/api/admin/surveys` | Admin List |
+| `POST` | `/api/admin/surveys` | Create |
+| `PUT` | `/api/admin/surveys/{survey_id}` | Edit |
+| `DELETE` | `/api/admin/surveys/{survey_id}` | Delete Draft |
+| `POST` | `/api/admin/surveys/{survey_id}/close` | Close |
+| `POST` | `/api/admin/surveys/{survey_id}/publish` | Publish |
+| `GET` | `/api/admin/surveys/{survey_id}/responses` | Responses |
 | `GET` | `/api/admin/system/health` | System Health |
 | `GET` | `/api/admin/tariff-constructors` | Admin Constructors |
 | `POST` | `/api/admin/tariff-constructors` | Admin Constructor Create |
@@ -349,6 +356,9 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/api/me/support/tickets/{ticket_id}/attachments/drafts` | Customer Drafts |
 | `GET` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Messages |
 | `POST` | `/api/me/support/tickets/{ticket_id}/messages` | Customer Support Reply |
+| `GET` | `/api/me/surveys` | Customer List |
+| `GET` | `/api/me/surveys/{survey_id}` | Customer Detail |
+| `POST` | `/api/me/surveys/{survey_id}/submit` | Submit |
 | `GET` | `/api/me/traffic` | My Traffic |
 | `POST` | `/api/me/trial` | Claim Trial |
 | `GET` | `/api/me/v15/bootstrap` | V15 Bootstrap |
@@ -389,5 +399,3 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/health/live` | Health Live |
 | `GET` | `/health/ready` | Health Ready |
 | `GET` | `/metrics` | Metrics |
-
-Всего операций: 383.
