@@ -2,15 +2,17 @@
   "private": true,
   "scripts": {
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@vitejs/plugin-react": "5.0.2",
-    "vite": "7.3.6",
     "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react-dom": "19.1.1",
+    "vite": "7.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "typescript": "5.9.2"
   }
 }

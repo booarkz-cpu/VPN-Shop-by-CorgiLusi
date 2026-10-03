@@ -1,0 +1,33 @@
+groups:
+  - name: vpnshop
+    rules:
+      - alert: VpnShopUnavailable
+        expr: up{job="vpnshop"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'VPN Shop API metrics unavailable'
+      - alert: VpnShopDatabaseMetricsUnavailable
+        expr: vpnshop_database_metrics_available{job="vpnshop"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'VPN Shop database metrics query failed or timed out'
+      - alert: VpnShopNoWorker
+        expr: vpnshop_workers_online{job="vpnshop"} == 0
+        for: 3m
+        labels: {severity: critical}
+        annotations:
+          summary: 'No worker heartbeat within ninety seconds'
+      - alert: VpnShopQueueStalled
+        expr: vpnshop_oldest_queued_job_seconds{job="vpnshop"} > 900
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Oldest queued job has waited over fifteen minutes (including retry backoff)'
+      - alert: VpnShopApiErrors
+        expr: sum(rate(vpnshop_errors_total{job="vpnshop"}[5m])) / clamp_min(sum(rate(vpnshop_requests_total{job="vpnshop"}[5m])), 0.01) > 0.05
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'API server error ratio exceeds five percent'

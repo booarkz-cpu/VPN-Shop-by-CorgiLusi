@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 GUIDES = ['README.md','DOCUMENTATION.md','DOCUMENTATION_RU.md','INSTALL.md','INSTALL_STEPS.md',
           'INSTRUCTION.md','FUNCTIONS.md','SECURITY.md','MOBILE.md','MODULES.md',
           'OPERATIONS_RUNBOOK_RU.md','API_REFERENCE_RU.md','docs/INDEX.md',
-          'docs/ru/WORKSPACE_GIVEAWAYS.md','docs/ru/WORKSPACE_UPGRADE.md']
+          'docs/ru/WORKSPACE_GIVEAWAYS.md','docs/ru/WORKSPACE_UPGRADE.md',
+          'docs/ru/ADMIN_PASSKEYS.md','docs/ru/OPERATIONS_MONITORING.md','docs/ru/RELEASE_21_0_0_ALPHA_7.md']
 
 
 @pytest.mark.parametrize('filename',GUIDES)

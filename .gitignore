@@ -50,3 +50,7 @@ mobile/**/.cxx/
 
 # OS
 Thumbs.db
+
+# Browser verification outputs
+admin/test-results/
+admin/playwright-report/

@@ -2,7 +2,7 @@
 
 ## 1. Выберите контур
 
-v21.0.0-alpha.6 предназначен для проверки. Локальная песочница не требует касс и Remnawave. Отдельный HTTPS стенд нужен для внешних callbacks, SMTP и настоящего тестового VPN. [Все требования](INSTALL.md).
+v21.0.0-alpha.7 предназначен для проверки. Локальная песочница не требует касс и Remnawave. Отдельный HTTPS стенд нужен для внешних callbacks, SMTP и настоящего тестового VPN. [Все требования](INSTALL.md).
 
 ## 2. Подключитесь к VDS
 
@@ -17,7 +17,7 @@ ssh root@SERVER_IP
 ## 3. Поднимите тестовый магазин одной последовательностью
 
 ```bash
-git clone --branch v21.0.0-alpha.6 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.0-alpha.7 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```

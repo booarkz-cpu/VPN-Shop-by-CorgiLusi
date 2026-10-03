@@ -127,23 +127,14 @@ jobs:
           script: |
             const fs = require('fs');
             const args = {owner: context.repo.owner, repo: context.repo.repo};
-            const tag = 'v20.0.15';
+            const manifest = JSON.parse(fs.readFileSync('release-manifest.template.json','utf8'));
+            if (!/^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error('Invalid source release version');
+            const tag = `v${manifest.version}`;
             // This workflow may run for later maintenance commits. Only the
             // release's own source commit can publish assets to its tag.
             const main = await github.rest.repos.getBranch({...args, branch: 'main'});
             if (main.data.commit.sha !== context.sha) {
               core.notice('Main moved; packages remain available as workflow artifacts.');
-              return;
-            }
-            let tagRef;
-            try { tagRef = (await github.rest.git.getRef({...args, ref:`tags/${tag}`})).data; }
-            catch (e) {
-              if (e.status !== 404) throw e;
-              core.notice(`${tag} does not exist; packages remain as workflow artifacts.`);
-              return;
-            }
-            if (tagRef.object.type !== 'commit' || tagRef.object.sha !== context.sha) {
-              core.notice(`${tag} points to another commit; packages remain as workflow artifacts.`);
               return;
             }
             let release;
@@ -159,7 +150,12 @@ jobs:
               if (run?.conclusion === 'success') {
                 try { release = (await github.rest.repos.getReleaseByTag({...args, tag})).data; }
                 catch (e) { if (e.status !== 404) throw e; }
-                if (release && !release.draft) break;
+                if (release && !release.draft) {
+                  let ref = (await github.rest.git.getRef({...args, ref:`tags/${tag}`})).data.object;
+                  if (ref.type === 'tag') ref = (await github.rest.git.getTag({...args, tag_sha:ref.sha})).data.object;
+                  if (ref.type !== 'commit' || ref.sha !== context.sha) throw new Error('Source release belongs to another commit');
+                  break;
+                }
               }
               await new Promise(resolve => setTimeout(resolve, 10000));
             }
@@ -176,11 +172,14 @@ jobs:
             const existing = (await github.rest.repos.listReleaseAssets({...args, release_id:release.id, per_page:100})).data;
             for (const name of names) {
               const old = existing.find(a => a.name === name);
-              if (old && name !== 'mobile-production-status.json') throw new Error(`Asset exists; refusing to replace ${name}`);
-              if (old) await github.rest.repos.deleteReleaseAsset({...args, asset_id:old.id});
               const data = fs.readFileSync(`dist/mobile/${name}`);
-              await github.rest.repos.uploadReleaseAsset({...args, release_id:release.id, name, data,
-                headers:{'content-type':'application/octet-stream','content-length':data.length}});
+              const expectedDigest = 'sha256:' + require('crypto').createHash('sha256').update(data).digest('hex');
+              if (old && old.digest === expectedDigest && old.size === data.length) continue;
+              if (old && name !== 'mobile-production-status.json') throw new Error(`Asset differs; refusing to replace ${name}`);
+              if (old) await github.rest.repos.deleteReleaseAsset({...args, asset_id:old.id});
+              const uploaded = (await github.rest.repos.uploadReleaseAsset({...args, release_id:release.id, name, data,
+                headers:{'content-type':'application/octet-stream','content-length':data.length}})).data;
+              if (uploaded.digest !== expectedDigest || uploaded.size !== data.length) throw new Error(`Upload verification failed: ${name}`);
             }
             const marker = '\n<!-- mobile-production-status -->';
             const body = release.body.split(marker)[0] + marker +

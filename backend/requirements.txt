@@ -24,3 +24,5 @@ Pillow==12.3.0
 PyYAML==6.0.3
 
 reportlab==4.4.9
+
+webauthn==3.0.1

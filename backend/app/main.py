@@ -30,7 +30,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.0.0-alpha.6"
+APP_VERSION = "21.0.0-alpha.7"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -109,6 +109,8 @@ from .surveys import router as surveys_router
 app.include_router(surveys_router)
 from .giveaways import router as giveaways_router
 app.include_router(giveaways_router)
+from .passkeys import router as passkeys_router
+app.include_router(passkeys_router)
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 PACKAGE_UPLOAD_BYTES = 80 * 1024 * 1024
@@ -145,6 +147,10 @@ RATE_LIMITS = {
     "/api/me/referral/withdrawals": 5,
     "/api/auth/admin/login": 10,
     "/api/admin/auth/login": 8,
+    "/api/admin/auth/passkeys/login/options": 8,
+    "/api/admin/auth/passkeys/login/verify": 8,
+    "/api/admin/auth/passkeys/registration/options": 5,
+    "/api/admin/auth/passkeys/registration/verify": 5,
     "/api/admin/auth/telegram": 8,
 }
 
@@ -560,6 +566,15 @@ async def metrics(request:Request):
         extra=await prometheus_lines()
     except Exception:
         extra=""
+    try:
+        from .observability import operational_metrics
+        from .db import SessionLocal
+        async def snapshot():
+            async with SessionLocal() as db:
+                return await operational_metrics(db)
+        extra += await asyncio.wait_for(snapshot(), timeout=3)
+    except Exception:
+        extra += "# TYPE vpnshop_database_metrics_available gauge\nvpnshop_database_metrics_available 0\n"
     body="\n".join(f"vpnshop_{k} {v}" for k,v in _METRICS.items())+"\n"+extra
     return Response(content=body, media_type="text/plain; version=0.0.4")
 
@@ -3558,7 +3573,7 @@ async def admin_security(db:AsyncSession=Depends(get_db),admin=Depends(require_p
     active_sessions=int((await db.execute(select(func.count()).select_from(AdminSession).where(AdminSession.revoked_at.is_(None),AdminSession.expires_at>datetime.utcnow()))).scalar() or 0)
     failed_24h=int((await db.execute(select(func.count()).select_from(Payment).where(Payment.fulfillment_status=="failed",Payment.created_at>=datetime.utcnow()-timedelta(hours=24)))).scalar() or 0)
     last_backup=(await db.execute(select(BackupJob).where(BackupJob.status=="completed").order_by(BackupJob.created_at.desc()).limit(1))).scalar_one_or_none()
-    return {"admin_auth":"password + optional TOTP","mfa_enabled":bool(admin.mfa_enabled),"production_payments_enabled":await production_payments_allowed(db),"rbac_roles":["viewer","operator","admin"],"version":APP_VERSION,"active_sessions":active_sessions,"fulfillment_failures_24h":failed_24h,"backup":{"last_success":last_backup.created_at if last_backup else None,"healthy":bool(last_backup and last_backup.created_at>=datetime.utcnow()-timedelta(hours=25))},"ssh_credentials_persisted":False,"node_compose_source":"official Remnawave Panel"}
+    return {"admin_auth":"password + optional TOTP; verified WebAuthn passkeys","mfa_enabled":bool(admin.mfa_enabled),"production_payments_enabled":await production_payments_allowed(db),"rbac_roles":["viewer","operator","admin"],"version":APP_VERSION,"active_sessions":active_sessions,"fulfillment_failures_24h":failed_24h,"backup":{"last_success":last_backup.created_at if last_backup else None,"healthy":bool(last_backup and last_backup.created_at>=datetime.utcnow()-timedelta(hours=25))},"ssh_credentials_persisted":False,"node_compose_source":"official Remnawave Panel"}
 
 
 class ProductionGateIn(BaseModel):
@@ -5012,9 +5027,7 @@ async def v41_promotions(db:AsyncSession=Depends(get_db),admin=Depends(require_p
     rows=(await db.execute(select(Promotion).order_by(Promotion.priority.desc(),Promotion.id.desc()))).scalars().all()
     return [{"id":x.id,"name":x.name,"kind":x.kind,"value":float(x.value),"plan_ids":x.plan_ids,"enabled":x.enabled,"starts_at":str(x.starts_at) if x.starts_at else None,"ends_at":str(x.ends_at) if x.ends_at else None,"priority":x.priority,"exclusive":x.exclusive} for x in rows]
 
-# Passkey/WebAuthn credential inventory. Registration/assertion ceremonies are intentionally
-# exposed only when the deployment includes a WebAuthn verifier; credentials are never accepted
-# merely because a browser claims success.
+# Passkey inventory; cryptographic ceremonies live in passkeys.py.
 @app.get("/api/admin/v41/passkeys")
 async def v41_passkeys(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("security.passkeys"))):
     rows=(await db.execute(select(WebAuthnCredential).where(WebAuthnCredential.admin_id==admin.id).order_by(WebAuthnCredential.id.desc()))).scalars().all()

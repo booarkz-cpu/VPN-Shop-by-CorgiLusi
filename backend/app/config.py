@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     remnawave_cb_cooldown: int = Field(default=30, alias="REMNAWAVE_CB_COOLDOWN")
 
     # ---------- Админ-панель ----------
+    webauthn_origin: str = Field(default="", alias="WEBAUTHN_ORIGIN")
     admin_email: str = Field(default="admin@example.com", alias="ADMIN_EMAIL")
     admin_password: str = Field(default="change-me", alias="ADMIN_PASSWORD")
     admin_cors_origins: str = Field(

@@ -414,3 +414,7 @@ Legacy callbacks прежних агентов служат только ист�
 | POST | `/api/me/giveaways/{giveaway_id}/enter` | Однократное бесплатное участие |
 
 [Схемы и права](../API_REFERENCE_RU.md), [пошаговая инструкция](ru/WORKSPACE_GIVEAWAYS.md).
+
+## Alpha.7: admin passkeys
+
+POST `/api/admin/auth/passkeys/registration/options`, `/registration/verify`, `/login/options`, `/login/verify`: [контракт и настройка](ru/ADMIN_PASSKEYS.md). `/metrics` дополнен агрегатами БД при существующей token authentication: [мониторинг](ru/OPERATIONS_MONITORING.md).
