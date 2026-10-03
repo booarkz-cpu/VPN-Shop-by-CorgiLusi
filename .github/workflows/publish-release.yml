@@ -25,7 +25,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
       - name: Require successful CI on this commit
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const sha = (await github.rest.repos.getBranch({
@@ -46,7 +46,7 @@ jobs:
           python3 scripts/package-source.py remnawave_vpn_shop_v21_5_1_full_release.zip
           sha256sum remnawave_vpn_shop_v21_5_1_full_release.zip > remnawave_vpn_shop_v21_5_1_full_release.zip.sha256
       - name: Create release and attach verified source
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
