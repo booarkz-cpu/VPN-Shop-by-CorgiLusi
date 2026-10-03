@@ -24,6 +24,8 @@ def upgrade():
     op.create_index('ix_survey_responses_user_id','survey_responses',['user_id'])
 
 def downgrade():
+    if op.get_bind().dialect.name=='postgresql':
+        op.get_bind().execute(sa.text('LOCK TABLE survey_responses IN ACCESS EXCLUSIVE MODE'))
     if op.get_bind().execute(sa.text('SELECT count(*) FROM survey_responses')).scalar():
         raise RuntimeError('Survey responses exist; downgrade would lose participation and reward identities')
     op.drop_table('survey_responses');op.drop_table('surveys')
