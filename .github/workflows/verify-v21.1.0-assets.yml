@@ -1,0 +1,77 @@
+name: Verify published v21.1.0 source assets
+on:
+  push:
+    branches: ["audit/v21.1.0-published-assets"]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: 72d5ae8f7f5b88fe18f8f5fba4685f9ad7c25533
+      - name: Verify release metadata, digests and every source byte
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess, time, urllib.request, urllib.error, zipfile, io
+          REPO="booarkz-cpu/shop-by-boo"
+          COMMIT="72d5ae8f7f5b88fe18f8f5fba4685f9ad7c25533"
+          TAG="v21.1.0"
+          API="https://api.github.com/repos/"+REPO
+          def api(path):
+              request=urllib.request.Request(API+path,headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json","User-Agent":"release-source-audit"})
+              with urllib.request.urlopen(request,timeout=45) as response:return json.load(response)
+          names={"remnawave_vpn_shop_v21_1_0_full_release.zip","remnawave_vpn_shop_v21_1_0_full_release.zip.sha256","remnawave_vpn_shop_v21_1_0_full_release_manifest.json","mobile-production-status.json"}
+          for attempt in range(36):
+              try:
+                  release=api("/releases/tags/"+TAG)
+                  if names.issubset({item["name"] for item in release["assets"]}):break
+              except urllib.error.HTTPError as error:
+                  if error.code!=404:raise
+              time.sleep(30)
+          else:raise RuntimeError("Published release and all assets did not appear")
+          assert not release["draft"] and not release["prerelease"]
+          assert api("/git/ref/tags/"+TAG)["object"]["sha"]==COMMIT
+          assert api("/releases/latest")["id"]==release["id"]
+          contents={}
+          for asset in release["assets"]:
+              if asset["name"] not in names:continue
+              request=urllib.request.Request(asset["browser_download_url"],headers={"User-Agent":"release-source-audit"})
+              with urllib.request.urlopen(request,timeout=90) as response:data=response.read()
+              assert len(data)==asset["size"],asset["name"]
+              assert "sha256:"+hashlib.sha256(data).hexdigest()==asset["digest"],asset["name"]
+              contents[asset["name"]]=data
+          archive="remnawave_vpn_shop_v21_1_0_full_release.zip"
+          digest=hashlib.sha256(contents[archive]).hexdigest()
+          assert contents[archive+".sha256"].decode().split()==[digest,archive]
+          manifest=json.loads(contents["remnawave_vpn_shop_v21_1_0_full_release_manifest.json"])
+          assert manifest["commit"]==COMMIT and manifest["sha256"]==digest
+          assert manifest["version"]=="21.1.0" and manifest["migration_head"]=="0057_partner_commissions"
+          assert manifest["release_channel"]=="stable" and manifest["prerelease"] is False
+          for flag in ("production_ready","full_function_transfer","production_e2e_verified","signed"):
+              assert manifest[flag] is False,flag
+          run=api("/actions/runs/"+manifest["ci_run"].rsplit("/",1)[-1])
+          assert run["head_sha"]==COMMIT and run["conclusion"]=="success" and run["event"]=="push"
+          from pathlib import Path
+          expected={}
+          for raw in subprocess.check_output(["git","ls-files","-z"]).split(b"\0"):
+              if not raw:continue
+              path=Path(os.fsdecode(raw))
+              if path.is_symlink() or not path.is_file():continue
+              if path.name.startswith(".env") and path.name not in {".env.example",".env.test.example"}:continue
+              if path.suffix.lower() in {".apk",".ipa",".zip"}:continue
+              expected[path.as_posix()]=path.read_bytes()
+          with zipfile.ZipFile(io.BytesIO(contents[archive])) as packaged:
+              assert len(packaged.namelist())==len(set(packaged.namelist()))
+              assert set(packaged.namelist())==set(expected)
+              for name,data in expected.items():assert packaged.read(name)==data,name
+          mobile=json.loads(contents["mobile-production-status.json"])
+          assert mobile["source_commit"]==COMMIT
+          print(json.dumps({"version":"21.1.0","commit":COMMIT,"source_files_verified":len(expected),"archive_sha256":digest,"release":release["html_url"],"android":mobile["android"],"ios":mobile["ios"]},ensure_ascii=False))
+          
+          PY
