@@ -1,43 +1,33 @@
-# Production Operations Runbook V43
+# Эксплуатация и восстановление
 
-## Перед запуском
+## Контроль после установки
 
-- HTTPS работает.
-- DNS корректен.
-- Caddy единственный внешний вход.
-- Backend/Admin/Mini App не имеют host port exposure.
-- PostgreSQL и Redis healthy.
-- Remnawave healthy.
-- Backup создан и проверен.
-- Staging E2E полностью пройден.
-- Production Gate включается только после PASS.
+Проверьте `docker compose ps`, `/health` и `/health/ready`, worker, Redis и доступ Remnawave. Логи:
 
-## Платёжная авария
+```bash
+docker compose logs --tail=100 backend worker bot
+```
 
-1. Отключить production payments.
-2. Зафиксировать incident.
-3. Проверить provider health.
-4. Проверить webhook events и reconciliation.
-5. Не создавать второй платёж вручную для timeout-запроса без проверки первого провайдера.
-6. После исправления повторить E2E.
+Проверьте реальные домены/HTTPS, время сервера, авторизацию, тестовый заказ, конкретный профиль и уведомления. Локальный health не подтверждает внешнюю кассу или VPN.
 
-## Ошибка fulfillment
+## Backup
 
-1. Проверить Job и ProvisioningOperation.
-2. Не выдавать VPN вручную до проверки состояния платежа.
-3. Повторить безопасную job/reconciliation процедуру.
-4. Проверить Remnawave.
+Создавайте полный backup через «Админка → Бекапы»: настройте шифрование, retention, внешнее хранение и проверку восстановления. Сохраните серверные `.env` отдельно с доступом владельца. Перед обновлением подтвердите восстановление на изолированном контуре. Файлы поддержки/опросы/участия входят в базу; media и пользовательские пакеты требуют файловой части backup.
 
-## Restore
+`scripts/backup.sh` сейчас выводит рекомендации и статус контейнеров; **он не создаёт копию данных**. `scripts/update.sh` создаёт свои предобновляющие снимки и SQL дамп, но это не заменяет регулярный полный backup и пробное восстановление.
 
-1. Включить maintenance.
-2. Создать защитный backup.
-3. Проверить checksum.
-4. Сначала выполнить isolated test-restore.
-5. Только после успешной проверки выполнять production restore.
-6. Проверить миграции и health.
-7. Оставить maintenance включённым при любой неоднозначности.
+## Обновление
 
-## Rollback
+Для alpha используйте отдельный стенд и [WORKSPACE_UPGRADE.md](docs/ru/WORKSPACE_UPGRADE.md). Production обновляется только по stable GitHub Releases. Для выбранного stable тега:
 
-Вернуться только на последний проверенный release. После rollback повторить health, diagnostics и staging E2E.
+```bash
+APP_DIR=/opt/vpn-shop RELEASE_TAG=v21.0.0 bash scripts/update-from-github.sh
+```
+
+`v21.0.0` — пример будущего stable, не существующий финальный выпуск. Подставьте действительно опубликованный стабильный тег. Скрипт проверяет источник и SHA256, сохраняет `.env`, вызывает резервирование и health/recovery. Без RELEASE_TAG выбирается последний stable; downgrade не выполняется.
+
+GitHub Deploy использует обязательный `release_tag`, secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PORT`, `DEPLOY_PATH` и environment `production`. Он не публикует исходники и не запускается при выпуске alpha. Старый updater без поддержки RELEASE_TAG должен быть сначала обновлён вручную. Указатель Git HEAD установленного через архив дерева может не совпадать с содержимым; ориентируйтесь на APP_VERSION и проверенный release manifest.
+
+## Инцидент
+
+Отключите новые оплаты/акцию, сохраните ID операций и журналы аудита. Свяжите заказ, provider ID, выбранную подписку и выдачу. Не меняйте paid/refunded и финансовые строки вручную. Для наград сверяйте giveaway entry, ключ финансового события и бюджет. Для восстановления используйте изолированную копию; не удаляйте volumes действующего магазина. [Безопасность](SECURITY.md), [платежи](docs/ru/WORKSPACE_PAYMENTS.md).

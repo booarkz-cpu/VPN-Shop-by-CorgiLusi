@@ -1,48 +1,9 @@
-# Актуальная документация рабочего пространства
+# Актуальная документация
 
-- [Восстановление пароля и подтверждение email](ru/WORKSPACE_ACCOUNT_SECURITY.md)
-- [Подготовка стенда и условия финального выпуска](ru/FINAL_RELEASE_READINESS.md)
-- [Лицензия и сторонние компоненты](../THIRD_PARTY_NOTICES.md)
-- [Кабинет пользователя, по каждой странице](ru/WORKSPACE_USER_GUIDE.md)
-- [Администратор, по каждому разделу](ru/WORKSPACE_ADMIN_GUIDE.md)
-- [Три платёжных агента](ru/WORKSPACE_PAYMENTS.md)
-- [Обновление и миграция](ru/WORKSPACE_UPGRADE.md)
-- [Архитектура и устранённые дубли](ru/WORKSPACE_ARCHITECTURE.md)
-- [Функциональное покрытие и незавершённые требования](ru/WORKSPACE_COVERAGE.md)
-- [Точный каталог API](API_ENDPOINTS.md)
+Версия v21.0.0-alpha.6, миграция 0052_giveaways. [Главный указатель](../DOCUMENTATION.md) содержит текущие инструкции по всем функциям. [Установка](../INSTALL.md), [шаги SSH/Termius](../INSTALL_STEPS.md), [функции](../FUNCTIONS.md), [конкурсы и колесо](ru/WORKSPACE_GIVEAWAYS.md), [отчёт проверки](ru/RELEASE_21_0_0_ALPHA_6.md), [границы готовности](ru/FINAL_RELEASE_READINESS.md).
 
-Изменения представлены для проверки, а не как завершённый полный перенос или новый production-релиз. Нижеприведённый маршрут описывает последний стабильный выпуск.
+[Матрица покрытия](ru/WORKSPACE_COVERAGE.md), [API](API_ENDPOINTS.md), [обновление](ru/WORKSPACE_UPGRADE.md), [мобильные приложения](../MOBILE.md), [лицензия](../LICENSE).
 
-# Навигация по документации
+## История
 
-## Актуальный маршрут (релиз 20.0.29)
-
-| Что нужно | Куда идти |
-| --- | --- |
-| Пошаговое начало на русском | [Пять отдельных инструкций](ru/steps/README.md) |
-| Установка с нуля | [VDS 20.0.29](ru/VDS_PRODUCTION_20_0_29.md) |
-| ЮKassa: куда нажимать новичку | [Пошагово по экранам](ru/YOOKASSA_CLICKS_BEGINNER.md) |
-| Все кассы: пошаговая проверка | [Отдельный чек-лист по каждому провайдеру](ru/ALL_PAYMENT_PROVIDERS_BEGINNER_CHECKLIST.md) |
-| Очень подробный запуск реальных платежей | [С нуля до контрольной покупки](ru/REAL_PAYMENTS_FROM_ZERO.md) |
-| Проверка платежей | [Подготовка staging](ru/STAGING_VDS_E2E_OPERATOR_20_0_18.md), [порядок для новичка](ru/PAYMENTS_VDS_BEGINNER_2026_09_28.md) |
-| Текущие границы платежей | [Аудит контрактов](ru/PAYMENT_AUDIT_2026_09_28.md), [контракт E2E v2](ru/STAGING_E2E_V2_IMPLEMENTATION.md) |
-| Проверка без касс | [Русский](ru/TESTING.md), [English](en/TESTING.md), [Українська](uk/TESTING.md) |
-| Состав и возможности | [Русский](ru/README.md), [English](en/README.md), [Українська](uk/README.md) |
-| Отчёт проверки 28 сентября | [Результаты и ограничения](ru/AUDIT_2026_09_28_REPOSITORY.md) |
-| Программный интерфейс | [API](../API_REFERENCE_RU.md) |
-
-[Как разбирать и чистить ветки](BRANCHES.md)
-
-## Где остальная информация
-
-- `docs/ru`, `docs/en`, `docs/uk`: инструкции и описания функций по языкам.
-- Корневые `RELEASE_NOTES_*`, `V*_RELEASE_NOTES*`, `.github/release-*`, `AUDIT_*`, `V*_AUDIT*`: история конкретных версий. Инструкции из них могут устареть.
-- Корневые `INSTRUCTION.md`, `INSTALL_STEPS.md`, `FUNCTIONS.md`, `MOBILE.md`: развёрнутые справочники и исторические примеры. Для новой установки начните с маршрута выше.
-- `support-pro/README.md`, `mobile/`, `desktop/`: инструкции для отдельных компонентов.
-- `tests/`: регрессионные проверки; `.github/workflows/ci.yml`: автоматические проверки при изменениях.
-
-**Важно:** публикация коммита в `main` сама по себе не публикует новый релиз. Обновляющий скрипт использует GitHub Releases. До реализации полного staging E2E v2 реальные платежи закрыты.
-
-- [Смена тарифа и дополнительный трафик](ru/WORKSPACE_COMMERCE.md).
-
-- [Опросы, награды и приватность](ru/WORKSPACE_SURVEYS.md)
+Стабильная линия v20.0.29: [VDS](ru/VDS_PRODUCTION_20_0_29.md). Исторические инструкции сохранены в `archive/*_BEFORE_ALPHA_6.md` и версиях release notes. Они не являются текущим обещанием возможностей. Наличие опубликованного alpha не меняет канал автоматического production обновления.

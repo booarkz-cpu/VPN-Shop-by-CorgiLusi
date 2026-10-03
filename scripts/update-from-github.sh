@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download the newest GitHub release, verify SHA-256, keep .env, then run update.sh.
+# Download RELEASE_TAG or the newest stable release, verify SHA-256, then update.
 # update.sh snapshots the current install before it copies UPDATE_STAGE.
 # Cron is not installed by this script.
 set -Eeuo pipefail

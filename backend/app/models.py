@@ -1057,3 +1057,34 @@ class SurveyResponse(Base):
     reward_amount: Mapped[Decimal] = mapped_column(Numeric(12,2),nullable=False)
     currency: Mapped[str] = mapped_column(String(3),nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.utcnow,nullable=False)
+
+class Giveaway(Base):
+    __tablename__ = 'giveaways'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default='', nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), default='draft', nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    max_entries: Mapped[int] = mapped_column(Integer, nullable=False)
+    entry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    winners_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    prizes: Mapped[list] = mapped_column(JSON, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    budget_limit: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    budget_credited: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    require_subscription: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    drawn_at: Mapped[datetime|None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+class GiveawayEntry(Base):
+    __tablename__ = 'giveaway_entries'
+    __table_args__ = (UniqueConstraint('giveaway_id', 'user_id', name='uq_giveaway_entries_owner'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    giveaway_id: Mapped[int] = mapped_column(ForeignKey('giveaways.id', ondelete='RESTRICT'), index=True, nullable=False)
+    user_id: Mapped[int|None] = mapped_column(ForeignKey('users.id', ondelete='SET NULL'), index=True)
+    outcome: Mapped[str] = mapped_column(String(16), default='entered', nullable=False)
+    prize_index: Mapped[int|None] = mapped_column(Integer)
+    reward_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

@@ -74,7 +74,7 @@ def test_localization_covers_mobile_and_web_patterns():
     assert "Онлайн" in cabinet and "Online ${online[1]} of ${online[2]}" in cabinet
     assert "Online ${online[1]} of ${online[2]}" in mini
     notes = (ROOT / "RELEASE_NOTES_V2_7_0.md").read_text()
-    mobile = (ROOT / "MOBILE.md").read_text()
+    mobile = (ROOT / "docs/archive/MOBILE_BEFORE_ALPHA_6.md").read_text()
     assert "2.7.0" in notes and "Android" in notes and "iOS" in notes
     assert "Русский" in mobile and "English" in mobile
-    assert "9.6" in (ROOT / "INSTRUCTION.md").read_text()
+    assert "9.6" in (ROOT / "docs/archive/INSTRUCTION_BEFORE_ALPHA_6.md").read_text()

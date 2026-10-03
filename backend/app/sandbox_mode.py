@@ -20,9 +20,6 @@ def live_checkout_configured() -> bool:
         (settings.yookassa_shop_id and settings.yookassa_secret_key)
         or (settings.platega_merchant_id and settings.platega_secret)
         or settings.rollypay_api_key
-        or settings.stripe_secret_key
-        or (settings.paypal_client_id and settings.paypal_client_secret)
-        or (settings.crypto_gateway_url and settings.crypto_gateway_key)
     )
 
 

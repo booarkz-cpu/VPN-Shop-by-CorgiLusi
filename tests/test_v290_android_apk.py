@@ -10,9 +10,9 @@ def test_v290_apk_script_notes_and_clients():
     assert "2_9_0" in script
     notes = (ROOT / "RELEASE_NOTES_V2_9_0.md").read_text()
     assert "2.9.0" in notes and "APK" in notes
-    instruction = (ROOT / "INSTRUCTION.md").read_text()
+    instruction = (ROOT / "docs/archive/INSTRUCTION_BEFORE_ALPHA_6.md").read_text()
     assert "9.8" in instruction and "9.7" in instruction and "9.6" in instruction
-    mobile = (ROOT / "MOBILE.md").read_text()
+    mobile = (ROOT / "docs/archive/MOBILE_BEFORE_ALPHA_6.md").read_text()
     assert "2.9.0" in mobile and "Русский" in mobile and "English" in mobile
     assert "RemnawaveShop-Android-User/2.9.0" in mobile
     user = (ROOT / "mobile/android-user/app/src/main/java/shop/remnawave/user/MainActivity.kt").read_text()

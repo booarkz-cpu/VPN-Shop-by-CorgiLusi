@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import re
 import stat
 import sys
@@ -128,8 +129,15 @@ def main() -> None:
     app_dir = Path(sys.argv[1]).resolve()
     stage = Path(sys.argv[2]).resolve()
     installed = current_version(app_dir)
-    payload = fetch_json(API)
+    requested = os.environ.get('RELEASE_TAG', '').strip()
+    if requested and not re.fullmatch(r'v\d+\.\d+\.\d+', requested):
+        fail('RELEASE_TAG must be an exact stable tag such as v21.0.0')
+    payload = fetch_json(f'https://api.github.com/repos/{REPO}/releases/tags/{requested}' if requested else API)
+    if payload.get('draft') or payload.get('prerelease'):
+        fail('Production updater refuses draft and prerelease releases')
     tag = str(payload.get("tag_name") or "")
+    if requested and tag != requested:
+        fail('Requested release tag does not match GitHub response')
     if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
         fail("Invalid release tag")
     latest = tag.lstrip("v")

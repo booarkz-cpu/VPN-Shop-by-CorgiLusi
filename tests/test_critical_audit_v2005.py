@@ -38,4 +38,4 @@ def test_changelog_is_in_the_root_readme():
     assert "## Русский" in readme and "## English" in readme and "## Українська" in readme
     assert "find_by_order_id" in readme
     assert "Ниже сохранена история релизов." in readme
-    assert "20.0.5" in (ROOT / "SECURITY.md").read_text()
+    assert "20.0.5" in (ROOT / "docs/archive/SECURITY_BEFORE_ALPHA_6.md").read_text()

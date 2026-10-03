@@ -8,8 +8,8 @@ def test_release_301_is_current_and_documented():
     main = (ROOT / "backend/app/main.py").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_0_1.md").read_text()
     readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
-    security = (ROOT / "SECURITY.md").read_text()
-    instruction = (ROOT / "INSTRUCTION.md").read_text()
+    security = (ROOT / "docs/archive/SECURITY_BEFORE_ALPHA_6.md").read_text()
+    instruction = (ROOT / "docs/archive/INSTRUCTION_BEFORE_ALPHA_6.md").read_text()
     assert main.index('APP_VERSION = "3.0.1"') < main.index('APP_VERSION = "3.0.0-realise"')
     assert main.index('APP_VERSION = "3.0.0-realise"') < main.index('APP_VERSION = "2.13.0"')
     assert "3.0.1" in notes and "Русский" in notes and "English" in notes
