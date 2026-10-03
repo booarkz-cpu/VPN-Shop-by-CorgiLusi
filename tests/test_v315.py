@@ -31,8 +31,8 @@ def test_nginx_frontends_have_writable_cache_and_pid():
 
 def test_docs_describe_315_and_keep_314():
     notes = (ROOT / "RELEASE_NOTES_V3_1_5.md").read_text()
-    instruction = (ROOT / "INSTRUCTION.md").read_text()
-    steps = (ROOT / "INSTALL_STEPS.md").read_text()
+    instruction = (ROOT / "docs/archive/INSTRUCTION_BEFORE_ALPHA_6.md").read_text()
+    steps = (ROOT / "docs/archive/INSTALL_STEPS_BEFORE_ALPHA_6.md").read_text()
     assert "client_temp" in notes
     assert "Русский" in notes and "English" in notes
     assert "3.1.4" in notes

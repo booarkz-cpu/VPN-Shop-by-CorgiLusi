@@ -55,5 +55,5 @@ def test_readme_describes_features_and_live_payments_in_three_languages():
     assert "Ниже сохранена история релизов." in readme
     assert "sha256sum -c" in readme
     assert "FULL_E2E_PASS" in readme
-    security = (ROOT / "SECURITY.md").read_text()
+    security = (ROOT / "docs/archive/SECURITY_BEFORE_ALPHA_6.md").read_text()
     assert "20.0.4" in security and "provision_nodes" in security and "decrypt_secret" in security

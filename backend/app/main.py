@@ -30,7 +30,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.0.0-alpha.5"
+APP_VERSION = "21.0.0-alpha.6"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -107,6 +107,8 @@ from .account_actions import router as account_actions_router
 app.include_router(account_actions_router)
 from .surveys import router as surveys_router
 app.include_router(surveys_router)
+from .giveaways import router as giveaways_router
+app.include_router(giveaways_router)
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 PACKAGE_UPLOAD_BYTES = 80 * 1024 * 1024
@@ -129,6 +131,7 @@ RATE_LIMITS = {
     "/api/me/email/verification/request": 5,
     "/api/me/password/change": 5,
     "/api/me/surveys": 30,
+    "/api/me/giveaways": 30,
     "/api/auth/exchange": 20,
     "/api/payments/create": 20,
     "/api/payments/sandbox/complete": 30,
@@ -223,6 +226,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             rate_path = "/api/me/support/tickets"
         if request.method == 'POST' and re.fullmatch(r'/api/me/surveys/\d+/submit',rate_path):
             rate_path='/api/me/surveys'
+        if request.method == 'POST' and re.fullmatch(r'/api/me/giveaways/\d+/enter', rate_path):
+            rate_path = '/api/me/giveaways'
         limit = RATE_LIMITS.get(rate_path)
         if limit is None and request.url.path.startswith("/api/admin/"):
             limit = 120 if request.method == "GET" else 40
@@ -3070,7 +3075,9 @@ async def privacy_export(request:Request,db:AsyncSession=Depends(get_db)):
     subscriptions=(await db.execute(select(Subscription).where(Subscription.user_id==user.id).order_by(Subscription.id))).scalars().all()
     from .models import SurveyResponse
     survey_answers=(await db.execute(select(SurveyResponse).where(SurveyResponse.user_id==user.id).order_by(SurveyResponse.id))).scalars().all()
-    return {"survey_answers":[{"survey_id":x.survey_id,"answers":x.answers,"reward_amount":str(x.reward_amount),"currency":x.currency,"created_at":x.created_at} for x in survey_answers],"subscriptions":[{"id":x.id,"name":x.name,"plan_id":x.plan_id,"is_primary":x.is_primary,"status":x.lifecycle_status,"expires_at":x.expires_at} for x in subscriptions],"exported_at":datetime.utcnow(),"user":{"id":user.id,"telegram_id":user.telegram_id,"yandex_id":user.yandex_id,"username":user.username,"referral_code":user.referral_code,"created_at":user.created_at},"subscription":None if not sub else {"id":sub.id,"name":sub.name,"plan_id":sub.plan_id,"remnawave_uuid":sub.remnawave_uuid,"expires_at":sub.expires_at},"payments":[{"id":x.id,"amount":str(x.amount),"currency":x.currency,"provider":x.provider,"status":x.status,"created_at":x.created_at} for x in payments],"tickets":[{"id":x.id,"subject":x.subject,"message":x.message,"admin_reply":x.admin_reply,"status":x.status,"created_at":x.created_at} for x in tickets],"support_messages":[{"ticket_id":x.ticket_id,"role":x.role,"body":x.body,"created_at":x.created_at} for x in messages],"withdrawals":[{"id":x.id,"amount":str(x.amount),"status":x.status,"created_at":x.created_at} for x in withdrawals]}
+    from .models import GiveawayEntry
+    giveaway_entries=(await db.scalars(select(GiveawayEntry).where(GiveawayEntry.user_id==user.id).order_by(GiveawayEntry.id))).all()
+    return {"giveaway_entries":[{"giveaway_id":x.giveaway_id,"outcome":x.outcome,"reward_amount":str(x.reward_amount),"created_at":x.created_at} for x in giveaway_entries],"survey_answers":[{"survey_id":x.survey_id,"answers":x.answers,"reward_amount":str(x.reward_amount),"currency":x.currency,"created_at":x.created_at} for x in survey_answers],"subscriptions":[{"id":x.id,"name":x.name,"plan_id":x.plan_id,"is_primary":x.is_primary,"status":x.lifecycle_status,"expires_at":x.expires_at} for x in subscriptions],"exported_at":datetime.utcnow(),"user":{"id":user.id,"telegram_id":user.telegram_id,"yandex_id":user.yandex_id,"username":user.username,"referral_code":user.referral_code,"created_at":user.created_at},"subscription":None if not sub else {"id":sub.id,"name":sub.name,"plan_id":sub.plan_id,"remnawave_uuid":sub.remnawave_uuid,"expires_at":sub.expires_at},"payments":[{"id":x.id,"amount":str(x.amount),"currency":x.currency,"provider":x.provider,"status":x.status,"created_at":x.created_at} for x in payments],"tickets":[{"id":x.id,"subject":x.subject,"message":x.message,"admin_reply":x.admin_reply,"status":x.status,"created_at":x.created_at} for x in tickets],"support_messages":[{"ticket_id":x.ticket_id,"role":x.role,"body":x.body,"created_at":x.created_at} for x in messages],"withdrawals":[{"id":x.id,"amount":str(x.amount),"status":x.status,"created_at":x.created_at} for x in withdrawals]}
 
 @app.delete("/api/me/privacy/account")
 async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
@@ -3110,6 +3117,8 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         await db.execute(delete(AccountAction).where(AccountAction.user_id==user.id))
         from .surveys import anonymize as anonymize_surveys
         await anonymize_surveys(db,user.id)
+        from .giveaways import anonymize as anonymize_giveaways
+        await anonymize_giveaways(db,user.id)
         user.username=f"deleted_{user.id}"
         user.referral_code=f"deleted_{user.id}"
         user.auto_renew_enabled=False

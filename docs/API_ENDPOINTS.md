@@ -399,3 +399,18 @@ Legacy callbacks прежних агентов служат только ист�
 | `GET` | `/health/live` | Health Live |
 | `GET` | `/health/ready` | Health Ready |
 | `GET` | `/metrics` | Metrics |
+
+## Конкурсы и колесо — alpha.6
+
+| Метод | Путь | Описание |
+| --- | --- | --- |
+| GET/POST | `/api/admin/giveaways` | Просмотр / создание черновика |
+| POST | `/api/admin/giveaways/{giveaway_id}/publish` | Публикация |
+| POST | `/api/admin/giveaways/{giveaway_id}/close` | Закрытие |
+| DELETE | `/api/admin/giveaways/{giveaway_id}` | Удаление черновика |
+| POST | `/api/admin/giveaways/{giveaway_id}/draw` | Единственный розыгрыш конкурса |
+| GET | `/api/admin/giveaways/{giveaway_id}/entries` | Приватные участники для оператора |
+| GET | `/api/me/giveaways` | Акции и свои результаты |
+| POST | `/api/me/giveaways/{giveaway_id}/enter` | Однократное бесплатное участие |
+
+[Схемы и права](../API_REFERENCE_RU.md), [пошаговая инструкция](ru/WORKSPACE_GIVEAWAYS.md).

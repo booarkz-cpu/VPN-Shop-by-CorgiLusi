@@ -31,7 +31,7 @@ class EmailAuthIn(BaseModel):
 class CabinetMenuIn(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     slug: str = Field(min_length=2, max_length=64, pattern=r"^[a-z0-9_-]+$")
-    kind: str = Field(default="custom", pattern="^(overview|plans|trial|connection|support|servers|custom|devices|wallet|payments|gifts|referral|security|notifications|subscription|surveys)$")
+    kind: str = Field(default="custom", pattern="^(overview|plans|trial|connection|support|servers|custom|devices|wallet|payments|gifts|referral|security|notifications|subscription|surveys|giveaways)$")
     body: str = Field(default="", max_length=20000)
     sort_order: int = Field(default=0, ge=-10000, le=10000)
     enabled: bool = True
@@ -185,6 +185,7 @@ async def public_cabinet_menu(db: AsyncSession = Depends(get_db)):
             {"slug": "trial", "title": "Пробный период", "kind": "trial", "body": ""},
             {"slug": "connection", "title": "Подключение", "kind": "connection", "body": ""},
             {"slug": "surveys", "title": "Опросы", "kind": "surveys", "body": ""},
+            {"slug": "giveaways", "title": "Конкурсы и призы", "kind": "giveaways", "body": ""},
             {"slug": "support", "title": "Поддержка", "kind": "support", "body": ""},
         ]
     return [{"id": x.id, "slug": x.slug, "title": x.title, "kind": x.kind, "body": x.body, "sort_order": x.sort_order} for x in rows]

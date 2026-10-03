@@ -3,6 +3,7 @@ import {createRoot} from "react-dom/client";
 import "./style.css";
 import {SubscriptionProfiles} from "./subscription-profiles";
 import {Surveys} from "./surveys";
+import {Giveaways} from "./giveaways";
 import {Workspace} from "./workspace";
 import {AccountRecovery, AccountSecurity, accountLink} from "./account-recovery";
 import type {AccountLink} from "./account-recovery";
@@ -11,7 +12,7 @@ import {DomLocalizer, LangProvider, detectLang, t, useLang} from "./i18n";
 const API = import.meta.env.VITE_API_URL || "";
 const MINI_APP = import.meta.env.VITE_SURFACE === "miniapp" || !!(window as any).__SHOP_SURFACE__ || !!(window as any).Telegram?.WebApp;
 
-type MenuKind = "surveys" | "overview" | "plans" | "trial" | "connection" | "support" | "servers" | "devices" | "wallet" | "payments" | "gifts" | "referral" | "security" | "notifications" | "subscription" | "custom";
+type MenuKind = "giveaways" | "surveys" | "overview" | "plans" | "trial" | "connection" | "support" | "servers" | "devices" | "wallet" | "payments" | "gifts" | "referral" | "security" | "notifications" | "subscription" | "custom";
 type MenuItem = {slug: string; title: string; kind: MenuKind; body?: string};
 
 const FALLBACK_MENU: MenuItem[] = [
@@ -28,6 +29,7 @@ const FALLBACK_MENU: MenuItem[] = [
   {slug: "notifications", title: "Уведомления", kind: "notifications"},
   {slug: "security", title: "Безопасность", kind: "security"},
   {slug: "surveys", title: "Опросы", kind: "surveys"},
+  {slug: "giveaways", title: "Конкурсы и призы", kind: "giveaways"},
   {slug: "support", title: "Поддержка", kind: "support"},
 ];
 
@@ -949,6 +951,7 @@ function App() {
               </>}
 
               {activeItem?.kind === "surveys" && <Surveys request={req} reload={loadSession}/>}
+              {activeItem?.kind === "giveaways" && <Giveaways request={req} reload={loadSession}/>}
               {activeItem?.kind === "custom" && (
                 <>
                   <h2 className="section-title">{activeItem.title || "Пользовательский раздел"}</h2>

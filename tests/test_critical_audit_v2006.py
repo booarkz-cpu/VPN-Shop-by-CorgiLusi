@@ -58,4 +58,4 @@ def test_readme_explains_staging_in_three_languages():
     assert "Як пройти staging E2E" in readme
     assert "FULL_E2E_PASS" in readme
     assert "Ниже сохранена история релизов." in readme
-    assert "20.0.6" in (ROOT / "SECURITY.md").read_text()
+    assert "20.0.6" in (ROOT / "docs/archive/SECURITY_BEFORE_ALPHA_6.md").read_text()

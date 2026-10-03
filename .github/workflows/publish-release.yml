@@ -10,9 +10,13 @@ permissions:
   contents: write
   actions: read
 
+concurrency:
+  group: publish-source-release
+  cancel-in-progress: false
+
 jobs:
   release:
-    name: Publish v21.0.0-alpha.5 after CI
+    name: Publish v21.0.0-alpha.6 after CI
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-24.04
     steps:
@@ -37,16 +41,16 @@ jobs:
             if (!runs.data.workflow_runs.some(run => run.event === 'push' && run.conclusion === 'success')) {
               throw new Error(`No successful main push CI run for ${sha}`);
             }
-      - name: Package v21.0.0-alpha.5
+      - name: Package v21.0.0-alpha.6
         run: |
-          python3 scripts/package-source.py remnawave_vpn_shop_v21_0_0-alpha_5_full_release.zip
-          sha256sum remnawave_vpn_shop_v21_0_0-alpha_5_full_release.zip > remnawave_vpn_shop_v21_0_0-alpha_5_full_release.zip.sha256
+          python3 scripts/package-source.py remnawave_vpn_shop_v21_0_0-alpha_6_full_release.zip
+          sha256sum remnawave_vpn_shop_v21_0_0-alpha_6_full_release.zip > remnawave_vpn_shop_v21_0_0-alpha_6_full_release.zip.sha256
       - name: Create release and attach verified source
         uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
-            const artifact = 'remnawave_vpn_shop_v21_0_0-alpha_5_full_release.zip';
+            const artifact = 'remnawave_vpn_shop_v21_0_0-alpha_6_full_release.zip';
             const manifest = JSON.parse(fs.readFileSync('release-manifest.template.json', 'utf8'));
             manifest.sha256 = require('crypto').createHash('sha256').update(fs.readFileSync(artifact)).digest('hex');
             manifest.commit = context.payload.workflow_run.head_sha;
@@ -54,35 +58,48 @@ jobs:
             manifest.tests = 'Successful GitHub CI on the release commit; external provider E2E is not certified';
             manifest.signed = false;
             fs.writeFileSync(artifact.replace('.zip', '_manifest.json'), JSON.stringify(manifest, null, 2)+'\n');
-            const tag = 'v21.0.0-alpha.5';
-            const body = fs.readFileSync('.github/release-v21.0.0-alpha.5.md', 'utf8');
+            const tag = 'v21.0.0-alpha.6';
+            const body = fs.readFileSync('.github/release-v21.0.0-alpha.6.md', 'utf8');
+            const currentMain = (await github.rest.repos.getBranch({owner: context.repo.owner, repo: context.repo.repo, branch: 'main'})).data.commit.sha;
+            if (currentMain !== context.payload.workflow_run.head_sha) throw new Error('Main moved while packaging; wait for its own successful CI.');
+            let release;
             try {
               const existing = await github.rest.repos.getReleaseByTag({owner: context.repo.owner, repo: context.repo.repo, tag});
-              core.info(`${tag} already exists at ${existing.data.html_url}; leaving it unchanged`);
-              return;
+              if (!existing.data.draft) {
+                core.info(`${tag} is already published at ${existing.data.html_url}; leaving it unchanged`);
+                return;
+              }
+              const ref = (await github.rest.git.getRef({owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${tag}`})).data;
+              if (ref.object.sha !== context.payload.workflow_run.head_sha) throw new Error('Existing draft tag belongs to another commit');
+              release = existing.data;
             } catch (error) {
               if (error.status !== 404) throw error;
             }
-            const result = await github.rest.repos.createRelease({
+            if (!release) release = (await github.rest.repos.createRelease({
               owner: context.repo.owner, repo: context.repo.repo,
               tag_name: tag, target_commitish: context.payload.workflow_run.head_sha,
-              name: 'v21.0.0-alpha.5 — опросы и награды на баланс (предварительный выпуск)', body,
+              name: 'v21.0.0-alpha.6 — конкурсы, призы и безопасное обновление', body,
               draft: true, prerelease: true
-            });
+            })).data;
             for (const name of [
-              'remnawave_vpn_shop_v21_0_0-alpha_5_full_release.zip',
-              'remnawave_vpn_shop_v21_0_0-alpha_5_full_release.zip.sha256',
-              'remnawave_vpn_shop_v21_0_0-alpha_5_full_release_manifest.json'
+              'remnawave_vpn_shop_v21_0_0-alpha_6_full_release.zip',
+              'remnawave_vpn_shop_v21_0_0-alpha_6_full_release.zip.sha256',
+              'remnawave_vpn_shop_v21_0_0-alpha_6_full_release_manifest.json'
             ]) {
               const data = fs.readFileSync(name);
-              await github.rest.repos.uploadReleaseAsset({
+              const expectedDigest = 'sha256:' + require('crypto').createHash('sha256').update(data).digest('hex');
+              const old = release.assets.find(asset => asset.name === name);
+              if (old && old.digest === expectedDigest && old.size === data.length) continue;
+              if (old) await github.rest.repos.deleteReleaseAsset({owner: context.repo.owner, repo: context.repo.repo, asset_id: old.id});
+              const uploaded = (await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner, repo: context.repo.repo,
-                release_id: result.data.id, name, data,
+                release_id: release.id, name, data,
                 headers: { 'content-type': name.endsWith('.zip') ? 'application/zip' : 'text/plain', 'content-length': data.length }
-              });
+              })).data;
+              if (uploaded.digest !== expectedDigest || uploaded.size !== data.length) throw new Error(`Uploaded asset verification failed: ${name}`);
             }
             await github.rest.repos.updateRelease({
               owner: context.repo.owner, repo: context.repo.repo,
-              release_id: result.data.id, draft: false
+              release_id: release.id, draft: false
             });
-            core.info(`Published ${result.data.html_url}`);
+            core.info(`Published ${release.html_url}`);

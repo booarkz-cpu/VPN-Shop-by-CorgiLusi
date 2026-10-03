@@ -60,12 +60,12 @@ def test_admin_requires_sandbox_confirmation():
 
 
 def test_docs_explain_gate_and_install_in_both_languages():
-    steps = (ROOT / "INSTALL_STEPS.md").read_text()
-    instruction = (ROOT / "INSTRUCTION.md").read_text()
+    steps = (ROOT / "docs/archive/INSTALL_STEPS_BEFORE_ALPHA_6.md").read_text()
+    instruction = (ROOT / "docs/archive/INSTRUCTION_BEFORE_ALPHA_6.md").read_text()
     readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
-    security = (ROOT / "SECURITY.md").read_text()
+    security = (ROOT / "docs/archive/SECURITY_BEFORE_ALPHA_6.md").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_1_1.md").read_text()
-    docs = (ROOT / "DOCUMENTATION.md").read_text()
+    docs = (ROOT / "docs/archive/DOCUMENTATION_BEFORE_ALPHA_6.md").read_text()
     assert "## Русский" in steps and "## English" in steps
     assert "sudo bash install.sh" in steps
     assert "INSTALL_NONINTERACTIVE" in steps

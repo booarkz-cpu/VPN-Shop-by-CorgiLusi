@@ -93,11 +93,11 @@ def test_admin_routes_hide_credentials_and_stderr():
 
 def test_docs_describe_312_and_keep_311():
     readme = (ROOT / "docs/archive/README_BEFORE_WORKSPACE.md").read_text()
-    security = (ROOT / "SECURITY.md").read_text()
-    instruction = (ROOT / "INSTRUCTION.md").read_text()
+    security = (ROOT / "docs/archive/SECURITY_BEFORE_ALPHA_6.md").read_text()
+    instruction = (ROOT / "docs/archive/INSTRUCTION_BEFORE_ALPHA_6.md").read_text()
     notes = (ROOT / "RELEASE_NOTES_V3_1_2.md").read_text()
-    docs = (ROOT / "DOCUMENTATION.md").read_text()
-    steps = (ROOT / "INSTALL_STEPS.md").read_text()
+    docs = (ROOT / "docs/archive/DOCUMENTATION_BEFORE_ALPHA_6.md").read_text()
+    steps = (ROOT / "docs/archive/INSTALL_STEPS_BEFORE_ALPHA_6.md").read_text()
     ui = (ROOT / "admin/src/main.tsx").read_text()
     assert "3.1.2" in readme and "3.1.1" in readme and "3.1.0" in readme
     assert "личный кабинет" in readme and "Конструктор тарифов" in readme
