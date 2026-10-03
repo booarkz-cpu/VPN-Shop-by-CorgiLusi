@@ -18,6 +18,8 @@ async def preserve_previous_reply(db, ticket):
 
 
 async def append_message(db, ticket, role, body, key=None, attachment_ids=None, actor=None, importing=False):
+    if ticket.merged_into_id:
+        raise HTTPException(409, f"Обращение объединено с #{ticket.merged_into_id}; откройте итоговое обращение")
     if not importing:
         from .models import SupportImportLink
         if await db.scalar(select(SupportImportLink.source_key).where(SupportImportLink.ticket_id==ticket.id,SupportImportLink.completed.is_(False))):
@@ -68,4 +70,4 @@ async def read_thread(db, ticket, after=0):
         if ticket.admin_reply and not rows:
             messages.append({"id": -1, "role": "admin", "body": ticket.admin_reply, "created_at": ticket.updated_at})
     return {"ticket_id": ticket.id, "subject": ticket.subject, "status": ticket.status,
-            "messages": messages, "next_cursor": visible[-1].id if len(rows) > 100 else None}
+            "merged_into_id": ticket.merged_into_id, "messages": messages, "next_cursor": visible[-1].id if len(rows) > 100 else None}

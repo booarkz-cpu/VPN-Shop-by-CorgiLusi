@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 import uvicorn
 from app import main as shop
 from app.db import get_db
-from app.models import Base, AdminUser, FeatureFlag
+from app.models import Base, AdminUser, FeatureFlag, User
 from app.security import hash_password
 
 engine=create_async_engine('sqlite+aiosqlite:///:memory:')
@@ -28,6 +28,7 @@ async def lifespan(app):
     async with AsyncSession(engine,expire_on_commit=False) as db:
         db.add(AdminUser(email='browser@example.test',password_hash=hash_password('browser-only-password'),role='admin'))
         db.add(FeatureFlag(key='passkeys',enabled=True))
+        db.add(User(email='customer@example.test', email_password_hash=hash_password('customer-browser-password')))
         await db.commit()
     yield
     await engine.dispose()

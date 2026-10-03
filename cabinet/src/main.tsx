@@ -4,6 +4,8 @@ import "./style.css";
 import {SubscriptionProfiles} from "./subscription-profiles";
 import {Surveys} from "./surveys";
 import {Giveaways} from "./giveaways";
+import {PartnerPortal} from "./partner";
+import {CustomerPasskeys, loginWithPasskey} from "./passkeys";
 import {Workspace} from "./workspace";
 import {AccountRecovery, AccountSecurity, accountLink} from "./account-recovery";
 import type {AccountLink} from "./account-recovery";
@@ -12,10 +14,11 @@ import {DomLocalizer, LangProvider, detectLang, t, useLang} from "./i18n";
 const API = import.meta.env.VITE_API_URL || "";
 const MINI_APP = import.meta.env.VITE_SURFACE === "miniapp" || !!(window as any).__SHOP_SURFACE__ || !!(window as any).Telegram?.WebApp;
 
-type MenuKind = "giveaways" | "surveys" | "overview" | "plans" | "trial" | "connection" | "support" | "servers" | "devices" | "wallet" | "payments" | "gifts" | "referral" | "security" | "notifications" | "subscription" | "custom";
+type MenuKind = "partner" | "giveaways" | "surveys" | "overview" | "plans" | "trial" | "connection" | "support" | "servers" | "devices" | "wallet" | "payments" | "gifts" | "referral" | "security" | "notifications" | "subscription" | "custom";
 type MenuItem = {slug: string; title: string; kind: MenuKind; body?: string};
 
 const FALLBACK_MENU: MenuItem[] = [
+  {slug:"partner", title:"Партнёрский кабинет", kind:"partner"},
   {slug: "overview", title: "Обзор", kind: "overview"},
   {slug: "plans", title: "Тарифы", kind: "plans"},
   {slug: "trial", title: "Пробный период", kind: "trial"},
@@ -415,6 +418,8 @@ function App() {
     purchaseLocked.current=true;
     const selected=profileTarget==="current"?dash?.subscription?.id:profileTarget==="new"?undefined:Number(profileTarget);
     if(!gift)body={...body,...(profileTarget==="new"?{new_subscription:true}:selected?{subscription_id:selected}:{})};
+    const partner=new URLSearchParams(location.search).get("partner");
+    if(!gift&&partner)body={...body,reseller_slug:partner};
     const fingerprint=JSON.stringify({body,wallet,gift,provider:wallet?"wallet":provider});
     purchaseKeys.current[fingerprint]??=crypto.randomUUID();
     const key=purchaseKeys.current[fingerprint];
@@ -640,7 +645,7 @@ function App() {
                   {authMode === "login" ? "Войти" : "Создать аккаунт"}
                 </button>
               </form>
-              {authMode==="login"&&<button type="button" className="btn-ghost" onClick={()=>setAccountFlow({kind:"request",token:""})}>Забыли пароль?</button>}
+              {authMode==="login"&&<><button type="button" className="btn-ghost" disabled={busy} onClick={async()=>{setBusy(true);try{await loginWithPasskey(req);await loadSession()}catch(e:any){flash(e.message)}finally{setBusy(false)}}}>Войти с ключом доступа</button><button type="button" className="btn-ghost" onClick={()=>setAccountFlow({kind:"request",token:""})}>Забыли пароль?</button></>}
               <button
                 type="button"
                 className="btn-soft"
@@ -945,7 +950,8 @@ function App() {
 
               {["wallet","payments","gifts","referral","subscription","security","notifications","support"].includes(activeItem?.kind||"") && <>
                 <h2 className="section-title">{activeItem.title}</h2>
-                {activeItem.kind==="security"&&<AccountSecurity request={req} onPasswordChanged={()=>{setAuthed(false);flash("Пароль изменён. Войдите снова.")}}/>}
+                {activeItem.kind==="partner"&&<PartnerPortal request={req}/>}
+                {activeItem.kind==="security"&&<><AccountSecurity request={req} onPasswordChanged={()=>{setAuthed(false);flash("Пароль изменён. Войдите снова.")}}/><CustomerPasskeys req={req}/></>}
                 {activeItem.kind==="subscription"&&<SubscriptionProfiles profiles={profiles} request={req} reload={loadSession}/>}
                 <Workspace key={activeItem.kind+":"+(sub?.id||"none")} kind={activeItem.kind} request={req} reload={loadSession} plans={plans} provider={provider} botUsername={cfg.bot_username||""} providers={(cfg.payment_providers||[]).filter((p:string)=>["yookassa","rollypay","platega","sandbox"].includes(p))} currency={currency} api={API}/>
               </>}

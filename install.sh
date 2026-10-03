@@ -2,7 +2,7 @@
 #
 # Remnawave VPN Shop — one-step installer / установка в один шаг
 #
-#   curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/shop-by-boo/v21.0.1/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/shop-by-boo/v21.1.0/install.sh | sudo bash
 #
 # Этот файл готовит Docker и исходники, затем передаёт управление
 # deploy/install-vps.sh. Все операторские данные вводятся там.
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/booarkz-cpu/shop-by-boo.git}"
-BRANCH="${BRANCH:-v21.0.1}"
+BRANCH="${BRANCH:-v21.1.0}"
 SOURCE_DIR="${SOURCE_DIR:-/opt/vpn-shop-src}"
 
 if [[ $EUID -ne 0 ]]; then
@@ -33,11 +33,6 @@ fi
 
 apt-get update -y
 apt-get install -y ca-certificates curl git openssl
-if ! command -v docker >/dev/null 2>&1; then
-  curl -fsSL https://get.docker.com | sh
-fi
-systemctl enable --now docker
-docker compose version >/dev/null 2>&1 || { echo "Docker Compose plugin не установлен." >&2; exit 1; }
 
 SCRIPT_DIR=""
 if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
@@ -69,6 +64,8 @@ if [[ ! -f "$SOURCE_DIR/deploy/install-vps.sh" ]]; then
   echo "Не найден deploy/install-vps.sh в $SOURCE_DIR" >&2
   exit 1
 fi
+
+bash "$SOURCE_DIR/deploy/install-docker.sh"
 
 if [[ ! -t 0 && "${INSTALL_NONINTERACTIVE:-0}" != "1" ]]; then
   if [[ ! -r /dev/tty ]]; then

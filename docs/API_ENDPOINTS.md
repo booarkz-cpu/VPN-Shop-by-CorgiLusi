@@ -1,6 +1,6 @@
-# Каталог API — v21.0.1
+# Каталог API — v21.1.0
 
-Сгенерирован из OpenAPI текущих исходников. Миграция: `0054_referral_levels`.
+Сгенерирован из OpenAPI текущих исходников. Миграция: `0057_partner_commissions`.
 Авторизация, права, CSRF и принадлежность записей проверяются сервером; схема маршрута не заменяет права роли.
 Сценарии: [руководство](ru/WORKSPACE_USER_GUIDE.md), [рефералы](ru/REFERRALS_CURRENT.md), [HTTP API](../API_REFERENCE_RU.md).
 
@@ -109,6 +109,8 @@ production gate остаётся закрытым без полного applicat
 | `POST` | `/api/admin/marketplace/resellers` | Create Reseller |
 | `PATCH` | `/api/admin/marketplace/resellers/{reseller_id}` | Update Reseller |
 | `POST` | `/api/admin/marketplace/resellers/{reseller_id}/rotate-key` | Rotate Reseller Key |
+| `GET` | `/api/admin/marketplace/withdrawals` | Withdrawals |
+| `POST` | `/api/admin/marketplace/withdrawals/{withdrawal_id}/decision` | Decide |
 | `POST` | `/api/admin/menu` | Admin Menu |
 | `DELETE` | `/api/admin/menu/{item_id}` | Admin Menu Delete |
 | `PUT` | `/api/admin/menu/{item_id}` | Admin Menu Update |
@@ -223,6 +225,8 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/admin/support/tickets/{ticket_id}/attachments/drafts` | Admin Drafts |
 | `GET` | `/api/admin/support/tickets/{ticket_id}/messages` | Admin Support Messages |
 | `POST` | `/api/admin/support/tickets/{ticket_id}/reply` | Admin Ticket Reply |
+| `POST` | `/api/admin/support/topology/apply` | Apply |
+| `POST` | `/api/admin/support/topology/preview` | Preview |
 | `GET` | `/api/admin/surveys` | Admin List |
 | `POST` | `/api/admin/surveys` | Create |
 | `DELETE` | `/api/admin/surveys/{survey_id}` | Delete Draft |
@@ -283,6 +287,12 @@ production gate остаётся закрытым без полного applicat
 | `POST` | `/api/auth/login` | Auth Login |
 | `POST` | `/api/auth/logout` | User Logout |
 | `POST` | `/api/auth/mobile/token` | Mobile Token |
+| `GET` | `/api/auth/passkeys` | Inventory |
+| `POST` | `/api/auth/passkeys/login/options` | Login Options |
+| `POST` | `/api/auth/passkeys/login/verify` | Login Verify |
+| `POST` | `/api/auth/passkeys/registration/options` | Registration Options |
+| `POST` | `/api/auth/passkeys/registration/verify` | Registration Verify |
+| `POST` | `/api/auth/passkeys/{credential_id}/delete` | Remove |
 | `POST` | `/api/auth/password/reset/confirm` | Confirm Reset |
 | `POST` | `/api/auth/password/reset/request` | Request Reset |
 | `POST` | `/api/auth/register` | Auth Register |
@@ -339,6 +349,8 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/me/mobile/privacy` | Mobile Privacy |
 | `GET` | `/api/me/notifications` | My Notifications |
 | `POST` | `/api/me/notifications/{notification_id}/read` | Read Notification |
+| `GET` | `/api/me/partner` | Portal |
+| `POST` | `/api/me/partner/withdrawals` | Withdraw |
 | `POST` | `/api/me/password/change` | Change Password |
 | `POST` | `/api/me/payment/gift-card/redeem` | Redeem Gift Card |
 | `PUT` | `/api/me/payment/tax-profile` | Set Tax Profile |

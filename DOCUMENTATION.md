@@ -1,6 +1,6 @@
 # Документация VPN Shop by Corgi
 
-Текущий исходный выпуск: **v21.0.1**, миграция **0054_referral_levels**. Это stable-выпуск текущего проверенного ядра; production-ready не подтверждён. Рабочие сценарии и незавершённые функции описаны отдельно; реальные платежи не сертифицированы.
+Текущий исходный выпуск: **v21.1.0**, миграция **0054_referral_levels**. Это stable-выпуск текущего проверенного ядра; production-ready не подтверждён. Рабочие сценарии и незавершённые функции описаны отдельно; реальные платежи не сертифицированы.
 
 | Задача | Инструкция |
 | --- | --- |
@@ -21,13 +21,17 @@
 | Резервирование, диагностика и инциденты | [Эксплуатация](OPERATIONS_RUNBOOK_RU.md) |
 | Права и защита данных | [SECURITY.md](SECURITY.md) |
 | HTTP API | [API_REFERENCE_RU.md](API_REFERENCE_RU.md) |
-| Проверки этого выпуска | [Отчёт](docs/ru/RELEASE_21_0_1_STABLE.md) |
+| Проверки этого выпуска | [Отчёт](docs/ru/RELEASE_21_1_0_STABLE.md) |
 | Что ещё не реализовано | [Матрица покрытия](docs/ru/WORKSPACE_COVERAGE.md) |
 
 Исторические корневые справочники сохранены в `docs/archive/*_BEFORE_ALPHA_6.md`. Они фиксируют прежние версии и могут описывать отключённые кассы, старую структуру кода и неподтверждённые сценарии. Для текущей установки используйте инструкции выше. Исторические release notes остаются без изменения.
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
 
-## Дополнения v21.0.1
+## Дополнения v21.1.0
 
 [Многоуровневые рефералы и сеть](docs/ru/REFERRALS_CURRENT.md), [согласованный CLI backup](docs/ru/BACKUP_CURRENT.md), [актуальная установка через SSH/Termius](docs/ru/DEPLOYMENT_CURRENT.md).
+
+## Новые функции v21.1.0
+
+Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.

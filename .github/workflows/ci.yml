@@ -85,7 +85,7 @@ jobs:
         run: python -m pytest -q tests --disable-warnings --maxfail=1
 
   passkey-browser:
-    name: Admin passkeys • Chromium end-to-end
+    name: Admin and customer passkeys • Chromium end-to-end
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5

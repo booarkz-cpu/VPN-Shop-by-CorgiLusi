@@ -1,4 +1,4 @@
-# Резервная копия v21.0.1
+# Резервная копия v21.1.0
 
 CLI `scripts/backup.sh` создаёт согласованную копию магазина и встроенного Support Pro. Она включает обе PostgreSQL базы в custom-format, media, мобильные пакеты, uploads Support Pro и все environment-файлы. Redis и удалённая Remnawave не входят в этот архив: состояние внешней VPN-панели сверяется отдельно.
 

@@ -22,6 +22,6 @@
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
 
-## Реферальная программа v21.0.1
+## Реферальная программа v21.1.0
 
 GET/PUT `/api/admin/referrals/program` требует `referrals.reconcile`. GET `/api/me/referral/network` показывает собственную обезличенную сеть с `depth=1..5`, `limit=2..1000`. Условия начисления фиксируются сервером; [подробности](docs/ru/REFERRALS_CURRENT.md).

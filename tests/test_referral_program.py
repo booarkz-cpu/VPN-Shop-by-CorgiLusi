@@ -186,3 +186,31 @@ async def test_postgres_stale_referral_binding_cannot_be_overwritten(database):
     assert owner.referred_by_id is None
     with pytest.raises(HTTPException) as error:await bind_referrer(database,owner,'OTHER')
     assert error.value.status_code==409 and owner.referred_by_id==2
+@pytest.mark.asyncio
+async def test_postgres_binding_does_not_invert_checkout_lock_order(database):
+    if database.bind.dialect.name != 'postgresql':pytest.skip('PostgreSQL locking regression')
+    import asyncio
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.referrals import bind_referrer
+    from app.referral_program import snapshot
+    user=await database.scalar(select(User).where(User.id==1).with_for_update())
+    entered=asyncio.Event()
+    async def bind():
+        async with AsyncSession(database.bind,expire_on_commit=False) as other:
+            other_user=await other.get(User,1)
+            entered.set()
+            await bind_referrer(other,other_user,'OTHER')
+            await other.commit()
+    task=asyncio.create_task(bind())
+    try:
+        await entered.wait()
+        await asyncio.sleep(.05)
+        # Binder must be waiting on the buyer row, not holding chain lock while
+        # waiting on that row. Otherwise this snapshot deadlocks checkout.
+        await asyncio.wait_for(snapshot(database,user),timeout=2)
+        await database.commit()
+        await asyncio.wait_for(task,timeout=2)
+        await database.refresh(user)
+        assert user.referred_by_id==2
+    finally:
+        if not task.done():task.cancel()

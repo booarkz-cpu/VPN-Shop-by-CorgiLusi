@@ -7,6 +7,7 @@ from .db import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("passkey_user_handle", name="uq_users_passkey_user_handle"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     telegram_id: Mapped[int|None] = mapped_column(BigInteger, unique=True, index=True)
     yandex_id: Mapped[str|None] = mapped_column(String(255), unique=True, index=True)
@@ -23,6 +24,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     deleted_at: Mapped[datetime|None] = mapped_column(DateTime)
     restricted_at: Mapped[datetime|None] = mapped_column(DateTime)
+    passkey_user_handle: Mapped[str|None] = mapped_column(String(64))
 
 class Plan(Base):
     __tablename__ = "plans"
@@ -69,6 +71,8 @@ class Payment(Base):
     idempotency_key: Mapped[str|None] = mapped_column(String(128), index=True)
     purpose: Mapped[str] = mapped_column(String(24), default="subscription", nullable=False)
     reseller_id: Mapped[int|None] = mapped_column(Integer, index=True)
+    reseller_slug_snapshot: Mapped[str|None] = mapped_column(String(64))
+    reseller_percent_snapshot: Mapped[Decimal|None] = mapped_column(Numeric(5,2))
     bonus_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     checkout_url: Mapped[str|None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
@@ -516,6 +520,7 @@ class SupportTicket(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="open", nullable=False)
     admin_reply: Mapped[str|None] = mapped_column(Text)
+    merged_into_id: Mapped[int|None] = mapped_column(ForeignKey("support_tickets.id", ondelete="RESTRICT", name="fk_support_merged_into"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -910,7 +915,11 @@ class PlatformPlugin(Base):
 
 class Reseller(Base):
     __tablename__ = "resellers"
+    __table_args__ = (UniqueConstraint("owner_user_id", name="uq_reseller_owner"),)
     id: Mapped[int] = mapped_column(primary_key=True)
+    owner_user_id: Mapped[int|None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT", name="fk_reseller_owner"))
+    balance: Mapped[Decimal] = mapped_column(Numeric(14,2), default=0, nullable=False)
+    balance_currency: Mapped[str|None] = mapped_column(String(3))
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     api_key_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
@@ -1117,3 +1126,60 @@ class WebAuthnChallenge(Base):
     challenge: Mapped[str] = mapped_column(String(128), nullable=False)
     context: Mapped[dict] = mapped_column(JSON, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+
+
+class CustomerPasskey(Base):
+    __tablename__ = "customer_passkeys"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    credential_id: Mapped[str] = mapped_column(String(1024), unique=True)
+    public_key: Mapped[str] = mapped_column(Text)
+    sign_count: Mapped[int] = mapped_column(BigInteger, default=0)
+    name: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_used_at: Mapped[datetime|None] = mapped_column(DateTime)
+
+class CustomerPasskeyChallenge(Base):
+    __tablename__ = "customer_passkey_challenges"
+    ticket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    binding_hash: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[int|None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    purpose: Mapped[str] = mapped_column(String(24))
+    challenge: Mapped[str] = mapped_column(String(128))
+    context: Mapped[dict] = mapped_column(JSON)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+
+class SupportTopologyOperation(Base):
+    __tablename__ = "support_topology_operations"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PartnerCommission(Base):
+    __tablename__ = "partner_commissions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    payment_id: Mapped[int] = mapped_column(ForeignKey("payments.id", ondelete="RESTRICT"), unique=True)
+    reseller_id: Mapped[int] = mapped_column(ForeignKey("resellers.id", ondelete="RESTRICT"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14,2))
+    currency: Mapped[str] = mapped_column(String(3))
+    percent: Mapped[Decimal] = mapped_column(Numeric(5,2))
+    status: Mapped[str] = mapped_column(String(16), default="credited")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    reversed_at: Mapped[datetime|None] = mapped_column(DateTime)
+
+class PartnerWithdrawal(Base):
+    __tablename__ = "partner_withdrawals"
+    __table_args__ = (UniqueConstraint("reseller_id", "idempotency_key", name="uq_partner_withdrawal_retry"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reseller_id: Mapped[int] = mapped_column(ForeignKey("resellers.id", ondelete="RESTRICT"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    amount: Mapped[Decimal] = mapped_column(Numeric(14,2))
+    currency: Mapped[str] = mapped_column(String(3))
+    destination: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(16), default="requested")
+    reference: Mapped[str|None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

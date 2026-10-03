@@ -1,5 +1,16 @@
 # Changelog
 
+## 21.1.0 — 2026-10-03
+
+- Customer browser WebAuthn with single-use DB challenges, owner confirmation, revocable sessions and cabinet UI.
+- Previewed and journaled support merge/split, same-owner isolation, preserved attachments and retry safety.
+- Partner portal, immutable checkout/wallet commission snapshots, refund clawback and reserved payout workflow.
+- Consistent referral buyer/chain lock order for Telegram binding and fresh ancestor reads.
+- Official signed Docker apt installation; exact WebAuthn origins in VDS setup.
+- Full production operations guide, current entrypoints, generated API catalogue and source license 2.4.
+- PostgreSQL races/migration guards and real Chromium admin/customer WebAuthn coverage.
+- Full coverage and payment application E2E v2 remain unfinished; production gate stays closed.
+
 ## 21.0.1 stable — 2026-10-03
 
 - Реализованы до пяти реферальных уровней: снимки условий в checkout/кошельке/автопродлении, одно начисление, возврат каждого уровня, обезличенный граф кабинета и настройка процентов в админке. Исправлена статистика отменённых наград.
