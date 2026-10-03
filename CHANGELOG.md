@@ -1,5 +1,14 @@
 # Changelog
 
+## 21.2.0 — 2026-10-03
+
+- Added bounded read-only SQLite mapping/preview, encrypted expiring staging, durable source identity dedupe and initial wallet credits only for new Telegram profiles. Existing balances/authentication/subscriptions remain intact; imported credits appear in customer wallet history.
+- Added administrator-only previewed bulk session revocation, auto-renew disable and in-app notifications, with atomic journals and idempotent retries. Added the complete admin interface and real Chromium import/repeat/notice coverage.
+- Fixed User-first lock ordering and fresh payment-method checks in customer auto-renew operations. Added PostgreSQL races, rollback/permissions/parser regressions and migration 0058 with protected downgrade.
+- Updated current guides, production/import runbooks, README, generated API, release manifest and license scope (2.5; commercial permission/distribution terms unchanged).
+- Full coverage, arbitrary historical VPN/payment import, external production E2E and mobile signing remain incomplete. Production readiness flags remain false.
+
+
 ## 21.1.0 — 2026-10-03
 
 - Customer browser WebAuthn with single-use DB challenges, owner confirmation, revocable sessions and cabinet UI.

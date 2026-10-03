@@ -26,6 +26,36 @@ class User(Base):
     restricted_at: Mapped[datetime|None] = mapped_column(DateTime)
     passkey_user_handle: Mapped[str|None] = mapped_column(String(64))
 
+
+class CustomerImportJob(Base):
+    __tablename__ = "customer_import_jobs"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    namespace: Mapped[str] = mapped_column(String(64))
+    source_sha256: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str] = mapped_column(String(320))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    payload_encrypted: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="preview")
+    result: Mapped[dict|None] = mapped_column(JSON)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CustomerImportIdentity(Base):
+    __tablename__ = "customer_import_identities"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    telegram_digest: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CustomerBatchOperation(Base):
+    __tablename__ = "customer_batch_operations"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
 class Plan(Base):
     __tablename__ = "plans"
     id: Mapped[int] = mapped_column(primary_key=True)

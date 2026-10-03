@@ -5,7 +5,7 @@ import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from app.models import CustomerPasskey, SupportTopologyOperation, PartnerWithdrawal, Reseller
+from app.models import CustomerPasskey, SupportTopologyOperation, PartnerWithdrawal, Reseller, CustomerBatchOperation
 from test_subscription_commerce import database
 
 
@@ -19,7 +19,7 @@ def migration(name):
 @pytest.mark.asyncio
 async def test_postgres_new_migrations_roundtrip_and_history_guards(database):
     if database.bind.dialect.name!='postgresql':pytest.skip('PostgreSQL DDL')
-    names=['0057_partner_commissions','0056_support_topology','0055_customer_passkeys']
+    names=['0058_customer_operations','0057_partner_commissions','0056_support_topology','0055_customer_passkeys']
     for name in names:
         module=migration(name)
         async with database.bind.begin() as conn:
@@ -32,6 +32,7 @@ async def test_postgres_new_migrations_roundtrip_and_history_guards(database):
     database.add(PartnerWithdrawal(reseller_id=partner.id,amount=1,currency='RUB',destination='Test',idempotency_key='one'))
     database.add(CustomerPasskey(user_id=1,credential_id='credential',public_key='key',name='Test'))
     database.add(SupportTopologyOperation(key='key',fingerprint='fingerprint',result={}))
+    database.add(CustomerBatchOperation(key='key',fingerprint='fingerprint',result={}))
     await database.commit()
     for name in names:
         module=migration(name)

@@ -1,4 +1,4 @@
-# Установка и эксплуатация — v21.1.0
+# Установка и эксплуатация — v21.2.0
 
 Актуальная пошаговая инструкция: [Установка и эксплуатация](docs/ru/DEPLOYMENT_CURRENT.md). Общий каталог: [DOCUMENTATION.md](DOCUMENTATION.md).
 
@@ -6,6 +6,6 @@
 
 Предыдущая редакция сохранена как [исторический документ](docs/archive/instructions_before_21_0_1/README_PRODUCTION_RU.md); её команды и обещания не являются текущей инструкцией.
 
-## Новые функции v21.1.0
+## Новые функции v21.2.0
 
 Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.
