@@ -1,3 +1,5 @@
+> Текущий магазин v21.0.1: [общая документация](../../DOCUMENTATION.md). Следуйте текущему регламенту установки и границам готовности.
+
 # Corgi Edge WireGuard
 
 Скрипт `provision-node.sh` подготавливает Linux-ноду WireGuard для Corgi Edge.

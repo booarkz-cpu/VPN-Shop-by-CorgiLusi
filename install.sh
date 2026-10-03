@@ -2,7 +2,7 @@
 #
 # Remnawave VPN Shop — one-step installer / установка в один шаг
 #
-#   curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/shop-by-boo/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/booarkz-cpu/shop-by-boo/v21.0.1/install.sh | sudo bash
 #
 # Этот файл готовит Docker и исходники, затем передаёт управление
 # deploy/install-vps.sh. Все операторские данные вводятся там.
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/booarkz-cpu/shop-by-boo.git}"
-BRANCH="${BRANCH:-main}"
+BRANCH="${BRANCH:-v21.0.1}"
 SOURCE_DIR="${SOURCE_DIR:-/opt/vpn-shop-src}"
 
 if [[ $EUID -ne 0 ]]; then
@@ -49,7 +49,12 @@ if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/docker-compose.yml" && -f "$SCRIPT_DIR
 else
   mkdir -p "$SOURCE_DIR"
   if [[ -d "$SOURCE_DIR/.git" ]]; then
-    git -C "$SOURCE_DIR" pull --ff-only origin "$BRANCH"
+    [[ -z "$(git -C "$SOURCE_DIR" status --porcelain)" ]] || { echo 'Source checkout contains local changes; choose another SOURCE_DIR.' >&2; exit 1; }
+    git -C "$SOURCE_DIR" fetch --depth 1 origin "$BRANCH"
+    [[ "$(git -C "$SOURCE_DIR" rev-parse HEAD)" == "$(git -C "$SOURCE_DIR" rev-parse FETCH_HEAD)" ]] || {
+      echo 'Existing source checkout differs from the requested release. Choose an empty SOURCE_DIR for installation; use update-from-github.sh for an installed shop.' >&2
+      exit 1
+    }
   else
     if [[ -n "$(ls -A "$SOURCE_DIR")" ]]; then
       echo "$SOURCE_DIR не пуст и не является git checkout; переместите данные вручную." >&2

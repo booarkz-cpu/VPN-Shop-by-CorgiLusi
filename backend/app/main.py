@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, desc, or_, bindparam
+from sqlalchemy import select, func, desc, or_, bindparam, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text as sql_text
@@ -22,6 +22,7 @@ from .models import User, Plan, Payment, Subscription, AuditLog, FinancialLedger
 from .payments import YooKassaProvider, PlategaProvider, RollyPayProvider, SandboxProvider, verify_rollypay, verify_platega_headers, staging_create_payment, staging_read_payment, staging_refund_payment, staging_refund_read
 from .sandbox_mode import payments_sandbox_allowed, sandbox_checkout_requested, sandbox_local_vpn
 from .staging_gate import staging_evidence_valid
+from .referral_program import snapshot as referral_snapshot
 from .payment_platform import StripePlatform, PayPalPlatform, CryptoGatewayPlatform, AppleStorePlatform, GooglePlayPlatform, PlatformProviderError
 from .payment_policy import PAYMENT_AGENTS, PROVIDER_CAPABILITIES, routing_names
 from .remnawave import RemnawaveClient, redact_remote
@@ -30,7 +31,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.0.0"
+APP_VERSION = "21.0.1"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -111,6 +112,8 @@ from .giveaways import router as giveaways_router
 app.include_router(giveaways_router)
 from .passkeys import router as passkeys_router
 app.include_router(passkeys_router)
+from .referral_program import router as referral_program_router
+app.include_router(referral_program_router)
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 PACKAGE_UPLOAD_BYTES = 80 * 1024 * 1024
@@ -1268,7 +1271,7 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
                 reservation=await reserve_promo(db,promo,user.id,canonical_order_id)
             # Durable payment intent BEFORE the external provider call. A process crash after
             # provider acceptance cannot erase the fact that this order already exists.
-            payment_row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider=candidate,provider_payment_id=None,order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,promo_code=(promo.code if promo else None),currency=settings.default_currency,status="creating",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,reseller_id=reseller_id)
+            payment_row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider=candidate,provider_payment_id=None,order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),promo_code=(promo.code if promo else None),currency=settings.default_currency,status="creating",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,reseller_id=reseller_id)
             db.add(payment_row)
             await db.flush()
             db.add(PaymentRiskAssessment(payment_id=payment_row.id,score=risk_score,decision=risk_decision,signals=risk_signals))
@@ -1660,15 +1663,8 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
                 # Legacy payments created before reservation support.
                 promo_row.used_count += 1
                 db.add(PromoRedemption(promo_code_id=promo_row.id,user_id=user.id,payment_id=payment.id))
-        if payment.referrer_id_snapshot:
-            existing=(await db.execute(select(ReferralReward).where(ReferralReward.payment_id==payment.id))).scalar_one_or_none()
-            if not existing:
-                reward=(Decimal(str(payment.amount))*Decimal(str(settings.referral_reward_percent))/Decimal("100")).quantize(Decimal("0.01"))
-                if reward>0:
-                    result=await db.execute(sql_text("UPDATE users SET referral_balance=referral_balance+:amount WHERE id=:uid"),{"amount":reward,"uid":payment.referrer_id_snapshot})
-                    if result.rowcount != 1: raise RuntimeError("Referrer account not found")
-                    db.add(ReferralReward(referrer_id=payment.referrer_id_snapshot,referred_user_id=user.id,payment_id=payment.id,amount=reward))
-                    db.add(ReferralLedger(user_id=payment.referrer_id_snapshot,source_user_id=user.id,payment_id=payment.id,amount=reward,kind="reward"))
+        from .referral_program import credit as credit_referrals
+        await credit_referrals(db, payment, user.id)
         await audit(db,"payment.fulfilled","system",str(payment.id),{"provider":payment.provider,"attempt":payment.fulfillment_attempts})
         await enqueue_notification(db,user_id=user.id,channel="in_app",kind="payment_success",title="Оплата подтверждена",body=f"Заказ {payment.order_id} оплачен. Подписка готовится или уже активирована.",dedupe_key=f"payment:{payment.id}:success")
         await enqueue_notification(db,user_id=user.id,channel="in_app",kind="subscription_ready",title="Подписка активирована",body="Ваша VPN-подписка активирована. Откройте раздел подключения, чтобы получить ссылку.",dedupe_key=f"payment:{payment.id}:ready")
@@ -2032,7 +2028,7 @@ async def auto_renew_scheduler():
                         # idempotency key instead of issuing a second charge.
                         payment=(await db.execute(select(Payment).where(Payment.order_id==order_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
                         if not payment:
-                            payment=Payment(user_id=user.id,subscription_id=sub.id,plan_id=plan.id,provider="yookassa",provider_payment_id=None,order_id=order_id,amount=renewal_amount,original_amount=renewal_amount,discount_amount=Decimal("0"),duration_days_snapshot=int(terms['days']),traffic_limit_gb_snapshot=terms['traffic_gb'],device_limit_snapshot=terms['devices'],remnawave_profile_id_snapshot=terms['profile_id'],referrer_id_snapshot=user.referred_by_id,currency=settings.default_currency,status="creating",fulfillment_status="pending",paid_at=None)
+                            payment=Payment(user_id=user.id,subscription_id=sub.id,plan_id=plan.id,provider="yookassa",provider_payment_id=None,order_id=order_id,amount=renewal_amount,original_amount=renewal_amount,discount_amount=Decimal("0"),duration_days_snapshot=int(terms['days']),traffic_limit_gb_snapshot=terms['traffic_gb'],device_limit_snapshot=terms['devices'],remnawave_profile_id_snapshot=terms['profile_id'],referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),currency=settings.default_currency,status="creating",fulfillment_status="pending",paid_at=None)
                             db.add(payment); await db.flush()
                         method.last_attempt_at=datetime.utcnow(); method.next_attempt_at=datetime.utcnow()+timedelta(hours=24); sub.next_renewal_at=method.next_attempt_at; await db.commit()
                         result=await YooKassaProvider().charge_recurring(Decimal(str(payment.amount)),order_id,f"Auto-renew {plan.name}",token)
@@ -2378,7 +2374,7 @@ async def wallet_spend(payload:dict, request:Request, db:AsyncSession=Depends(ge
         balance=_money(user.wallet_balance or 0)
         if balance < final_amount: raise HTTPException(402,"Недостаточно средств на балансе")
         order_id=f"wallet-{user.id}-{plan.id}-{hashlib.sha256(idem.encode()).hexdigest()[:24]}"
-        row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider="wallet",order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,promo_code=(promo.code if promo else None),currency=settings.default_currency,status="paid",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,paid_at=datetime.utcnow())
+        row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider="wallet",order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),promo_code=(promo.code if promo else None),currency=settings.default_currency,status="paid",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,paid_at=datetime.utcnow())
         user.wallet_balance=_money(balance-final_amount)
         db.add(row); await db.flush()
         await record_financial_event(db,operation_key=f"wallet-spend:{row.id}",user_id=user.id,payment_id=row.id,kind="wallet_spend",direction="debit",amount=final_amount,currency=row.currency,metadata={"plan_id":plan.id})
@@ -2505,13 +2501,25 @@ async def my_payments(request:Request,db:AsyncSession=Depends(get_db)):
 
 @app.get("/api/me/referral/ledger")
 async def my_referral_ledger(request:Request,db:AsyncSession=Depends(get_db)):
-    user=await user_from_token(request,db); rows=(await db.execute(select(ReferralLedger).where(ReferralLedger.user_id==user.id).order_by(ReferralLedger.id.desc()).limit(100))).scalars().all()
-    return [{"id":x.id,"amount":float(x.amount),"kind":x.kind,"payment_id":x.payment_id,"created_at":x.created_at} for x in rows]
+    from .models import ReferralLevelReward
+    user=await user_from_token(request,db)
+    rows=(await db.execute(select(ReferralLedger, ReferralLevelReward.payment_id).outerjoin(
+        ReferralLevelReward, ReferralLedger.referral_level_reward_id==ReferralLevelReward.id).where(
+        ReferralLedger.user_id==user.id).order_by(ReferralLedger.id.desc()).limit(100))).all()
+    return [{"id":x.id,"amount":float(x.amount),"kind":x.kind,"payment_id":x.payment_id or extra_payment_id,"created_at":x.created_at} for x,extra_payment_id in rows]
+
 
 @app.get("/api/me/referral")
 async def my_referral(request:Request,db:AsyncSession=Depends(get_db)):
-    user=await user_from_token(request,db); count=int((await db.execute(select(func.count()).select_from(ReferralReward).where(ReferralReward.referrer_id==user.id))).scalar() or 0); total=(await db.execute(select(func.coalesce(func.sum(ReferralReward.amount),0)).where(ReferralReward.referrer_id==user.id))).scalar() or 0
-    return {"code":user.referral_code,"referred_count":count,"reward_total":float(total),"balance":float(user.referral_balance or 0),"reward_percent":settings.referral_reward_percent}
+    from .referral_program import percentages
+    from .models import ReferralLevelReward
+    user=await user_from_token(request,db)
+    count=int(await db.scalar(select(func.count(func.distinct(ReferralReward.referred_user_id))).where(ReferralReward.referrer_id==user.id, ReferralReward.status=="credited")) or 0)
+    direct=await db.scalar(select(func.coalesce(func.sum(ReferralReward.amount),0)).where(ReferralReward.referrer_id==user.id, ReferralReward.status=="credited")) or Decimal("0")
+    extra=await db.scalar(select(func.coalesce(func.sum(ReferralLevelReward.amount),0)).where(ReferralLevelReward.referrer_id==user.id, ReferralLevelReward.status=="credited")) or Decimal("0")
+    rates=[str(x) for x in await percentages(db)]
+    return {"code":user.referral_code,"referred_count":count,"reward_total":float(direct+extra),"balance":float(user.referral_balance or 0),"reward_percent":float(rates[0]),"level_percentages":rates}
+
 
 
 # ---------- V24-V28 customer/support/security operations ----------
@@ -2698,16 +2706,20 @@ async def _reverse_referral_reward_for_refund(db:AsyncSession, payment:Payment, 
     already withdrawn/spent the reward; that represents an outstanding
     clawback instead of silently creating money.
     """
-    reward=(await db.execute(select(ReferralReward).where(ReferralReward.payment_id==payment.id).with_for_update())).scalar_one_or_none()
+    from .referral_program import reverse_extra
+    await db.scalar(select(Payment.id).where(Payment.id==payment.id).with_for_update())
+    reward=(await db.execute(select(ReferralReward).where(ReferralReward.payment_id==payment.id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
     if not reward or reward.status == "reversed":
-        return {"reversed":False,"reason":"already_reversed_or_missing"}
-    result=await db.execute(sql_text("UPDATE users SET referral_balance=referral_balance-:amount WHERE id=:uid"), {"amount":reward.amount,"uid":reward.referrer_id})
+        extra = await reverse_extra(db, payment)
+        return {"reversed":extra > 0,"amount":str(extra),"reason":"already_reversed_or_missing"}
+    result=await db.execute(update(User).where(User.id==reward.referrer_id).values(referral_balance=User.referral_balance-reward.amount))
     if result.rowcount != 1:
         raise RuntimeError("Referrer account not found during reward reversal")
     reward.status="reversed"
     db.add(ReferralLedger(user_id=reward.referrer_id,source_user_id=reward.referred_user_id,payment_id=None,amount=-reward.amount,kind=f"refund_reversal:{payment.id}"))
     await audit(db,"referral.reward.reversed",actor,str(reward.id),{"payment_id":payment.id,"amount":str(reward.amount)})
-    return {"reversed":True,"amount":str(reward.amount)}
+    extra = await reverse_extra(db, payment)
+    return {"reversed":True,"amount":str(reward.amount + extra)}
 
 async def _safe_revoke_for_refunded_payment(db:AsyncSession, payment:Payment, admin_email:str, audit_action:str):
     """Reverse the purchased benefit, without touching unrelated subscriptions."""
@@ -3282,12 +3294,15 @@ async def refund_dry_run(refund_id:int,db:AsyncSession=Depends(get_db),admin=Dep
     p=await db.get(Payment,r.payment_id)
     if not p: raise HTTPException(404,"Payment not found")
     later_paid=int(await db.scalar(select(func.count()).select_from(Payment).where(Payment.user_id==p.user_id,Payment.subscription_id==p.subscription_id,Payment.id>p.id,Payment.status.in_({"paid","fulfilled"}),Payment.fulfillment_status=="completed")) or 0)
-    reward=await db.scalar(select(ReferralReward).where(ReferralReward.payment_id==p.id))
+    reward=await db.scalar(select(ReferralReward).where(ReferralReward.payment_id==p.id,ReferralReward.status=="credited"))
+    from .models import ReferralLevelReward
+    extra=await db.scalar(select(func.coalesce(func.sum(ReferralLevelReward.amount),0)).where(ReferralLevelReward.payment_id==p.id,ReferralLevelReward.status=="credited")) or Decimal("0")
+    referral_total=(reward.amount if reward else Decimal("0"))+extra
     sub=await payment_target(db,p)
     actions=["refund_provider"]
     if sub and later_paid==0: actions.append("revoke_subscription")
-    if reward: actions.append("reverse_referral_reward")
-    return {"safe_to_execute":p.status in {"paid","fulfilled"} and r.status in {"requested","approved","review"},"payment_id":p.id,"amount":str(p.amount),"currency":p.currency,"subscription":{"id":sub.id,"current_expires_at":sub.expires_at} if sub else None,"later_fulfilled_payments":later_paid,"referral_reward":str(reward.amount) if reward else None,"planned_actions":actions}
+    if referral_total > 0: actions.append("reverse_referral_reward")
+    return {"safe_to_execute":p.status in {"paid","fulfilled"} and r.status in {"requested","approved","review"},"payment_id":p.id,"amount":str(p.amount),"currency":p.currency,"subscription":{"id":sub.id,"current_expires_at":sub.expires_at} if sub else None,"later_fulfilled_payments":later_paid,"referral_reward":str(referral_total) if referral_total > 0 else None,"planned_actions":actions}
 
 @app.get("/api/admin/security/risk-summary")
 async def risk_summary(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("security.manage"))):

@@ -1,33 +1,33 @@
-# Установка v21.0.0
+# Установка v21.0.1
 
-Это v21.0.0 stable текущего ядра. Production-платежи закрыты до завершения application E2E v2. Для знакомства используйте отдельный локальный контур либо отдельный VDS. Не заменяйте действующий магазин без проверенной копии базы, файлов и сохранённых серверных настроек.
+Это v21.0.1 stable текущего ядра. Production-платежи закрыты до завершения application E2E v2. Для знакомства используйте отдельный локальный контур либо отдельный VDS. Не заменяйте действующий магазин без проверенной копии базы, файлов и сохранённых серверных настроек.
 
 ## Локально
 
 Нужны Git, Python 3, Docker Engine и Compose. На Windows используйте WSL2/Docker Desktop.
 
 ```bash
-git clone --branch v21.0.0 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.1 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
 
-Скрипт создаёт уникальные тестовые секреты в `.env.test`, запускает изолированный Compose и проверяет sandbox. Loopback-порты: API 18080, админка 18081, Mini App 18082, кабинет 18083. Адреса и вход выводятся скриптом. Подписка `sandbox://local/...` проверяет магазин и не даёт настоящего VPN.
+Скрипт создаёт уникальные тестовые секреты в `.env.test`, запускает изолированный Compose и проверяет sandbox. Loopback-порты: API 18080, админка 18081, кабинет 18082, Mini App 18083. Адреса и вход выводятся скриптом. Подписка `sandbox://local/...` проверяет магазин и не даёт настоящего VPN.
 
 ## VDS и Termius
 
 Подключитесь к отдельному Ubuntu-серверу через SSH/Termius и выполните:
 
 ```bash
-git clone --branch v21.0.0 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.0.1 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 sudo bash deploy/install-vps.sh
 ```
 
-Нужны домены с корректными DNS A/AAAA, открытые 80/443, доступ к Docker, Telegram и Remnawave. Установщик запрашивает параметры. Проверяйте назначение доменов API, админки и кабинета. Подробные требования и поля: [VDS](docs/ru/VDS_PRODUCTION_20_0_29.md); это базовое руководство стабильной линии 20, особенности 21 приведены в [обновлении](docs/ru/WORKSPACE_UPGRADE.md).
+Нужны домены с корректными DNS A/AAAA, открытые 80/443, доступ к Docker, Telegram и Remnawave. Установщик запрашивает параметры. Проверяйте назначение доменов API, админки и кабинета. Подробные требования и поля: [VDS](docs/ru/DEPLOYMENT_CURRENT.md); это актуальное руководство v21.0.1, обновление описано в [обновлении](docs/ru/WORKSPACE_UPGRADE.md).
 
 Для loopback-теста на VDS вместо публичной установки запустите `scripts/test-up.sh` и настройте туннель по [INSTALL_STEPS.md](INSTALL_STEPS.md). Для HTTPS стенда прочитайте [условия готовности](docs/ru/FINAL_RELEASE_READINESS.md). Настройка доменов не открывает реальные платежи.
 
 ## Существующий магазин
 
-Используйте [регламент обновления](docs/ru/WORKSPACE_UPGRADE.md). Новый head магазина — `0052_giveaways`, Support Pro — `0005`. Не откатывайте 0052 после появления участия в акциях. Новая установка backend применяет Alembic через entrypoint; после обновления отдельно проверьте `alembic current`, health и фоновые задачи.
+Используйте [регламент обновления](docs/ru/WORKSPACE_UPGRADE.md). Новый head магазина — `0054_referral_levels`, Support Pro — `0005`. Не откатывайте 0052 после появления участия в акциях. Новая установка backend применяет Alembic через entrypoint; после обновления отдельно проверьте `alembic current`, health и фоновые задачи.

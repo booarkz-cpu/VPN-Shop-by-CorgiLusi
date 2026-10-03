@@ -1,3 +1,5 @@
+> Актуальная инструкция v21.0.1. Head магазина `0054_referral_levels`, Support Pro `0005`.
+
 # Проверка магазина без платёжных систем
 
 Этот контур поднимает API, админку, кабинет и Mini App на вашем компьютере. YooKassa, Platega, RollyPay, Stripe, PayPal, крипто-шлюз, Telegram и Remnawave не нужны.

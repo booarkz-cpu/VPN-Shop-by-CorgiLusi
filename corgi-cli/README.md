@@ -1,3 +1,5 @@
+> Текущий магазин v21.0.1: [общая документация](../DOCUMENTATION.md). Ниже описаны контракты интеграции; готового проверенного VPN-движка и production-бинарников этих клиентов в релизе нет.
+
 # Corgi CLI v15
 
 Commands: `login`, `connect`, `disconnect`, `status`, `servers`, `diagnostics`, `devices`, `transfer`.

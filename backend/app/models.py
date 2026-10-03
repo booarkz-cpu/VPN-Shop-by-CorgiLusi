@@ -55,6 +55,7 @@ class Payment(Base):
     traffic_limit_gb_snapshot: Mapped[int|None] = mapped_column(Integer)
     device_limit_snapshot: Mapped[int|None] = mapped_column(Integer)
     remnawave_profile_id_snapshot: Mapped[str|None] = mapped_column(String(255))
+    referral_terms_snapshot: Mapped[list|None] = mapped_column(JSON)
     referrer_id_snapshot: Mapped[int|None] = mapped_column(Integer, index=True)
     promo_code: Mapped[str|None] = mapped_column(String(64))
     currency: Mapped[str] = mapped_column(String(3), default="RUB", nullable=False)
@@ -420,6 +421,20 @@ class ReferralReward(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class ReferralLevelReward(Base):
+    __tablename__ = "referral_level_rewards"
+    __table_args__ = (UniqueConstraint("payment_id", "level", name="uq_referral_level_payment"),
+                     UniqueConstraint("payment_id", "referrer_id", name="uq_referral_level_beneficiary"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    referrer_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    referred_user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    payment_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12,2), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="credited", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ProvisioningOperation(Base):
     __tablename__ = "provisioning_operations"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -453,6 +468,7 @@ class PaymentProviderEvent(Base):
 
 
 class ReferralLedger(Base):
+    referral_level_reward_id: Mapped[int|None] = mapped_column(ForeignKey("referral_level_rewards.id", ondelete="RESTRICT", name="fk_referral_ledger_level_reward"), index=True)
     __tablename__ = "referral_ledger"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)

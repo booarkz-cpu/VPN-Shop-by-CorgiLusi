@@ -1,14 +1,11 @@
 """Current operator entrypoints must link to available guides."""
 import re
+import json
 from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-GUIDES = ['README.md','DOCUMENTATION.md','DOCUMENTATION_RU.md','INSTALL.md','INSTALL_STEPS.md',
-          'INSTRUCTION.md','FUNCTIONS.md','SECURITY.md','MOBILE.md','MODULES.md',
-          'OPERATIONS_RUNBOOK_RU.md','API_REFERENCE_RU.md','docs/INDEX.md',
-          'docs/ru/WORKSPACE_GIVEAWAYS.md','docs/ru/WORKSPACE_UPGRADE.md',
-          'docs/ru/ADMIN_PASSKEYS.md','docs/ru/OPERATIONS_MONITORING.md','docs/ru/RELEASE_21_0_0_ALPHA_7.md','docs/ru/RELEASE_21_0_0_STABLE.md']
+GUIDES = json.loads((ROOT/'docs/current-guides.json').read_text())['guides']
 
 
 @pytest.mark.parametrize('filename',GUIDES)
@@ -18,4 +15,11 @@ def test_current_guide_links_exist(filename):
         if re.match(r'^[a-zA-Z]+:',target) or target.startswith('#'):
             continue
         link = target.split('#',1)[0]
-        assert (path.parent/link).is_file(), f'{filename}: missing link {target}'
+        assert (path.parent/link).exists(), f'{filename}: missing link {target}'
+
+
+def test_generated_api_catalogue_matches_application():
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('api_docs', ROOT/'scripts/generate-api-docs.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    assert (ROOT/'docs/API_ENDPOINTS.md').read_text()==module.render()
