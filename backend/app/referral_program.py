@@ -66,7 +66,7 @@ async def snapshot(db, user):
         if ancestor_id in seen:
             raise HTTPException(409, 'Invalid referral cycle')
         seen.add(ancestor_id)
-        ancestor = await db.get(User, ancestor_id)
+        ancestor = await db.scalar(select(User).where(User.id==ancestor_id).execution_options(populate_existing=True))
         if ancestor is None:
             raise HTTPException(409, 'Invalid referral ancestor')
         # Preserve network depth through an ineligible account; do not shift a

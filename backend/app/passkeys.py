@@ -48,8 +48,8 @@ async def ensure_enabled(db):
         raise HTTPException(503, 'Passkeys are disabled in feature flags')
 
 
-def rp_config():
-    origin = settings.webauthn_origin
+def rp_config(configured_origin=None):
+    origin = settings.webauthn_origin if configured_origin is None else configured_origin
     parsed = urlsplit(origin)
     local = parsed.hostname == 'localhost' and settings.app_env in {'test', 'development'}
     if (not origin or parsed.username or parsed.password or parsed.path or parsed.query or

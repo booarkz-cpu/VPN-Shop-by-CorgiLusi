@@ -172,6 +172,10 @@ Sandbox не является коммерческим агентом. Он де
 
 Для админки теперь доступны [WebAuthn ключи](ADMIN_PASSKEYS.md): включите точный origin, подтвердите пароль/MFA и зарегистрируйте ключ в разделе безопасности. Подключение [Grafana и Prometheus alerts](OPERATIONS_MONITORING.md) описано отдельно.
 
-## Дополнения v21.0.1
+## Дополнения v21.1.0
 
 [Многоуровневые рефералы и сеть](REFERRALS_CURRENT.md), [согласованный CLI backup](BACKUP_CURRENT.md), [актуальная установка через SSH/Termius](DEPLOYMENT_CURRENT.md).
+
+## Дополнения v21.1.0
+
+[Полный регламент production](PRODUCTION_CURRENT.md) · [партнёры](PARTNERS_CURRENT.md) · [клиентские ключи доступа](CUSTOMER_PASSKEYS_CURRENT.md) · [merge/split обращений](SUPPORT_TOPOLOGY_CURRENT.md).

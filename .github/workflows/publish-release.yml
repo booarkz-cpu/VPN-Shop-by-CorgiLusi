@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   release:
-    name: Publish v21.0.1 after CI
+    name: Publish v21.1.0 after CI
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-24.04
     steps:
@@ -41,16 +41,16 @@ jobs:
             if (!runs.data.workflow_runs.some(run => run.event === 'push' && run.conclusion === 'success')) {
               throw new Error(`No successful main push CI run for ${sha}`);
             }
-      - name: Package v21.0.1
+      - name: Package v21.1.0
         run: |
-          python3 scripts/package-source.py remnawave_vpn_shop_v21_0_1_full_release.zip
-          sha256sum remnawave_vpn_shop_v21_0_1_full_release.zip > remnawave_vpn_shop_v21_0_1_full_release.zip.sha256
+          python3 scripts/package-source.py remnawave_vpn_shop_v21_1_0_full_release.zip
+          sha256sum remnawave_vpn_shop_v21_1_0_full_release.zip > remnawave_vpn_shop_v21_1_0_full_release.zip.sha256
       - name: Create release and attach verified source
         uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
-            const artifact = 'remnawave_vpn_shop_v21_0_1_full_release.zip';
+            const artifact = 'remnawave_vpn_shop_v21_1_0_full_release.zip';
             const manifest = JSON.parse(fs.readFileSync('release-manifest.template.json', 'utf8'));
             manifest.sha256 = require('crypto').createHash('sha256').update(fs.readFileSync(artifact)).digest('hex');
             manifest.commit = context.payload.workflow_run.head_sha;
@@ -58,8 +58,8 @@ jobs:
             manifest.tests = 'Successful GitHub CI on the release commit; external provider E2E is not certified';
             manifest.signed = false;
             fs.writeFileSync(artifact.replace('.zip', '_manifest.json'), JSON.stringify(manifest, null, 2)+'\n');
-            const tag = 'v21.0.1';
-            const body = fs.readFileSync('.github/release-v21.0.1.md', 'utf8');
+            const tag = 'v21.1.0';
+            const body = fs.readFileSync('.github/release-v21.1.0.md', 'utf8');
             const currentMain = (await github.rest.repos.getBranch({owner: context.repo.owner, repo: context.repo.repo, branch: 'main'})).data.commit.sha;
             if (currentMain !== context.payload.workflow_run.head_sha) throw new Error('Main moved while packaging; wait for its own successful CI.');
             let release;
@@ -78,13 +78,13 @@ jobs:
             if (!release) release = (await github.rest.repos.createRelease({
               owner: context.repo.owner, repo: context.repo.repo,
               tag_name: tag, target_commitish: context.payload.workflow_run.head_sha,
-              name: 'v21.0.1 stable — проверенное ядро', body,
+              name: 'v21.1.0 stable — проверенное ядро', body,
               draft: true, prerelease: false
             })).data;
             for (const name of [
-              'remnawave_vpn_shop_v21_0_1_full_release.zip',
-              'remnawave_vpn_shop_v21_0_1_full_release.zip.sha256',
-              'remnawave_vpn_shop_v21_0_1_full_release_manifest.json'
+              'remnawave_vpn_shop_v21_1_0_full_release.zip',
+              'remnawave_vpn_shop_v21_1_0_full_release.zip.sha256',
+              'remnawave_vpn_shop_v21_1_0_full_release_manifest.json'
             ]) {
               const data = fs.readFileSync(name);
               const expectedDigest = 'sha256:' + require('crypto').createHash('sha256').update(data).digest('hex');

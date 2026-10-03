@@ -31,7 +31,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.0.1"
+APP_VERSION = "21.1.0"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -94,6 +94,8 @@ from .support_attachments import router as support_attachments_router
 app.include_router(support_attachments_router)
 from .support_bridge import router as support_bridge_router
 app.include_router(support_bridge_router)
+from .support_topology import router as support_topology_router
+app.include_router(support_topology_router)
 app.include_router(mobile_router)
 app.include_router(production_router)
 app.include_router(production_launch_router)
@@ -104,6 +106,8 @@ app.include_router(v3_router)
 app.include_router(v6_router)
 app.include_router(remnawave_shop_router)
 app.include_router(marketplace_router)
+from .partners import router as partners_router
+app.include_router(partners_router)
 from .account_actions import router as account_actions_router
 app.include_router(account_actions_router)
 from .surveys import router as surveys_router
@@ -112,6 +116,8 @@ from .giveaways import router as giveaways_router
 app.include_router(giveaways_router)
 from .passkeys import router as passkeys_router
 app.include_router(passkeys_router)
+from .customer_passkeys import router as customer_passkeys_router
+app.include_router(customer_passkeys_router)
 from .referral_program import router as referral_program_router
 app.include_router(referral_program_router)
 
@@ -150,6 +156,10 @@ RATE_LIMITS = {
     "/api/me/referral/withdrawals": 5,
     "/api/auth/admin/login": 10,
     "/api/admin/auth/login": 8,
+    "/api/auth/passkeys/login/options": 8,
+    "/api/auth/passkeys/login/verify": 8,
+    "/api/auth/passkeys/registration/options": 5,
+    "/api/auth/passkeys/registration/verify": 5,
     "/api/admin/auth/passkeys/login/options": 8,
     "/api/admin/auth/passkeys/login/verify": 8,
     "/api/admin/auth/passkeys/registration/options": 5,
@@ -1108,13 +1118,6 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
     if not sandbox_requested and not await production_payments_allowed(db):
         raise HTTPException(503,"Реальные платежи временно заблокированы: требуется успешный staging E2E")
     user=await user_from_token(request,db)
-    reseller_id=None
-    reseller_slug=str(payload.get("reseller_slug") or "").strip().lower()
-    if reseller_slug:
-        reseller=(await db.execute(select(Reseller).where(Reseller.slug==reseller_slug,Reseller.enabled.is_(True)))).scalar_one_or_none()
-        if not reseller:
-            raise HTTPException(404,"Reseller not found")
-        reseller_id=reseller.id
     from .platform_api import reject_restricted
     reject_restricted(user)
     constructor_requested=payload.get("constructor_id") not in (None, "", 0, "0")
@@ -1143,6 +1146,8 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
     existing=(await db.execute(select(Payment).where(Payment.user_id==user.id,Payment.idempotency_key==idem).order_by(Payment.id.desc()))).scalar_one_or_none()
     if existing:
         check_retry(existing,payload)
+        from .partners import check_retry as check_partner_retry
+        check_partner_retry(existing,payload)
         if existing.plan_id != plan_id:
             if not (quote_error is not None and plan_id is None):
                 raise HTTPException(409,"Idempotency-Key уже использован для другого платежа")
@@ -1186,6 +1191,8 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
     await ensure_required_channel(user)
     plan=await db.get(Plan,plan_id)
     if not plan or not plan.enabled: raise HTTPException(404,"Not found")
+    from .partners import checkout_terms
+    partner_terms=await checkout_terms(db,payload.get("reseller_slug"),plan.id,user.id)
     from .tariff_api import linked_constructor_id
     linked=await linked_constructor_id(db, plan.id)
     if linked and (not constructor_quote or int(constructor_quote["constructor_id"]) != int(linked)):
@@ -1255,6 +1262,8 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
             existing=(await db.execute(select(Payment).where(Payment.order_id==order_id))).scalar_one_or_none()
             if existing:
                 check_retry(existing,payload)
+                from .partners import check_retry as check_partner_retry
+                check_partner_retry(existing,payload)
                 return {"id":existing.provider_payment_id,"url":existing.checkout_url,"provider":existing.provider,"status":existing.status}
             raise HTTPException(409,"Payment creation is already in progress")
         reservation=None; payment_row=None
@@ -1266,12 +1275,14 @@ async def create_payment(payload:dict, request:Request, db:AsyncSession=Depends(
             existing=(await db.execute(select(Payment).where(Payment.order_id==order_id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
             if existing:
                 check_retry(existing,payload)
+                from .partners import check_retry as check_partner_retry
+                check_partner_retry(existing,payload)
                 return {"id":existing.provider_payment_id,"url":existing.checkout_url,"provider":existing.provider,"status":existing.status}
             if promo:
                 reservation=await reserve_promo(db,promo,user.id,canonical_order_id)
             # Durable payment intent BEFORE the external provider call. A process crash after
             # provider acceptance cannot erase the fact that this order already exists.
-            payment_row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider=candidate,provider_payment_id=None,order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),promo_code=(promo.code if promo else None),currency=settings.default_currency,status="creating",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,reseller_id=reseller_id)
+            payment_row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider=candidate,provider_payment_id=None,order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),promo_code=(promo.code if promo else None),currency=settings.default_currency,status="creating",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,**partner_terms)
             db.add(payment_row)
             await db.flush()
             db.add(PaymentRiskAssessment(payment_id=payment_row.id,score=risk_score,decision=risk_decision,signals=risk_signals))
@@ -1665,6 +1676,8 @@ async def fulfill(payment_id:int, db:AsyncSession, existing_user_lock_token: str
                 db.add(PromoRedemption(promo_code_id=promo_row.id,user_id=user.id,payment_id=payment.id))
         from .referral_program import credit as credit_referrals
         await credit_referrals(db, payment, user.id)
+        from .partners import credit as credit_partner
+        await credit_partner(db, payment)
         await audit(db,"payment.fulfilled","system",str(payment.id),{"provider":payment.provider,"attempt":payment.fulfillment_attempts})
         await enqueue_notification(db,user_id=user.id,channel="in_app",kind="payment_success",title="Оплата подтверждена",body=f"Заказ {payment.order_id} оплачен. Подписка готовится или уже активирована.",dedupe_key=f"payment:{payment.id}:success")
         await enqueue_notification(db,user_id=user.id,channel="in_app",kind="subscription_ready",title="Подписка активирована",body="Ваша VPN-подписка активирована. Откройте раздел подключения, чтобы получить ссылку.",dedupe_key=f"payment:{payment.id}:ready")
@@ -2318,6 +2331,8 @@ async def wallet_spend(payload:dict, request:Request, db:AsyncSession=Depends(ge
     existing=(await db.execute(select(Payment).where(Payment.user_id==user.id,Payment.idempotency_key==idem))).scalar_one_or_none()
     if existing:
         check_retry(existing,payload)
+        from .partners import check_retry as check_partner_retry
+        check_partner_retry(existing,payload)
         if existing.provider != "wallet":
             raise HTTPException(409,"Idempotency-Key уже использован для другого платежа")
         if constructor_quote and (existing.plan_id != plan_id or existing.duration_days_snapshot != constructor_quote["days"] or existing.traffic_limit_gb_snapshot != constructor_quote["traffic_gb"] or existing.device_limit_snapshot != constructor_quote["devices"]):
@@ -2332,6 +2347,8 @@ async def wallet_spend(payload:dict, request:Request, db:AsyncSession=Depends(ge
     await ensure_required_channel(user)
     plan=await db.get(Plan,plan_id)
     if not plan or not plan.enabled: raise HTTPException(404,"Not found")
+    from .partners import checkout_terms
+    partner_terms=await checkout_terms(db,payload.get("reseller_slug"),plan.id,user.id)
     from .tariff_api import linked_constructor_id
     linked=await linked_constructor_id(db, plan.id)
     if linked and (not constructor_quote or int(constructor_quote["constructor_id"]) != int(linked)):
@@ -2363,6 +2380,8 @@ async def wallet_spend(payload:dict, request:Request, db:AsyncSession=Depends(ge
         existing=(await db.execute(select(Payment).where(Payment.user_id==user.id,Payment.idempotency_key==idem).with_for_update())).scalar_one_or_none()
         if existing:
             check_retry(existing,payload)
+            from .partners import check_retry as check_partner_retry
+            check_partner_retry(existing,payload)
             return {"ok":True,"payment_id":existing.id,"status":existing.status,"fulfillment_status":existing.fulfillment_status}
         target=await reserve_target(db,user,plan.id,payload)
         cutoff=datetime.utcnow()-timedelta(seconds=30)
@@ -2374,7 +2393,7 @@ async def wallet_spend(payload:dict, request:Request, db:AsyncSession=Depends(ge
         balance=_money(user.wallet_balance or 0)
         if balance < final_amount: raise HTTPException(402,"Недостаточно средств на балансе")
         order_id=f"wallet-{user.id}-{plan.id}-{hashlib.sha256(idem.encode()).hexdigest()[:24]}"
-        row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider="wallet",order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),promo_code=(promo.code if promo else None),currency=settings.default_currency,status="paid",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,paid_at=datetime.utcnow())
+        row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider="wallet",order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),promo_code=(promo.code if promo else None),currency=settings.default_currency,status="paid",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,paid_at=datetime.utcnow(),**partner_terms)
         user.wallet_balance=_money(balance-final_amount)
         db.add(row); await db.flush()
         await record_financial_event(db,operation_key=f"wallet-spend:{row.id}",user_id=user.id,payment_id=row.id,kind="wallet_spend",direction="debit",amount=final_amount,currency=row.currency,metadata={"plan_id":plan.id})
@@ -2537,7 +2556,7 @@ async def create_support_ticket(payload:TicketIn, request:Request, db:AsyncSessi
 async def my_support_tickets(request:Request,db:AsyncSession=Depends(get_db)):
     user=await user_from_token(request,db)
     rows=(await db.execute(select(SupportTicket).where(SupportTicket.user_id==user.id).order_by(SupportTicket.id.desc()).limit(100))).scalars().all()
-    return [{"id":x.id,"subject":x.subject,"message":x.message,"status":x.status,"admin_reply":x.admin_reply,"created_at":x.created_at,"updated_at":x.updated_at} for x in rows]
+    return [{"id":x.id,"subject":x.subject,"message":x.message,"status":x.status,"admin_reply":x.admin_reply,"merged_into_id":x.merged_into_id,"created_at":x.created_at,"updated_at":x.updated_at} for x in rows]
 
 @app.post("/api/me/referral/withdrawals")
 async def request_withdrawal(payload:WithdrawalIn,request:Request,db:AsyncSession=Depends(get_db)):
@@ -2707,6 +2726,8 @@ async def _reverse_referral_reward_for_refund(db:AsyncSession, payment:Payment, 
     clawback instead of silently creating money.
     """
     from .referral_program import reverse_extra
+    from .partners import reverse as reverse_partner
+    await reverse_partner(db, payment)
     await db.scalar(select(Payment.id).where(Payment.id==payment.id).with_for_update())
     reward=(await db.execute(select(ReferralReward).where(ReferralReward.payment_id==payment.id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
     if not reward or reward.status == "reversed":
@@ -2831,7 +2852,7 @@ async def mark_refunded(refund_id:int,admin=Depends(require_permission("payments
 @app.get("/api/admin/support/tickets")
 async def admin_tickets(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("support.read"))):
     rows=(await db.execute(select(SupportTicket).order_by(SupportTicket.id.desc()).limit(200))).scalars().all()
-    return [{"id":x.id,"user_id":x.user_id,"subject":x.subject,"message":x.message,"status":x.status,"admin_reply":x.admin_reply,"created_at":x.created_at,"updated_at":x.updated_at} for x in rows]
+    return [{"id":x.id,"user_id":x.user_id,"subject":x.subject,"message":x.message,"status":x.status,"admin_reply":x.admin_reply,"merged_into_id":x.merged_into_id,"created_at":x.created_at,"updated_at":x.updated_at} for x in rows]
 
 # Store support is canonical; Support Pro uses the scoped bridge API.
 @app.post("/api/admin/support/tickets/{ticket_id}/reply")
@@ -3120,6 +3141,13 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         unresolved_gift=await db.scalar(select(GiftRedemption.id).where(GiftRedemption.user_id==user.id,GiftRedemption.status!="completed").limit(1))
         unresolved_payment=await db.scalar(select(Payment.id).where(Payment.user_id==user.id,Payment.status.in_(("creating","pending","creation_unknown","paid","fulfilled","refunded_pending_revoke")),Payment.fulfillment_status!="completed").limit(1))
         if unresolved_gift or unresolved_payment:raise HTTPException(409,"Сначала завершите обработку покупок и подарков")
+        from .models import Reseller, PartnerWithdrawal, CustomerPasskey, CustomerPasskeyChallenge
+        partner=await db.scalar(select(Reseller).where(Reseller.owner_user_id==user.id).execution_options(populate_existing=True).with_for_update())
+        if partner:
+            pending_payout=await db.scalar(select(PartnerWithdrawal.id).where(PartnerWithdrawal.reseller_id==partner.id,PartnerWithdrawal.status.in_(("pending","approved"))).limit(1))
+            pending_partner_purchase=await db.scalar(select(Payment.id).where(Payment.reseller_id==partner.id,Payment.status.in_(("creating","pending","creation_unknown","paid","fulfilled","refunded_pending_revoke")),Payment.fulfillment_status!="completed").limit(1))
+            if partner.balance != 0 or pending_payout or pending_partner_purchase:
+                raise HTTPException(409,"Сначала завершите партнёрские расчёты и выплаты")
         subscriptions=(await db.execute(select(Subscription).where(Subscription.user_id==user.id).execution_options(populate_existing=True).with_for_update())).scalars().all()
         if any(x.lifecycle_status in {"active","cancel_scheduled","grace","revoke_pending"} and (x.expires_at is None or x.expires_at>datetime.utcnow()) for x in subscriptions):
             raise HTTPException(409,"Active subscription must expire before account deletion")
@@ -3142,6 +3170,12 @@ async def privacy_delete(request:Request,db:AsyncSession=Depends(get_db)):
         from .models import AccountAction
         await revoke_access(db,user)
         await db.execute(delete(AccountAction).where(AccountAction.user_id==user.id))
+        await db.execute(delete(CustomerPasskey).where(CustomerPasskey.user_id==user.id))
+        await db.execute(delete(CustomerPasskeyChallenge).where(CustomerPasskeyChallenge.user_id==user.id))
+        user.passkey_user_handle=None
+        if partner:
+            partner.enabled=False
+            partner.api_key_hash=hashlib.sha256(secrets.token_bytes(32)).hexdigest()
         from .surveys import anonymize as anonymize_surveys
         await anonymize_surveys(db,user.id)
         from .giveaways import anonymize as anonymize_giveaways
@@ -3298,11 +3332,14 @@ async def refund_dry_run(refund_id:int,db:AsyncSession=Depends(get_db),admin=Dep
     from .models import ReferralLevelReward
     extra=await db.scalar(select(func.coalesce(func.sum(ReferralLevelReward.amount),0)).where(ReferralLevelReward.payment_id==p.id,ReferralLevelReward.status=="credited")) or Decimal("0")
     referral_total=(reward.amount if reward else Decimal("0"))+extra
+    from .models import PartnerCommission
+    partner_commission=await db.scalar(select(PartnerCommission).where(PartnerCommission.payment_id==p.id,PartnerCommission.status=="credited"))
     sub=await payment_target(db,p)
     actions=["refund_provider"]
     if sub and later_paid==0: actions.append("revoke_subscription")
     if referral_total > 0: actions.append("reverse_referral_reward")
-    return {"safe_to_execute":p.status in {"paid","fulfilled"} and r.status in {"requested","approved","review"},"payment_id":p.id,"amount":str(p.amount),"currency":p.currency,"subscription":{"id":sub.id,"current_expires_at":sub.expires_at} if sub else None,"later_fulfilled_payments":later_paid,"referral_reward":str(referral_total) if referral_total > 0 else None,"planned_actions":actions}
+    if partner_commission: actions.append("reverse_partner_commission")
+    return {"safe_to_execute":p.status in {"paid","fulfilled"} and r.status in {"requested","approved","review"},"payment_id":p.id,"amount":str(p.amount),"currency":p.currency,"subscription":{"id":sub.id,"current_expires_at":sub.expires_at} if sub else None,"later_fulfilled_payments":later_paid,"referral_reward":str(referral_total) if referral_total > 0 else None,"partner_commission":str(partner_commission.amount) if partner_commission else None,"planned_actions":actions}
 
 @app.get("/api/admin/security/risk-summary")
 async def risk_summary(db:AsyncSession=Depends(get_db),admin=Depends(require_permission("security.manage"))):

@@ -2,11 +2,11 @@
 
 Единый магазин VPN-подписок: админ-панель, веб кабинет пользователя, Telegram-бот и Mini App, приложения Android и iOS. Интерфейсы оформлены в сине-фиолетовой палитре.
 
-**v21.0.1 stable — стабильный выпуск текущего проверенного ядра.** Торговые функции используют существующее ядро, базу пользователей и финансовые операции. Добавлены независимые подписки, их выбор в Android/iOS, подарки из конструктора и защищённая синхронизация переписки Support Pro, восстановление пароля, подтверждение email и сохранение условий автопродления конструктора. Добавлены опросы, бесплатные конкурсы и колесо призов с фиксированными условиями, лимитами и однократными наградами на баланс. Исправлен production Deploy: установка конкретного стабильного тега через проверенный архив вместо сброса серверного дерева. Полное функциональное совпадение со всеми запрошенными решениями пока не достигнуто: [карта покрытия и оставшихся работ](docs/ru/WORKSPACE_COVERAGE.md).
+**v21.1.0 stable — стабильный выпуск текущего проверенного ядра.** Торговые функции используют существующее ядро, базу пользователей и финансовые операции. Добавлены независимые подписки, их выбор в Android/iOS, подарки из конструктора и защищённая синхронизация переписки Support Pro, восстановление пароля, подтверждение email и сохранение условий автопродления конструктора. Добавлены опросы, бесплатные конкурсы и колесо призов с фиксированными условиями, лимитами и однократными наградами на баланс. Исправлен production Deploy: установка конкретного стабильного тега через проверенный архив вместо сброса серверного дерева. Полное функциональное совпадение со всеми запрошенными решениями пока не достигнуто: [карта покрытия и оставшихся работ](docs/ru/WORKSPACE_COVERAGE.md).
 
 В alpha.7 добавлен [вход администратора по passkey](docs/ru/ADMIN_PASSKEYS.md), [операционный dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Исправлена привязка публикации мобильных пакетов к актуальному тегу; подписи владельца по-прежнему нужны.
 
-Текущий стабильный выпуск: [v21.0.1](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v21.0.1). Production-платежи остаются закрытыми: application E2E v2 не завершён. Подписанные APK/IPA требуют ключей владельца. Изменения рабочего пространства описаны в [CHANGELOG.md](CHANGELOG.md). Актуальные инструкции переписаны: [DOCUMENTATION.md](DOCUMENTATION.md), [INSTALL_STEPS.md](INSTALL_STEPS.md), [FUNCTIONS.md](FUNCTIONS.md), [SECURITY.md](SECURITY.md). Прежние редакции сохранены в `docs/archive/*_BEFORE_ALPHA_6.md`. Старое содержание README вынесено в [архив](docs/archive/README_BEFORE_WORKSPACE.md); архивные инструкции не являются текущим руководством.
+Текущий стабильный выпуск: [v21.1.0](https://github.com/booarkz-cpu/shop-by-boo/releases/tag/v21.1.0). Production-платежи остаются закрытыми: application E2E v2 не завершён. Подписанные APK/IPA требуют ключей владельца. Изменения рабочего пространства описаны в [CHANGELOG.md](CHANGELOG.md). Актуальные инструкции переписаны: [DOCUMENTATION.md](DOCUMENTATION.md), [INSTALL_STEPS.md](INSTALL_STEPS.md), [FUNCTIONS.md](FUNCTIONS.md), [SECURITY.md](SECURITY.md). Прежние редакции сохранены в `docs/archive/*_BEFORE_ALPHA_6.md`. Старое содержание README вынесено в [архив](docs/archive/README_BEFORE_WORKSPACE.md); архивные инструкции не являются текущим руководством.
 
 Сведение поддержки и перенос старой истории: [отдельная инструкция](docs/ru/WORKSPACE_SUPPORT_BRIDGE.md).
 
@@ -28,7 +28,7 @@
 Для проверки без настоящих касс, Telegram и Remnawave нужны Docker Engine, Compose и Python 3:
 
 ```bash
-git clone --branch v21.0.1 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.1.0 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
@@ -38,7 +38,7 @@ bash scripts/test-up.sh
 Установка на VDS через SSH или Termius:
 
 ```bash
-git clone --branch v21.0.1 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.1.0 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 sudo bash deploy/install-vps.sh
 ```
@@ -50,7 +50,7 @@ sudo bash deploy/install-vps.sh
 | Задача | Руководство |
 | --- | --- |
 | Создать конкурс или колесо призов | [Правила, бюджет, розыгрыш и приватность](docs/ru/WORKSPACE_GIVEAWAYS.md) |
-| Прочитать результаты аудита текущего выпуска | [Отчёт v21.0.1 stable](docs/ru/RELEASE_21_0_1_STABLE.md) |
+| Прочитать результаты аудита текущего выпуска | [Отчёт v21.1.0 stable](docs/ru/RELEASE_21_1_0_STABLE.md) |
 | Восстановить пароль и подтвердить email | [Почта и безопасность аккаунта](docs/ru/WORKSPACE_ACCOUNT_SECURITY.md) |
 | Создать изолированный стенд через Termius | [Проверка перед финальным релизом](docs/ru/FINAL_RELEASE_READINESS.md) |
 | Пользоваться всеми страницами кабинета | [Кабинет пользователя: пошагово](docs/ru/WORKSPACE_USER_GUIDE.md) |
@@ -93,12 +93,16 @@ npm run build
 
 Перед проверкой Mini App установите зависимости `cabinet`: приложение импортирует общий интерфейс. В контейнере Mini App собирается непосредственно из `cabinet`, с `VITE_SURFACE=miniapp`. Полная проверка Docker, PostgreSQL и мобильных сборок выполняется CI; локальные сборки интерфейса и тесты не заменяют платёжный E2E на сервере.
 
-## Лицензия 2.3
+## Лицензия 2.4
 
 [LICENSE](LICENSE) разрешает бесплатное использование и изменение проекта для собственного магазина, включая коммерческую работу и сборку мобильных клиентов. Соблюдайте условия распространения, изложенные в лицензии. Код запрошенных сторонних проектов в этой переработке не включён; функции реализуются в существующем ядре. Рекламных ссылок на эти проекты в интерфейсах нет. [Сторонние компоненты и уведомления](THIRD_PARTY_NOTICES.md).
 
 Подробные правила новых подписок и подарков: [инструкция](docs/ru/WORKSPACE_SUBSCRIPTIONS.md).
 
-## Дополнения v21.0.1
+## Дополнения v21.1.0
 
 [Многоуровневые рефералы и сеть](docs/ru/REFERRALS_CURRENT.md), [согласованный CLI backup](docs/ru/BACKUP_CURRENT.md), [актуальная установка через SSH/Termius](docs/ru/DEPLOYMENT_CURRENT.md).
+
+## Новые функции v21.1.0
+
+Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.

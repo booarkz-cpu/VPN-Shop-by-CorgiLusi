@@ -86,7 +86,7 @@ def test_installer_produces_both_env_files_without_corrupting_secrets(tmp_path):
         "BOT_DOMAIN", "PANEL_DOMAIN", "YANDEX_CLIENT_ID", "YANDEX_CLIENT_SECRET",
         "VK_CLIENT_ID", "VK_CLIENT_SECRET", "PAYMENTS_SANDBOX", "TRIAL_MAX_DAYS",
         "S3_ENDPOINT_URL", "S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY",
-        "INSTALLER_VERSION",
+            "INSTALLER_VERSION", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM",
     )}
     inputs.update(API_DOMAIN="api.example.com", ADMIN_DOMAIN="admin.example.com",
                   CABINET_DOMAIN="cabinet.example.com", SUPPORT_PRO_DOMAIN="support.example.com",

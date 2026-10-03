@@ -1,4 +1,4 @@
-> v21.0.1: API 18080, admin 18081, cabinet 18082, Mini App 18083. [Current testing guide](../ru/TESTING.md).
+> v21.1.0: API 18080, admin 18081, cabinet 18082, Mini App 18083. [Current testing guide](../ru/TESTING.md).
 
 # Перевірка магазину без платіжних систем
 

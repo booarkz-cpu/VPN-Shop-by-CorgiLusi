@@ -99,7 +99,7 @@ env_line() {
 }
 
 # Previous release contract: INSTALLER_VERSION="1.0.0-realise"
-INSTALLER_VERSION="21.0.1"
+INSTALLER_VERSION="21.1.0"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.8"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.7"
 # Historical compatibility marker: INSTALLER_VERSION="20.0.6"
@@ -134,7 +134,7 @@ INSTALLER_VERSION="21.0.1"
 # Previous release contract: INSTALLER_VERSION="45.0.0-enterprise"
 # V44.5 Enterprise legacy contract marker
 # INSTALLER_VERSION="43.1.0-production" legacy regression marker
-log "Remnawave VPN Shop — 21.0.1 stable core installer"
+log "Remnawave VPN Shop — 21.1.0 stable core installer"
 # Historical compatibility marker: 3.1.3 русскоязычный production installer
 # Historical compatibility marker: 3.1.2 русскоязычный production installer
 # Historical compatibility marker: 3.1.1 русскоязычный production installer
@@ -240,6 +240,16 @@ while :; do
   echo "Неизвестный часовой пояс. Укажите имя IANA, например Europe/Moscow."
 done
 prompt CADDY_EMAIL "Email для TLS-сертификата" "$ADMIN_EMAIL"
+prompt SMTP_HOST "SMTP host (Enter = письма пока выключены)"
+SMTP_PORT="${SMTP_PORT:-587}"; SMTP_USER="${SMTP_USER:-}"; SMTP_PASSWORD="${SMTP_PASSWORD:-}"; SMTP_FROM="${SMTP_FROM:-}"
+if [[ -n "$SMTP_HOST" ]]; then
+  prompt SMTP_PORT "SMTP port (465 SSL / 587 STARTTLS)" "587"
+  [[ "$SMTP_PORT" =~ ^[0-9]+$ && ${#SMTP_PORT} -le 5 ]] || die "Некорректный SMTP port"
+  (( 10#$SMTP_PORT >= 1 && 10#$SMTP_PORT <= 65535 )) || die "Некорректный SMTP port"
+  prompt SMTP_USER "SMTP username (Enter = разрешённый relay)"
+  if [[ -n "$SMTP_USER" ]]; then prompt_required SMTP_PASSWORD "SMTP password" 1; fi
+  prompt SMTP_FROM "SMTP From — разрешённый адрес отправителя" "$ADMIN_EMAIL"
+fi
 WEBHOOK_DOMAIN="$API_DOMAIN" # Caddy exposes webhook routes on the API host.
 prompt MINIAPP_DOMAIN "Домен Mini App, если отличается" "$APP_DOMAIN"
 prompt BOT_DOMAIN "Домен бота" "bot.${BASE_DOMAIN}"
@@ -296,11 +306,7 @@ log "Устанавливаю системные зависимости и Docke
 apt-get update -y
 DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl unzip openssl ufw fail2ban unattended-upgrades
 
-if ! command -v docker >/dev/null 2>&1; then
-  curl -fsSL https://get.docker.com | sh
-fi
-systemctl enable --now docker
-docker compose version >/dev/null 2>&1 || die "Docker Compose plugin не установлен."
+bash "$SOURCE_ROOT/deploy/install-docker.sh"
 
 if [[ -e "$ROOT/docker-compose.yml" || -e "$ROOT/.env" ]]; then
   die "$ROOT уже содержит установку. Для существующей установки используйте: cd $ROOT && ./deploy/build-production.sh"
@@ -328,8 +334,15 @@ umask 077
   env_line PUBLIC_BASE_URL "https://${API_DOMAIN}"
   env_line MINI_APP_URL "https://${MINIAPP_DOMAIN:-$APP_DOMAIN}"
   env_line CABINET_URL "https://${CABINET_DOMAIN}"
+  env_line WEBAUTHN_ORIGIN "https://${ADMIN_DOMAIN}"
+  env_line CUSTOMER_WEBAUTHN_ORIGIN "https://${CABINET_DOMAIN}"
   env_line ADMIN_CORS_ORIGINS "https://${ADMIN_DOMAIN}"
   env_line CABINET_CORS_ORIGINS "https://${CABINET_DOMAIN}"
+  env_line SMTP_HOST "$SMTP_HOST"
+  env_line SMTP_PORT "$SMTP_PORT"
+  env_line SMTP_USER "$SMTP_USER"
+  env_line SMTP_PASSWORD "$SMTP_PASSWORD"
+  env_line SMTP_FROM "$SMTP_FROM"
   env_line ADMIN_EMAIL "$ADMIN_EMAIL"
   env_line ADMIN_PASSWORD "$ADMIN_PASSWORD"
   env_line BOT_TOKEN "$BOT_TOKEN"

@@ -35,6 +35,7 @@ def decode(payload):
     return name,data,mime
 
 async def upload(db,ticket,payload,actor,key):
+    if ticket.merged_into_id:raise HTTPException(409,"Обращение объединено; откройте итоговое обращение")
     if not key or not 1<=len(key)<=128:raise HTTPException(400,'Idempotency-Key обязателен')
     name,data,mime=decode(payload);digest=hashlib.sha256(data).hexdigest()
     previous=await db.scalar(select(SupportAttachment).where(SupportAttachment.ticket_id==ticket.id,SupportAttachment.actor==actor,SupportAttachment.idempotency_key==key))
