@@ -21,7 +21,8 @@ docker compose logs --tail=100 backend worker bot
 Для alpha используйте отдельный стенд и [WORKSPACE_UPGRADE.md](docs/ru/WORKSPACE_UPGRADE.md). Production обновляется только по stable GitHub Releases. Для выбранного stable тега:
 
 ```bash
-APP_DIR=/opt/vpn-shop RELEASE_TAG=v21.5.0 bash scripts/update-from-github.sh
+# Для v21.5.0 с Support Pro 0006 используйте согласованное ручное обновление.
+# scripts/update.sh не восстанавливает автоматически вторую БД.
 ```
 
 `v21.5.0` — тег этого выпуска. Перед запуском убедитесь, что он опубликован и вложения доступны. Скрипт проверяет источник и SHA256, сохраняет `.env`, вызывает резервирование и health/recovery. Без RELEASE_TAG выбирается последний stable; downgrade не выполняется.
@@ -37,3 +38,5 @@ GitHub Deploy использует обязательный `release_tag`, secre
 ## Новые функции v21.5.0
 
 Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.
+
+Переход на Support Pro 0006 выполняйте по [согласованной процедуре обновления](docs/ru/WORKSPACE_UPGRADE.md): текущий автоматический rollback updater охватывает только основную БД.
