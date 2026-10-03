@@ -23,3 +23,10 @@ def test_generated_api_catalogue_matches_application():
     spec=importlib.util.spec_from_file_location('api_docs', ROOT/'scripts/generate-api-docs.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     assert (ROOT/'docs/API_ENDPOINTS.md').read_text()==module.render()
+
+
+@pytest.mark.parametrize('filename',GUIDES)
+def test_current_guides_do_not_reference_invented_prerelease_tags(filename):
+    manifest=json.loads((ROOT/'release-manifest.template.json').read_text())
+    version=re.escape(manifest['version'])
+    assert not re.search(r'v?'+version+r'-(?:alpha|beta|rc)\.\d+', (ROOT/filename).read_text()), filename
