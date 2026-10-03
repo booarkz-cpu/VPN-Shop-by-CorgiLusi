@@ -1,13 +1,13 @@
-# Установка v21.2.0
+# Установка v21.3.0
 
-Это v21.2.0 stable текущего ядра. Production-платежи закрыты до завершения application E2E v2. Для знакомства используйте отдельный локальный контур либо отдельный VDS. Не заменяйте действующий магазин без проверенной копии базы, файлов и сохранённых серверных настроек.
+Это v21.3.0 stable текущего ядра. Production-платежи закрыты до завершения application E2E v2. Для знакомства используйте отдельный локальный контур либо отдельный VDS. Не заменяйте действующий магазин без проверенной копии базы, файлов и сохранённых серверных настроек.
 
 ## Локально
 
 Нужны Git, Python 3, Docker Engine и Compose. На Windows используйте WSL2/Docker Desktop.
 
 ```bash
-git clone --branch v21.2.0 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.3.0 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
@@ -19,19 +19,19 @@ bash scripts/test-up.sh
 Подключитесь к отдельному Ubuntu-серверу через SSH/Termius и выполните:
 
 ```bash
-git clone --branch v21.2.0 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.3.0 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 sudo bash deploy/install-vps.sh
 ```
 
-Нужны домены с корректными DNS A/AAAA, открытые 80/443, доступ к Docker, Telegram и Remnawave. Установщик запрашивает параметры. Проверяйте назначение доменов API, админки и кабинета. Подробные требования и поля: [VDS](docs/ru/DEPLOYMENT_CURRENT.md); это актуальное руководство v21.2.0, обновление описано в [обновлении](docs/ru/WORKSPACE_UPGRADE.md).
+Нужны домены с корректными DNS A/AAAA, открытые 80/443, доступ к Docker, Telegram и Remnawave. Установщик запрашивает параметры. Проверяйте назначение доменов API, админки и кабинета. Подробные требования и поля: [VDS](docs/ru/DEPLOYMENT_CURRENT.md); это актуальное руководство v21.3.0, обновление описано в [обновлении](docs/ru/WORKSPACE_UPGRADE.md).
 
 Для loopback-теста на VDS вместо публичной установки запустите `scripts/test-up.sh` и настройте туннель по [INSTALL_STEPS.md](INSTALL_STEPS.md). Для HTTPS стенда прочитайте [условия готовности](docs/ru/FINAL_RELEASE_READINESS.md). Настройка доменов не открывает реальные платежи.
 
 ## Существующий магазин
 
-Используйте [регламент обновления](docs/ru/WORKSPACE_UPGRADE.md). Новый head магазина — `0058_customer_operations`, Support Pro — `0005`. Не откатывайте 0052 после появления участия в акциях. Новая установка backend применяет Alembic через entrypoint; после обновления отдельно проверьте `alembic current`, health и фоновые задачи.
+Используйте [регламент обновления](docs/ru/WORKSPACE_UPGRADE.md). Новый head магазина — `0060_promo_audiences`, Support Pro — `0005`. Не откатывайте 0052 после появления участия в акциях. Новая установка backend применяет Alembic через entrypoint; после обновления отдельно проверьте `alembic current`, health и фоновые задачи.
 
-## Новые функции v21.2.0
+## Новые функции v21.3.0
 
 Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.

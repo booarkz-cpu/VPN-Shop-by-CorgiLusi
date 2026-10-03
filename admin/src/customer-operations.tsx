@@ -3,7 +3,7 @@ import React, {useEffect, useState} from 'react';
 type RequestFn=(path:string,options?:RequestInit)=>Promise<any>;
 const ROOT='/api/admin/customer-operations';
 const statuses:Record<string,string>={new:'Новый клиент',existing:'Совпадение: данные сохраняются',already_imported:'Уже перенесён',blocked:'Конфликт',preview:'Ожидает применения',applied:'Применён',cancelled:'Отменён',expired:'Истёк'};
-const actions:Record<string,string>={revoke_sessions:'Отозвать сессии входа',disable_auto_renew:'Отключить автопродление',notify:'Отправить уведомление в кабинет'};
+const actions:Record<string,string>={restrict_shop:'Ограничить доступ в магазин и отозвать сессии',restore_shop:'Восстановить доступ в магазин',revoke_sessions:'Отозвать сессии входа',disable_auto_renew:'Отключить автопродление',notify:'Отправить уведомление в кабинет'};
 
 export function CustomerOperations({request,history=[],reload}:{request:RequestFn;history?:any[];reload:()=>void}) {
  const [historyRows,setHistoryRows]=useState(history);

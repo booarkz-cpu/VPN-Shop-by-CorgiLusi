@@ -2,7 +2,7 @@
 
 ## 1. Выберите контур
 
-v21.2.0 stable выпускает текущее проверенное ядро. Перед эксплуатацией нужен отдельный стенд; production-платежи пока закрыты. Локальная песочница не требует касс и Remnawave. Отдельный HTTPS стенд нужен для внешних callbacks, SMTP и настоящего тестового VPN. [Все требования](INSTALL.md).
+v21.3.0 stable выпускает текущее проверенное ядро. Перед эксплуатацией нужен отдельный стенд; production-платежи пока закрыты. Локальная песочница не требует касс и Remnawave. Отдельный HTTPS стенд нужен для внешних callbacks, SMTP и настоящего тестового VPN. [Все требования](INSTALL.md).
 
 ## 2. Подключитесь к VDS
 
@@ -17,7 +17,7 @@ ssh root@SERVER_IP
 ## 3. Поднимите тестовый магазин одной последовательностью
 
 ```bash
-git clone --branch v21.2.0 https://github.com/booarkz-cpu/shop-by-boo.git
+git clone --branch v21.3.0 https://github.com/booarkz-cpu/shop-by-boo.git
 cd shop-by-boo
 bash scripts/test-up.sh
 ```
@@ -55,6 +55,6 @@ Volumes сохраняются. Параметр `-v` удаляет тесто�
 
 [INSTALL.md](INSTALL.md), [готовность stable](docs/ru/FINAL_RELEASE_READINESS.md), [миграции и backup](docs/ru/WORKSPACE_UPGRADE.md). В этом выпуске подтверждённого внешнего платёжного E2E нет; обход gate не является этапом установки.
 
-## Новые функции v21.2.0
+## Новые функции v21.3.0
 
 Добавлены [партнёрский кабинет и комиссии](docs/ru/PARTNERS_CURRENT.md), [клиентские ключи доступа](docs/ru/CUSTOMER_PASSKEYS_CURRENT.md) и [объединение/разделение обращений](docs/ru/SUPPORT_TOPOLOGY_CURRENT.md). [Полная инструкция production](docs/ru/PRODUCTION_CURRENT.md) охватывает SSH/Termius, DNS/TLS, настройку, приёмку, backup/restore, обновления и инциденты. Вся матрица ещё не завершена; production gate закрыт.

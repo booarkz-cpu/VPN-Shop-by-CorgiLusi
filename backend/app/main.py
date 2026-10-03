@@ -31,7 +31,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.2.0"
+APP_VERSION = "21.3.0"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -122,6 +122,11 @@ from .referral_program import router as referral_program_router
 app.include_router(referral_program_router)
 from .admin_customer_operations import router as admin_customer_operations_router
 app.include_router(admin_customer_operations_router)
+from .content_publishing import admin_router as content_admin_router, public_router as content_public_router
+app.include_router(content_admin_router)
+app.include_router(content_public_router)
+from .personal_offers import router as personal_offers_router
+app.include_router(personal_offers_router)
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 PACKAGE_UPLOAD_BYTES = 80 * 1024 * 1024
@@ -640,6 +645,10 @@ def issue_user_token(user:User, ttl_minutes:int=60, jti:str|None=None):
     return __import__("jwt").encode({"sub":str(user.id),"type":"user","jti":jti,"iat":int(now.timestamp()),"exp":int((now+timedelta(minutes=ttl_minutes)).timestamp())},settings.app_secret,algorithm="HS256")
 
 async def create_user_session(db:AsyncSession,user:User,request:Request,ttl_minutes:int=60):
+    if user.deleted_at is not None:raise HTTPException(401,"User account deleted")
+    user=(await db.execute(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
+    from .platform_api import reject_restricted
+    reject_restricted(user)
     if user.deleted_at is not None:
         raise HTTPException(401,"User account deleted")
     jti=secrets.token_urlsafe(24); now=datetime.utcnow(); expires=now+timedelta(minutes=ttl_minutes)
@@ -659,6 +668,8 @@ async def user_from_token(request:Request, db:AsyncSession):
     except (KeyError,TypeError,ValueError): raise HTTPException(401,"Invalid user token")
     user=await db.get(User,user_id)
     if not user or user.deleted_at is not None: raise HTTPException(401,"User not found")
+    from .platform_api import reject_restricted
+    reject_restricted(user)
     jti=claims.get("jti")
     if not jti: raise HTTPException(401,"User session is not registered")
     session=(await db.execute(select(UserSession).where(UserSession.jti_hash==hashlib.sha256(jti.encode()).hexdigest(),UserSession.revoked_at.is_(None)))).scalar_one_or_none()
@@ -774,6 +785,8 @@ async def promo_discount(db, code:str|None, plan_id:int, price, user_id:int|None
     if not code: return None, Decimal("0.00")
     promo=(await db.execute(select(PromoCode).where(PromoCode.code==code.strip().upper()))).scalar_one_or_none()
     if not promo or not promo.enabled: raise HTTPException(400,"Промокод недействителен")
+    from .personal_offers import audience_allowed
+    if not await audience_allowed(db,promo.id,user_id):raise HTTPException(400,"Промокод недействителен для этого аккаунта")
     now=datetime.utcnow()
     if promo.starts_at and now < promo.starts_at or promo.ends_at and now > promo.ends_at: raise HTTPException(400,"Срок действия промокода истёк")
     if promo.usage_limit is not None and promo.used_count + promo.reserved_count >= promo.usage_limit: raise HTTPException(400,"Лимит промокода исчерпан")
@@ -785,7 +798,7 @@ async def promo_discount(db, code:str|None, plan_id:int, price, user_id:int|None
             if paid_count: raise HTTPException(400,"Промокод доступен только для первой покупки")
         if promo.max_uses_per_user is not None:
             used=int(await db.scalar(select(func.count()).select_from(PromoRedemption).where(PromoRedemption.promo_code_id==promo.id,PromoRedemption.user_id==user_id)) or 0)
-            reserved=int(await db.scalar(select(func.count()).select_from(PromoReservation).where(PromoReservation.promo_code_id==promo.id,PromoReservation.user_id==user_id,PromoReservation.status=="reserved",PromoReservation.expires_at>datetime.utcnow())) or 0)
+            reserved=int(await db.scalar(select(func.count()).select_from(PromoReservation).where(PromoReservation.promo_code_id==promo.id,PromoReservation.user_id==user_id,PromoReservation.status=="reserved")) or 0)
             if used + reserved >= promo.max_uses_per_user: raise HTTPException(400,"Лимит использования промокода для этого пользователя исчерпан")
         if promo.referral_only:
             referred=await db.scalar(select(User.id).where(User.id==user_id, User.referred_by_id.is_not(None)))
@@ -1075,7 +1088,15 @@ async def _payment_provider_order(db: AsyncSession, requested: str|None):
 async def reserve_promo(db:AsyncSession, promo:PromoCode|None, user_id:int, order_id:str):
     if not promo:
         return None
-    row=(await db.execute(select(PromoCode).where(PromoCode.id==promo.id).with_for_update())).scalar_one()
+    row=(await db.execute(select(PromoCode).where(PromoCode.id==promo.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
+    from .personal_offers import audience_allowed
+    if not row.enabled or not await audience_allowed(db,row.id,user_id,lock=True):raise HTTPException(409,"Промокод больше не доступен этому аккаунту")
+    now=datetime.utcnow()
+    if row.starts_at and now<row.starts_at or row.ends_at and now>row.ends_at:raise HTTPException(409,"Срок промокода истёк")
+    if row.max_uses_per_user is not None:
+        used=int(await db.scalar(select(func.count(PromoRedemption.id)).where(PromoRedemption.promo_code_id==row.id,PromoRedemption.user_id==user_id)) or 0)
+        reserved=int(await db.scalar(select(func.count(PromoReservation.id)).where(PromoReservation.promo_code_id==row.id,PromoReservation.user_id==user_id,PromoReservation.status=="reserved")) or 0)
+        if used+reserved>=row.max_uses_per_user:raise HTTPException(409,"Лимит промокода для этого клиента исчерпан")
     active_reserved=int(row.reserved_count or 0)
     if row.usage_limit is not None and int(row.used_count or 0)+active_reserved >= row.usage_limit:
         raise HTTPException(409,"Лимит промокода исчерпан")
@@ -2088,15 +2109,21 @@ async def auto_renew_scheduler():
                             await _release_payment_side_effect_lock(user_lock,user_token)
         except Exception: await asyncio.sleep(60)
 
+async def cleanup_expired_promo_reservations(db,now):
+    stale=(await db.execute(select(PromoReservation).outerjoin(Payment,Payment.id==PromoReservation.payment_id).where(
+        PromoReservation.status=="reserved",PromoReservation.expires_at<=now,
+        or_(Payment.id.is_(None),Payment.status.notin_(["paid","fulfilled"]))).with_for_update(skip_locked=True,of=PromoReservation).limit(200))).scalars().all()
+    for reservation in stale:await release_promo_reservation(db,reservation.id)
+    return len(stale)
+
+
 async def reconciliation_scheduler():
     while True:
         try:
             await asyncio.sleep(600)
             async with AsyncSession(engine,expire_on_commit=False) as db:
                 now=datetime.utcnow()
-                stale=(await db.execute(select(PromoReservation).where(PromoReservation.status=="reserved",PromoReservation.expires_at<=now).with_for_update(skip_locked=True).limit(200))).scalars().all()
-                for reservation in stale:
-                    await release_promo_reservation(db,reservation.id)
+                await cleanup_expired_promo_reservations(db,now)
                 cutoff=now-timedelta(hours=24)
                 rows=(await db.execute(select(Payment).where(Payment.created_at>=cutoff,Payment.status.in_(["pending","creation_unknown"])).order_by(Payment.id).limit(50))).scalars().all()
                 providers={"yookassa":YooKassaProvider(),"platega":PlategaProvider(),"rollypay":RollyPayProvider(),"stripe":StripePlatform(),"paypal":PayPalPlatform(),"crypto":CryptoGatewayPlatform()}
@@ -2380,7 +2407,8 @@ async def wallet_spend(payload:dict, request:Request, db:AsyncSession=Depends(ge
     if final_amount <= 0: raise HTTPException(400,"Amount must be positive")
     lock,token=await _acquire_user_fulfillment_lock(user.id,ttl=900)
     try:
-        user=(await db.execute(select(User).where(User.id==user.id).with_for_update())).scalar_one()
+        user=(await db.execute(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one()
+        reject_restricted(user)
         existing=(await db.execute(select(Payment).where(Payment.user_id==user.id,Payment.idempotency_key==idem).with_for_update())).scalar_one_or_none()
         if existing:
             check_retry(existing,payload)
@@ -2397,9 +2425,11 @@ async def wallet_spend(payload:dict, request:Request, db:AsyncSession=Depends(ge
         balance=_money(user.wallet_balance or 0)
         if balance < final_amount: raise HTTPException(402,"Недостаточно средств на балансе")
         order_id=f"wallet-{user.id}-{plan.id}-{hashlib.sha256(idem.encode()).hexdigest()[:24]}"
+        reservation=await reserve_promo(db,promo,user.id,order_id)
         row=Payment(user_id=user.id,subscription_id=target.id,new_subscription=bool(payload.get("new_subscription",False)),plan_id=plan.id,provider="wallet",order_id=order_id,amount=final_amount,original_amount=base_amount,discount_amount=discount_amount,duration_days_snapshot=snap_days,traffic_limit_gb_snapshot=snap_traffic,device_limit_snapshot=snap_devices,remnawave_profile_id_snapshot=snap_profile,referrer_id_snapshot=user.referred_by_id,referral_terms_snapshot=await referral_snapshot(db,user),promo_code=(promo.code if promo else None),currency=settings.default_currency,status="paid",fulfillment_status="pending",idempotency_key=idem,purpose="subscription",bonus_days=bonus_days,paid_at=datetime.utcnow(),**partner_terms)
         user.wallet_balance=_money(balance-final_amount)
         db.add(row); await db.flush()
+        if reservation:reservation.payment_id=row.id
         await record_financial_event(db,operation_key=f"wallet-spend:{row.id}",user_id=user.id,payment_id=row.id,kind="wallet_spend",direction="debit",amount=final_amount,currency=row.currency,metadata={"plan_id":plan.id})
         await db.commit()
         try:
@@ -4774,6 +4804,8 @@ async def update_promo_code(item_id:int,payload:PromoCodeIn,db:AsyncSession=Depe
 async def delete_promo_code(item_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_marketing"))):
     x=await db.get(PromoCode,item_id);
     if not x: raise HTTPException(404,"Promo code not found")
+    from .models import PromoAudience
+    if await db.get(PromoAudience,item_id):raise HTTPException(409,"Отключите промокод и оффер вместо удаления истории аудитории")
     await db.delete(x); await db.commit(); return {"ok":True}
 
 @app.post("/api/admin/advertisements")

@@ -28,8 +28,10 @@
 
 Изменения alpha.7: [ключи доступа администратора](docs/ru/ADMIN_PASSKEYS.md), [метрики, dashboard и alerts](docs/ru/OPERATIONS_MONITORING.md). Мобильный workflow использует версию текущего манифеста; без owner signing secrets APK/IPA не объявляются подписанными production assets.
 
-## Дополнения v21.2.0
+## Дополнения v21.3.0
 
 [Многоуровневые рефералы и сеть](docs/ru/REFERRALS_CURRENT.md), [согласованный CLI backup](docs/ru/BACKUP_CURRENT.md), [актуальная установка через SSH/Termius](docs/ru/DEPLOYMENT_CURRENT.md).
 
 Импорт users.db и массовые операции доступны роли admin в «Клиенты → Импорт и массовые операции». Порядок mapping, preview, применения и границы переноса: [инструкция](docs/ru/CUSTOMER_OPERATIONS_CURRENT.md).
+
+В v21.3.0: [редакторы новостей, лендингов и юридических страниц](docs/ru/CONTENT_PUBLISHING_CURRENT.md), [промогруппы и персональные офферы](docs/ru/PERSONAL_OFFERS_CURRENT.md), пять previewed массовых действий включая ограничение/восстановление доступа в магазин.

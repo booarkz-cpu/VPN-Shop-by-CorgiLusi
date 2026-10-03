@@ -173,7 +173,7 @@ async def cancel_import(job_id: str, db: AsyncSession = Depends(get_db), admin=D
 class BulkIn(BaseModel):
     model_config = ConfigDict(extra='forbid')
     user_ids: list[int] = Field(min_length=1, max_length=200)
-    action: str = Field(pattern='^(revoke_sessions|disable_auto_renew|notify)$')
+    action: str = Field(pattern='^(revoke_sessions|disable_auto_renew|restrict_shop|restore_shop|notify)$')
     reason: str = Field(min_length=3, max_length=500)
     title: str = Field(default='', max_length=255)
     body: str = Field(default='', max_length=5000)
@@ -224,10 +224,13 @@ async def bulk_apply(payload: BulkIn, request: Request, db: AsyncSession = Depen
     now = datetime.utcnow()
     for user in users:
         if payload.action == 'revoke_sessions':await revoke_access(db, user)
+        elif payload.action == 'restrict_shop':
+            user.restricted_at=now;user.auto_renew_enabled=False;await revoke_access(db,user)
+        elif payload.action == 'restore_shop':user.restricted_at=None
         elif payload.action == 'disable_auto_renew':user.auto_renew_enabled = False
         else:db.add(Notification(user_id=user.id, channel='in_app', kind='admin.bulk', title=payload.title.strip(),
             body=payload.body.strip(), status='sent', sent_at=now, dedupe_key='customer-bulk:'+scope))
-    if payload.action == 'disable_auto_renew':
+    if payload.action in ('disable_auto_renew','restrict_shop'):
         for profile in profiles:profile.auto_renew_enabled=False;profile.next_renewal_at=None
     result = {'ok': True, 'action': payload.action, 'users': len(users), 'user_ids': [user.id for user in users]}
     db.add(CustomerBatchOperation(key=scope, fingerprint=digest(payload.model_dump()), result=result))

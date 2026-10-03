@@ -85,7 +85,7 @@ jobs:
         run: python -m pytest -q tests --disable-warnings --maxfail=1
 
   passkey-browser:
-    name: Customer operations and passkeys • Chromium end-to-end
+    name: Content, customer operations and passkeys • Chromium end-to-end
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -100,12 +100,14 @@ jobs:
           python -m pip install -r backend/requirements.txt -r backend/requirements-test.txt
           cd admin
           npm ci
+          npm ci --prefix ../cabinet
           npx playwright install --with-deps chromium
-      - name: Build and exercise real browser WebAuthn
+      - name: Build and exercise public content, customer operations and WebAuthn
         working-directory: admin
         run: |
           npm run typecheck
           npm run build
+          npm run build --prefix ../cabinet -- --base=/cabinet/
           npm run test:e2e
 
   support:

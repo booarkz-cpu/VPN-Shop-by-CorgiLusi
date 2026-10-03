@@ -1,4 +1,4 @@
-# Готовность к production — v21.2.0
+# Готовность к production — v21.3.0
 
 Актуальная пошаговая инструкция: [Готовность к production](docs/ru/FINAL_RELEASE_READINESS.md). Общий каталог: [DOCUMENTATION.md](DOCUMENTATION.md).
 
