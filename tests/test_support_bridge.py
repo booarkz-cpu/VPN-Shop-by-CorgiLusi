@@ -170,3 +170,43 @@ async def test_postgres_delivery_identity_migration_roundtrip_and_downgrade_guar
             def refuse(connection):
                 with Operations.context(MigrationContext.configure(connection)):migration.downgrade()
             await conn.run_sync(refuse)
+
+
+@pytest.mark.asyncio
+async def test_postgres_page_holds_topology_lock_until_history_is_read(database,api,monkeypatch):
+    if database.bind.dialect.name!='postgresql':pytest.skip('Row lock concurrency verified in CI')
+    import asyncio
+    from sqlalchemy.ext.asyncio import AsyncSession
+    database.add(SupportTicket(id=1,user_id=1,subject='Snapshot',message='Question'))
+    await database.commit()
+    started=asyncio.Event()
+    writer=None
+    original=bridge.read_thread
+
+    async def change_topology():
+        async with AsyncSession(database.bind,expire_on_commit=False) as other:
+            started.set()
+            ticket=await other.scalar(select(SupportTicket).where(SupportTicket.id==1).with_for_update())
+            ticket.topology_version+=1
+            ticket.subject='Changed topology'
+            await other.commit()
+
+    async def paused_read(db,ticket,after):
+        nonlocal writer
+        writer=asyncio.create_task(change_topology())
+        await started.wait()
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(asyncio.shield(writer),timeout=0.2)
+        return await original(db,ticket,after)
+
+    monkeypatch.setattr(bridge,'read_thread',paused_read)
+    try:
+        async with api:
+            response=await api.get('/api/internal/support-bridge/tickets/1/messages')
+            assert response.status_code==200
+            assert response.json()['history_version']=='0'
+            assert response.json()['subject']=='Snapshot'
+    finally:
+        if writer is not None:await asyncio.wait_for(writer,timeout=5)
+    await database.refresh(await database.get(SupportTicket,1))
+    assert (await database.get(SupportTicket,1)).topology_version==1
