@@ -1,4 +1,4 @@
-# VPN Shop — v21.4.0
+# VPN Shop — v21.5.0
 
 Актуальная пошаговая инструкция: [VPN Shop](../../README.md). Общий каталог: [DOCUMENTATION.md](../../DOCUMENTATION.md).
 

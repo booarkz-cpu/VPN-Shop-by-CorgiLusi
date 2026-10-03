@@ -27,7 +27,7 @@ def rating_keyboard(tid):
 
 async def claim_message():
     async with Session() as s:
-        m = await s.scalar(select(Message).join(Ticket,Ticket.id==Message.ticket_id).where(or_(Ticket.shop_import_until_id.is_(None),Ticket.shop_import_complete.is_(True)),Message.delivery_state == 'queued',
+        m = await s.scalar(select(Message).join(Ticket,Ticket.id==Message.ticket_id).where(Ticket.shop_merged_into_id.is_(None),or_(Ticket.shop_import_until_id.is_(None),Ticket.shop_import_complete.is_(True)),Message.delivery_state == 'queued',
             or_(Message.next_attempt_at.is_(None), Message.next_attempt_at <= now()))
             .order_by(Message.id).with_for_update(skip_locked=True).limit(1))
         if not m:
@@ -160,6 +160,8 @@ async def maintenance():
                                 .with_for_update(skip_locked=True))).all()
         for m in stale:
             t = await s.get(Ticket, m.ticket_id)
+            if t.shop_merged_into_id:
+                m.delivery_state='uncertain';m.error='Обращение объединено; проверьте итоговую историю';continue
             m.delivery_state, m.error = ('queued', 'Повтор через API магазина с прежним ключом') if t.shop_ticket_id else ('uncertain', 'Обработчик прервался. Отправка могла состояться; проверьте перед повтором.')
             await notify(s, t, f'Неизвестен результат отправки в обращении #{t.id}', f'stale:{m.id}:{m.attempts}')
         await s.commit()

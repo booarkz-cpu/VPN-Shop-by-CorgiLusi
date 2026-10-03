@@ -47,7 +47,10 @@ class ClientAPI:
             # Do not copy provider response bodies, URLs or credentials to logs.
             raise BridgeError(f'Магазин отклонил операцию: HTTP {response.status_code}')
         if response.is_redirect:raise BridgeError('Перенаправление интеграции запрещено')
-        return response.json()
+        data=response.json()
+        if method=='GET' and '/messages?' in path and not data.get('deleted'):
+            if not isinstance(data.get('history_version'),str) or not re.fullmatch(r'[0-9]{1,20}',data['history_version']):raise BridgeError('Обновите API магазина для синхронизации структуры истории')
+        return data
 
 
 def enabled():return bool(os.getenv('SHOP_BRIDGE_URL',''))
@@ -85,6 +88,7 @@ async def deliver(s,ticket,message,api=None):
     if api is None:
         async with ClientAPI() as owned:return await deliver(s,ticket,message,owned)
     await binding(s,api)
+    if ticket.shop_merged_into_id:raise BridgeError('Обращение объединено; откройте итоговое обращение')
     if message.sender not in ('operator','user'):
         message.delivery_state='sent';message.sent_at=now();await s.commit();return
     files=await send_files(api,s,ticket,message)
@@ -93,6 +97,7 @@ async def deliver(s,ticket,message,api=None):
     if kind=='customer':body['user_id' if ticket.telegram_user_id<0 else 'telegram_id']=abs(ticket.telegram_user_id)
     result=await api.request('POST',f'/tickets/{ticket.shop_ticket_id}/'+('reply' if kind=='reply' else 'customer-message'),body,
         f'sp:{api.instance}:{kind}:{message.id}')
+    if isinstance(result.get('id'),int) and result['id']>0:message.shop_message_id=result['id']
     # Never advance the read cursor here: earlier incoming messages may not be mirrored yet.
     message.delivery_state='sent';message.sent_at=now();message.text_sent=True;message.attachment_sent=True;message.error=''
     ticket=await s.scalar(select(Ticket).where(Ticket.id==ticket.id).execution_options(populate_existing=True).with_for_update())
@@ -120,6 +125,9 @@ async def purge(s,ticket):
         c.full_name='Удалённый аккаунт';c.username='';c.notes='';c.tags=''
         for access in (await s.scalars(select(PortalAccess).where(PortalAccess.client_id==ticket.telegram_user_id))).all():access.revoked=True
 
+def same_shop_owner(previous,item):
+    return bool(previous and previous.shop_ticket_id and (previous.shop_user_id==item['user_id'] or (previous.shop_user_id is None and (previous.telegram_user_id==-item['user_id'] or (item.get('telegram_id') and previous.telegram_user_id==item['telegram_id'])))))
+
 async def mirror(s,item,api):
     s.info['shop_pull']=True
     paths=[]
@@ -139,21 +147,45 @@ async def mirror(s,item,api):
             await assign(s,ticket)
         if item['deleted']:
             await purge(s,ticket);await s.commit();return
-        after=ticket.shop_last_message_id if ticket.shop_initial_loaded else 0
+        if ticket.shop_user_id not in (None,item['user_id']):raise BridgeError('Владелец удалённой переписки изменился')
+        ticket.shop_user_id=item['user_id']
+        version=item.get('history_version')
+        scanning=bool(version and version!=ticket.shop_history_version)
+        if scanning and ticket.shop_scan_version!=version:
+            ticket.shop_scan_version=version;ticket.shop_scan_after_id=0
+        after=ticket.shop_scan_after_id if scanning else (ticket.shop_last_message_id if ticket.shop_initial_loaded else 0)
         page=await api.request('GET',f'/tickets/{item["id"]}/messages?after={after}')
         if page.get('deleted'):
             await purge(s,ticket);await s.commit();return
+        actual_version=page.get('history_version') or version
+        if actual_version and actual_version!=ticket.shop_scan_version and (scanning or actual_version!=ticket.shop_history_version):
+            ticket.shop_scan_version=actual_version;ticket.shop_scan_after_id=0
+            scanning=True
+            if after:
+                await s.commit();return True
+        ticket.shop_merged_into_id=page.get('merged_into_id') or item.get('merged_into_id')
+        if ticket.shop_merged_into_id:
+            pending=(await s.scalars(select(Message).where(Message.ticket_id==ticket.id,Message.delivery_state.in_(('queued','sending','failed'))))).all()
+            for outbound in pending:
+                outbound.delivery_state='uncertain';outbound.error='Обращение объединено; проверьте итоговую историю перед новой отправкой'
+            jobs=(await s.scalars(select(WorkItem).where(WorkItem.ticket_id==ticket.id,WorkItem.kind=='shop_status',WorkItem.state.in_(('queued','sending'))))).all()
+            for job in jobs:job.state='cancelled';job.error='Обращение объединено'
         for remote in page['messages']:
             if remote['id']==0 and ticket.shop_initial_loaded:continue
             key=f'shop:{item["id"]}:{remote["id"]}'
-            message=await s.scalar(select(Message).where(Message.source_key==key))
+            message=await s.scalar(select(Message).where(Message.shop_message_id==remote['id'])) if remote['id']>0 else None
+            if not message:message=await s.scalar(select(Message).where(Message.source_key==key))
             source=remote.get('source_key') or ''
             match=re.fullmatch(r'sp:'+re.escape(api.instance)+r':(reply|customer|import):(\d+)',source)
             if not message and match:
                 original=await s.get(Message,int(match[2]))
-                if original and original.ticket_id==ticket.id:
+                if original:
                     message=original
                     if match[1]!='import':message.delivery_state='sent';message.error='';message.sent_at=now()
+            if message and message.ticket_id!=ticket.id:
+                previous=await s.get(Ticket,message.ticket_id)
+                if not same_shop_owner(previous,item):raise BridgeError('Нельзя перенести сообщение другого владельца')
+                message.ticket_id=ticket.id
             if not message:
                 date=utc(datetime.fromisoformat(remote['created_at']))
                 message=Message(ticket_id=ticket.id,sender='user' if remote['role']=='customer' else 'operator',text=remote['body'],
@@ -166,8 +198,14 @@ async def mirror(s,item,api):
                 else:
                     ticket.first_response_at=ticket.first_response_at or date
                     ticket.waiting_since=None
+            if remote['id']>0:message.shop_message_id=remote['id']
             for file in remote.get('attachments',[]):
-                if await s.scalar(select(Attachment.id).where(Attachment.shop_attachment_id==file['id'])):continue
+                existing=await s.scalar(select(Attachment).where(Attachment.shop_attachment_id==file['id']))
+                if existing:
+                    previous=await s.get(Ticket,existing.ticket_id)
+                    if existing.ticket_id!=ticket.id and not same_shop_owner(previous,item):raise BridgeError('Нельзя перенести вложение другого владельца')
+                    existing.ticket_id=ticket.id;existing.message_id=message.id
+                    continue
                 raw=await api.request('GET',f'/attachments/{file["id"]}')
                 data=base64.b64decode(raw['content_base64'],validate=True)
                 mime=validate_file(raw['name'],data)
@@ -176,10 +214,18 @@ async def mirror(s,item,api):
                 s.add(Attachment(ticket_id=ticket.id,message_id=message.id,filename=raw['name'],path=str(path),
                     content_type=mime,size=len(data),shop_attachment_id=file['id']))
             ticket.shop_last_message_id=max(ticket.shop_last_message_id,remote['id'])
+        if scanning:
+            ticket.shop_scan_after_id=page['next_cursor'] or 0
+            if page['next_cursor'] is None:
+                ticket.shop_history_version=actual_version;ticket.shop_scan_version=''
         ticket.shop_initial_loaded=True
         ticket.subject=item['subject']
         if page['next_cursor'] is None:
-            if page['status']=='resolved':ticket.status='closed';ticket.closed_at=ticket.closed_at or now()
+            latest_user=await s.scalar(select(Message).where(Message.ticket_id==ticket.id,Message.sender=='user').order_by(Message.created_at.desc(),Message.id.desc()).limit(1))
+            latest_reply=await s.scalar(select(Message).where(Message.ticket_id==ticket.id,Message.sender=='operator',Message.delivery_state=='sent').order_by(Message.created_at.desc(),Message.id.desc()).limit(1))
+            ticket.last_customer_message_id=latest_user.id if latest_user else 0
+            ticket.waiting_since=latest_user.created_at if latest_user and (not latest_reply or utc(latest_user.created_at)>utc(latest_reply.created_at)) else None
+            if ticket.shop_merged_into_id or page['status']=='resolved':ticket.status='closed';ticket.closed_at=ticket.closed_at or now()
             elif ticket.status=='closed':ticket.status='open';ticket.closed_at=None
         await s.commit()
         return page['next_cursor'] is not None
@@ -224,6 +270,8 @@ async def status_one(session_factory,api=None):
         await binding(s,api)
         job.state='sending';job.attempts+=1;job.due_at=now()+timedelta(minutes=2);await s.commit()
         ticket=await s.scalar(select(Ticket).where(Ticket.id==job.ticket_id).execution_options(populate_existing=True).with_for_update())
+        if ticket.shop_merged_into_id:
+            job.state='cancelled';job.error='Обращение объединено';await s.commit();return True
         desired='resolved' if ticket.status=='closed' else 'open'
         if desired!=job.payload['status'] or ticket.shop_last_message_id!=job.payload['expected_message_id']:
             job.state='cancelled';job.error='Более новое состояние обращения';await s.commit();return True

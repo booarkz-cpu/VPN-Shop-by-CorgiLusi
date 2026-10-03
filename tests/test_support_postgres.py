@@ -70,14 +70,20 @@ async def test_support_migration_keeps_existing_operator_reply(support_pg):
     path=Path(__file__).resolve().parents[1]/"backend/alembic/versions/0043_support_conversations.py"
     spec=importlib.util.spec_from_file_location("conversation_migration",path)
     migration=importlib.util.module_from_spec(spec);spec.loader.exec_module(migration)
+    delivery_path=Path(__file__).resolve().parents[1]/"backend/alembic/versions/0062_support_delivery_identity.py"
+    delivery_spec=importlib.util.spec_from_file_location("delivery_migration",delivery_path)
+    delivery=importlib.util.module_from_spec(delivery_spec);delivery_spec.loader.exec_module(delivery)
     def migrate(connection):
         SupportAttachment.__table__.drop(connection)
         SupportMessage.__table__.drop(connection)
+        connection.execute(text("ALTER TABLE support_tickets DROP COLUMN topology_version"))
         with Operations.context(MigrationContext.configure(connection)):
             migration.upgrade()
+            delivery.upgrade()
         SupportAttachment.__table__.create(connection)
     async with support_pg.begin() as conn:
         await conn.run_sync(migrate)
     async with AsyncSession(support_pg) as db:
         messages=(await db.execute(select(SupportMessage))).scalars().all()
         assert len(messages)==1 and messages[0].role=="admin" and messages[0].body=="Сохранённый ответ"
+        assert (await db.get(SupportTicket,messages[0].ticket_id)).topology_version==0

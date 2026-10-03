@@ -116,11 +116,14 @@ async def apply(payload: OperationIn, request: Request, db: AsyncSession = Depen
         # Different tickets may share a retry key. Namespace transferred keys
         # rather than dropping either message or violating its unique constraint.
         if message.idempotency_key:
+            message.delivery_key = message.delivery_key or message.idempotency_key
             message.idempotency_key = 'moved:' + hashlib.sha256(f'{source.id}:{message.id}:{message.idempotency_key}'.encode()).hexdigest()
     for file in files:
         if file.ticket_id == source.id and (payload.kind == 'merge' or file.message_id in moving):
             file.ticket_id = target.id
             file.idempotency_key = 'moved:' + hashlib.sha256(f'{source.id}:{file.id}:{file.idempotency_key}'.encode()).hexdigest()
+    source.topology_version=(source.topology_version or 0)+1
+    target.topology_version=(target.topology_version or 0)+1
     source.updated_at = target.updated_at = datetime.utcnow()
     target.status = 'open'
     # Compatibility reply projections must not expose a reply that moved away.

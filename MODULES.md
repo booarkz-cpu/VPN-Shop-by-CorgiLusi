@@ -1,4 +1,4 @@
-> Актуальная инструкция v21.4.0. Head магазина `0061_menu_hierarchy`, Support Pro `0005`.
+> Актуальная инструкция v21.5.0. Head магазина `0062_support_delivery_identity`, Support Pro `0006`.
 
 # Компоненты проекта
 
@@ -9,7 +9,7 @@
 | `admin` | Административная React-панель, поиск, таблицы и операторские действия |
 | `cabinet` | Общий пользовательский React-интерфейс |
 | `miniapp` | Telegram-поверхность, импортирующая общий кабинет |
-| `support-pro` | Отдельная поддержка и защищённый мост; текущий head `0005` |
+| `support-pro` | Отдельная поддержка и защищённый мост; текущий head `0006` |
 | `mobile/android-user`, `mobile/android-admin` | Исходники Android клиента и администратора |
 | `mobile/ios-user`, `mobile/ios-admin` | Исходники iOS клиента и администратора |
 | `desktop`, `browser-extension`, `corgi-cli` | Дополнительные клиентские инструменты; проверяйте отдельные README |

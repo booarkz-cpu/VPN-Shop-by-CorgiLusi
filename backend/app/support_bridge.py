@@ -37,7 +37,7 @@ async def ticket_for_write(db,ticket_id,importing=False):
 def ticket_output(t,u):
     return {'id':t.id,'user_id':t.user_id,'telegram_id':u.telegram_id if u and not u.deleted_at else None,
         'username':u.username if u and not u.deleted_at else '', 'subject':t.subject if u and not u.deleted_at else 'Удалённый аккаунт',
-        'status':t.status,'created_at':t.created_at,'deleted':not u or bool(u.deleted_at)}
+        'status':t.status,'created_at':t.created_at,'merged_into_id':t.merged_into_id,'history_version':str(t.topology_version),'deleted':not u or bool(u.deleted_at)}
 
 def visible_tickets():
     return select(SupportTicket,User).outerjoin(User,User.id==SupportTicket.user_id).where(
@@ -61,11 +61,15 @@ async def messages(ticket_id:int,after:int=Query(0,ge=0),db:AsyncSession=Depends
     if not t:raise HTTPException(404,'Обращение не найдено')
     owner=await db.get(User,t.user_id)
     if not owner or owner.deleted_at:return {'deleted':True,'messages':[],'next_cursor':None}
-    await preserve_previous_reply(db,t);await db.commit()
+    await preserve_previous_reply(db,t)
     thread=await read_thread(db,t,after)
-    keys=dict((await db.execute(select(SupportMessage.id,SupportMessage.idempotency_key).where(SupportMessage.ticket_id==t.id,SupportMessage.id.in_([x['id'] for x in thread['messages']])))).all())
+    keys=dict((await db.execute(select(SupportMessage.id,func.coalesce(SupportMessage.delivery_key,SupportMessage.idempotency_key)).where(SupportMessage.ticket_id==t.id,SupportMessage.id.in_([x['id'] for x in thread['messages']])))).all())
     for item in thread['messages']:item['source_key']=keys.get(item['id'])
-    return {**thread,'deleted':False}
+    # Keep the ticket lock until the complete page and its epoch are captured.
+    # A concurrent merge/split must not mix old metadata with new membership.
+    result={**thread,'deleted':False,'history_version':str(t.topology_version)}
+    await db.commit()
+    return result
 
 @router.get('/attachments/{attachment_id}')
 async def attachment(attachment_id:int,db:AsyncSession=Depends(get_db),instance=Depends(identity)):
