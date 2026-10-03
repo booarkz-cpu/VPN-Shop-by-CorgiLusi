@@ -19,6 +19,7 @@ venv/
 
 # Node
 node_modules/
+node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -52,5 +53,20 @@ mobile/**/.cxx/
 Thumbs.db
 
 # Browser verification outputs
-admin/test-results/
-admin/playwright-report/
+test-results/
+playwright-report/
+blob-report/
+coverage.xml
+htmlcov/
+
+# Temporary editor/merge files
+*.tmp
+*.bak
+*.orig
+*.rej
+*~
+
+# iOS build output
+DerivedData/
+*.xcarchive
+*.ipa
