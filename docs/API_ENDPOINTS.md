@@ -1,6 +1,6 @@
-# Каталог API — v21.1.0
+# Каталог API — v21.2.0
 
-Сгенерирован из OpenAPI текущих исходников. Миграция: `0057_partner_commissions`.
+Сгенерирован из OpenAPI текущих исходников. Миграция: `0058_customer_operations`.
 Авторизация, права, CSRF и принадлежность записей проверяются сервером; схема маршрута не заменяет права роли.
 Сценарии: [руководство](ru/WORKSPACE_USER_GUIDE.md), [рефералы](ru/REFERRALS_CURRENT.md), [HTTP API](../API_REFERENCE_RU.md).
 
@@ -65,6 +65,13 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/admin/content` | Admin Content |
 | `GET` | `/api/admin/corporate-accounts` | List Corporate |
 | `POST` | `/api/admin/corporate-accounts` | Create Corporate |
+| `POST` | `/api/admin/customer-operations/bulk/apply` | Bulk Apply |
+| `POST` | `/api/admin/customer-operations/bulk/preview` | Bulk Preview |
+| `GET` | `/api/admin/customer-operations/import/history` | Import History |
+| `POST` | `/api/admin/customer-operations/import/inspect` | Inspect |
+| `POST` | `/api/admin/customer-operations/import/preview` | Import Preview |
+| `POST` | `/api/admin/customer-operations/import/{job_id}/apply` | Import Apply |
+| `POST` | `/api/admin/customer-operations/import/{job_id}/cancel` | Cancel Import |
 | `GET` | `/api/admin/customers/{user_id}/360` | Customer 360 |
 | `GET` | `/api/admin/deployments` | Deployment List |
 | `POST` | `/api/admin/deployments` | Deployment Create |

@@ -31,7 +31,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.1.0"
+APP_VERSION = "21.2.0"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -120,6 +120,8 @@ from .customer_passkeys import router as customer_passkeys_router
 app.include_router(customer_passkeys_router)
 from .referral_program import router as referral_program_router
 app.include_router(referral_program_router)
+from .admin_customer_operations import router as admin_customer_operations_router
+app.include_router(admin_customer_operations_router)
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 PACKAGE_UPLOAD_BYTES = 80 * 1024 * 1024
@@ -510,6 +512,8 @@ async def start_backup_scheduler():
     _track_task(refund_revoke_scheduler())
     from .account_actions import mail_scheduler
     _track_task(mail_scheduler())
+    from .admin_customer_operations import import_cleanup_scheduler
+    _track_task(import_cleanup_scheduler())
     _track_task(monitor_checks_scheduler())
 
 @app.get("/health/live")
@@ -2488,10 +2492,10 @@ async def set_auto_renew(payload:dict,request:Request,db:AsyncSession=Depends(ge
     user=await user_from_token(request,db)
     if not isinstance(payload.get('enabled'),bool):raise HTTPException(400,'enabled must be boolean')
     enabled=payload['enabled']
-    method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id))).scalar_one_or_none()
-    if enabled and (not method or not method.enabled or method.provider != "yookassa"): raise HTTPException(409,"No supported recurring payment method is configured")
     user=await db.scalar(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())
     if not user or user.deleted_at:raise HTTPException(409,'Аккаунт недоступен')
+    method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
+    if enabled and (not method or not method.enabled or method.provider != "yookassa"): raise HTTPException(409,"No supported recurring payment method is configured")
     sub=await owned_subscription(db,user.id,lock=True)
     if not sub:raise HTTPException(404,"Подписка не найдена")
     if enabled:
@@ -2508,7 +2512,10 @@ async def set_auto_renew(payload:dict,request:Request,db:AsyncSession=Depends(ge
 
 @app.delete("/api/me/auto-renew/method")
 async def remove_auto_renew_method(request:Request,db:AsyncSession=Depends(get_db)):
-    user=await user_from_token(request,db); method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id))).scalar_one_or_none()
+    user=await user_from_token(request,db)
+    user=await db.scalar(select(User).where(User.id==user.id).execution_options(populate_existing=True).with_for_update())
+    if not user or user.deleted_at:raise HTTPException(409,'Аккаунт недоступен')
+    method=(await db.execute(select(AutoRenewMethod).where(AutoRenewMethod.user_id==user.id).execution_options(populate_existing=True).with_for_update())).scalar_one_or_none()
     if method: await db.delete(method)
     await db.execute(__import__("sqlalchemy").update(Subscription).where(Subscription.user_id==user.id).values(auto_renew_enabled=False))
     user.auto_renew_enabled=False; await db.commit(); return {"ok":True,"enabled":False}

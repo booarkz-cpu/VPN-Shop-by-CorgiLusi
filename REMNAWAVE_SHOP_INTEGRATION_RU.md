@@ -1,4 +1,4 @@
-# Интеграция Remnawave — v21.1.0
+# Интеграция Remnawave — v21.2.0
 
 Актуальная пошаговая инструкция: [Интеграция Remnawave](docs/ru/WORKSPACE_SUBSCRIPTIONS.md). Общий каталог: [DOCUMENTATION.md](DOCUMENTATION.md).
 
