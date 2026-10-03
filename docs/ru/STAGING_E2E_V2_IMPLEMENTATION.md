@@ -1,4 +1,4 @@
-> Актуальная инструкция v21.4.0. Head магазина `0061_menu_hierarchy`, Support Pro `0005`.
+> Актуальная инструкция v21.5.0. Head магазина `0062_support_delivery_identity`, Support Pro `0006`.
 
 # Реализация и проверка staging E2E v2
 

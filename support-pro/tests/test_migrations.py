@@ -17,7 +17,7 @@ def test_fresh_database_and_upgrade_preserves_history(tmp_path):
     fresh = tmp_path/'fresh.db'
     migrate(fresh, 'head')
     with sqlite3.connect(fresh) as c:
-        assert c.execute('SELECT version_num FROM alembic_version').fetchone()[0] == '0005'
+        assert c.execute('SELECT version_num FROM alembic_version').fetchone()[0] == '0006'
         assert 'notifications' in {x[0] for x in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     old = tmp_path/'old.db'
     migrate(old,'0001')
@@ -50,7 +50,7 @@ def test_unversioned_legacy_is_verified_and_upgraded(tmp_path):
     result = run_guard(path)
     assert result.returncode == 0, result.stdout + result.stderr
     with sqlite3.connect(path) as c:
-        assert c.execute('SELECT version_num FROM alembic_version').fetchone()[0] == '0005'
+        assert c.execute('SELECT version_num FROM alembic_version').fetchone()[0] == '0006'
         assert c.execute('SELECT subject FROM tickets').fetchone()[0] == 'Keep me'
 
 

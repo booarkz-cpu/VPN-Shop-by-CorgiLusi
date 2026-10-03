@@ -39,7 +39,7 @@ from .jobs import validate_rule, validate_url
 from .storage import save_upload, checked_path, safe_name, MAX_BYTES
 
 ROOT = Path(__file__).resolve().parent
-app = FastAPI(title='Support Pro 3.5', docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title='Support Pro 3.6', docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(SessionMiddleware, secret_key=session_secret(os.getenv('SESSION_SECRET', '')),
                    https_only=os.getenv('COOKIE_SECURE', 'true').lower() == 'true',
                    same_site='lax', max_age=28800)
@@ -329,12 +329,13 @@ async def ticket_page(request: Request, tid: int, op=Depends(current_operator)):
         cats = (await s.scalars(select(Category).order_by(Category.name))).all()
         macros = (await s.scalars(select(Macro).where(Macro.active.is_(True)).order_by(Macro.title))).all()
         client = await s.get(Client, ticket.telegram_user_id)
+        canonical=await s.scalar(select(Ticket).where(Ticket.shop_ticket_id==ticket.shop_merged_into_id)) if ticket.shop_merged_into_id else None
     grouped = defaultdict(list)
     for item in atts:
         grouped[item.message_id].append(item)
     return await render(request, 'ticket.html', op, t=ticket, messages=msgs, attachments=grouped,
                         ops=ops, operator_names={o.id: o.login for o in ops}, cats=cats, macros=macros,
-                        client=client, nonce=secrets.token_urlsafe(24), max_upload=2 if ticket.shop_ticket_id else MAX_BYTES // 1024 // 1024,
+                        client=client, canonical=canonical, nonce=secrets.token_urlsafe(24), max_upload=2 if ticket.shop_ticket_id else MAX_BYTES // 1024 // 1024,
                         ai_enabled=bool(os.getenv('AI_BASE_URL') and os.getenv('AI_MODEL') and os.getenv('AI_API_KEY')))
 
 
@@ -361,6 +362,7 @@ async def ticket_update(request: Request, tid: int, op=Depends(current_operator)
         raise HTTPException(400, 'Неизвестный статус или приоритет')
     async with Session() as s:
         t = await ticket_get(s, tid, True)
+        if t.shop_merged_into_id:raise HTTPException(409,'Обращение объединено; откройте итоговое обращение')
         assigned = int_field(data, 'assigned_to') or None
         category = int_field(data, 'category_id') or None
         if assigned:
@@ -406,6 +408,7 @@ async def reply(request: Request, tid: int, op=Depends(current_operator)):
     try:
         async with Session() as s:
             t = await ticket_get(s, tid, True)
+            if t.shop_merged_into_id and not internal:raise HTTPException(409,'Обращение объединено; откройте итоговое обращение')
             if await s.scalar(select(Message.id).where(Message.source_key == key)):
                 return redirect(f'/ticket/{tid}?sent={nonce}')
             m = Message(ticket_id=tid, operator_id=op.id, sender='note' if internal else 'operator',
@@ -445,6 +448,8 @@ async def retry(request: Request, mid: int, op=Depends(current_operator)):
         m = await s.scalar(select(Message).where(Message.id == mid).with_for_update())
         if not m or m.sender not in ('operator', 'system') or m.delivery_state not in ('failed', 'uncertain'):
             raise HTTPException(400, 'Повторная отправка недоступна')
+        ticket=await ticket_get(s,m.ticket_id,True)
+        if ticket.shop_merged_into_id:raise HTTPException(409,'Обращение объединено; откройте итоговое обращение')
         if m.delivery_state == 'uncertain' and data.get('confirm_duplicate') != 'yes':
             raise HTTPException(400, 'Telegram мог принять сообщение. Подтвердите возможный повтор.')
         m.delivery_state, m.error, m.next_attempt_at, m.attempts = 'queued', '', None, 0

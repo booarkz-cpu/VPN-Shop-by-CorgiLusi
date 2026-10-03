@@ -120,6 +120,7 @@ async def bulk(request:Request,op=Depends(m.current_operator)):
     async with m.Session() as s:
         tickets=(await s.scalars(select(Ticket).where(Ticket.id.in_(ids)).order_by(Ticket.id).with_for_update())).all()
         if len(tickets)!=len(ids):raise HTTPException(404,'Есть недоступные обращения; ничего не изменено')
+        if action=='status' and any(t.shop_merged_into_id for t in tickets):raise HTTPException(409,'Обращение объединено; откройте итоговую историю')
         for t in tickets:
             if action=='status' and value in STATUSES:
                 if value=='closed':await close_ticket(s,t)

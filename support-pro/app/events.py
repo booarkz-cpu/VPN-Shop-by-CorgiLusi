@@ -11,6 +11,8 @@ def prepare(session, context, instances):
     changes = session.info.setdefault('support_events', [])
     for obj in list(session.new) + list(session.dirty):
         if isinstance(obj, Ticket):
+            if obj.shop_merged_into_id:
+                obj.status='closed';obj.closed_at=obj.closed_at or now()
             fresh = obj in session.new
             state = inspect(obj)
             status = state.attrs.status.history
@@ -34,6 +36,9 @@ def prepare(session, context, instances):
             if not session.info.get('automation') and (fresh or session.is_modified(obj)):
                 changes.append((obj, 'ticket.created' if fresh else 'ticket.updated',status.has_changes()))
         elif isinstance(obj, Message):
+            ticket=session.get(Ticket,obj.ticket_id) if obj.ticket_id else None
+            if ticket and ticket.shop_merged_into_id and obj.delivery_state in ('queued','sending'):
+                obj.delivery_state='uncertain';obj.error='Обращение объединено; проверьте итоговую историю'
             if obj in session.new: changes.append((obj, 'message.created',False))
             elif inspect(obj).attrs.delivery_state.history.has_changes() and obj.delivery_state == 'sent':
                 changes.append((obj, 'message.sent',False))
@@ -53,7 +58,7 @@ def enqueue(session, context):
         if isinstance(obj,Message) and name=='message.created' and obj.sender=='user' and not session.info.get('shop_pull'):
             ticket=session.get(Ticket,obj.ticket_id)
             if ticket and ticket.shop_ticket_id:
-                obj.delivery_state='queued'
+                obj.delivery_state='uncertain' if ticket.shop_merged_into_id else 'queued'
 
 
 @event.listens_for(Session, 'after_soft_rollback')

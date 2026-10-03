@@ -105,6 +105,7 @@ async def reply(request:Request,tid:int):
         async with m.Session() as s:
             t=await s.scalar(select(Ticket).where(Ticket.id==tid,Ticket.telegram_user_id==uid).with_for_update())
             if not t:raise HTTPException(404)
+            if t.shop_merged_into_id:raise HTTPException(409,'Обращение объединено; откройте итоговое обращение')
             key=f'portal:{uid}:{nonce}'
             if await s.scalar(select(Message.id).where(Message.source_key==key)):return m.redirect(f'/portal/ticket/{tid}')
             msg=Message(ticket_id=tid,sender='user',text=text,source_key=key,delivery_state='received');s.add(msg);await s.flush()

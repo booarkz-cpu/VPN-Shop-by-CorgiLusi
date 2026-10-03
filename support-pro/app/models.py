@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Text, BigInteger, DateTime, ForeignKey, Boolean, Integer, UniqueConstraint, JSON
+from sqlalchemy import String, Text, BigInteger, DateTime, ForeignKey, Boolean, Integer, UniqueConstraint, JSON, Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -62,6 +62,11 @@ class Ticket(Base):
     __tablename__ = 'tickets'
     shop_import_until_id: Mapped[int | None] = mapped_column(Integer)
     shop_import_complete: Mapped[bool] = mapped_column(Boolean,default=False)
+    shop_user_id: Mapped[int | None] = mapped_column(Integer)
+    shop_merged_into_id: Mapped[int | None] = mapped_column(Integer)
+    shop_history_version: Mapped[str] = mapped_column(String(80),default='')
+    shop_scan_version: Mapped[str] = mapped_column(String(80),default='')
+    shop_scan_after_id: Mapped[int] = mapped_column(Integer,default=0)
     shop_ticket_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     shop_last_message_id: Mapped[int] = mapped_column(Integer, default=0)
     shop_initial_loaded: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -93,6 +98,8 @@ class Ticket(Base):
 
 class Message(Base):
     __tablename__ = 'messages'
+    __table_args__=(Index('uq_message_shop_identity','shop_message_id',unique=True),)
+    shop_message_id: Mapped[int | None] = mapped_column(Integer)
     id: Mapped[int] = mapped_column(primary_key=True)
     ticket_id: Mapped[int] = mapped_column(ForeignKey('tickets.id'), index=True)
     operator_id: Mapped[int | None] = mapped_column(ForeignKey('operators.id'))

@@ -554,6 +554,7 @@ class SupportTicket(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="open", nullable=False)
     admin_reply: Mapped[str|None] = mapped_column(Text)
+    topology_version: Mapped[int] = mapped_column(Integer,default=0,nullable=False)
     merged_into_id: Mapped[int|None] = mapped_column(ForeignKey("support_tickets.id", ondelete="RESTRICT", name="fk_support_merged_into"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
@@ -566,6 +567,7 @@ class SupportMessage(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     idempotency_key: Mapped[str|None] = mapped_column(String(128))
+    delivery_key: Mapped[str|None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 class SupportAttachment(Base):

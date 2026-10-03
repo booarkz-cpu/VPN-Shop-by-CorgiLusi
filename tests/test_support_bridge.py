@@ -124,3 +124,49 @@ async def test_portal_shop_identity_is_ticket_scoped(database,api):
         assert response.status_code==200
         again=await api.post(path,headers=headers,json={'user_id':1,'body':'My reply'})
         assert response.json()['id']==again.json()['id'] and not again.json()['created']
+
+@pytest.mark.asyncio
+async def test_topology_keeps_delivery_identity_and_reports_epoch(database,api):
+    from types import SimpleNamespace
+    from app import support_topology as topology
+    from starlette.requests import Request
+    database.add_all([SupportTicket(id=1,user_id=1,subject='One',message='One'),SupportTicket(id=2,user_id=1,subject='Two',message='Two')]);await database.commit()
+    async with api:
+        response=await api.post('/api/internal/support-bridge/tickets/1/reply',headers={'Idempotency-Key':'sp:support-main:reply:42'},json={'body':'Answer'})
+        mid=response.json()['id']
+        before=(await api.get('/api/internal/support-bridge/tickets/2/messages')).json()['history_version']
+        op=topology.OperationIn(kind='merge',source_id=1,target_id=2)
+        actor=SimpleNamespace(email='operator@example.test');preview=await topology.preview(op,database,actor)
+        await topology.apply(op.model_copy(update={'fingerprint':preview['fingerprint']}),Request({'type':'http','headers':[(b'idempotency-key',b'topology')]}),database,actor)
+        page=(await api.get('/api/internal/support-bridge/tickets/2/messages')).json()
+        assert page['history_version']!=before
+        moved=next(m for m in page['messages'] if m['id']==mid)
+        assert moved['source_key']=='sp:support-main:reply:42'
+        assert (await database.get(SupportMessage,mid)).idempotency_key.startswith('moved:')
+        source=(await api.get('/api/internal/support-bridge/tickets/1/messages')).json();assert source['merged_into_id']==2
+        before=page['history_version']
+        await api.post('/api/internal/support-bridge/tickets/2/reply',headers={'Idempotency-Key':'sp:support-main:reply:43'},json={'body':'Another answer'})
+        assert (await api.get('/api/internal/support-bridge/tickets/2/messages')).json()['history_version']==before
+
+@pytest.mark.asyncio
+async def test_postgres_delivery_identity_migration_roundtrip_and_downgrade_guard(database):
+    if database.bind.dialect.name!='postgresql':pytest.skip('PostgreSQL migrations run in CI')
+    import importlib.util
+    from pathlib import Path
+    from alembic.operations import Operations
+    from alembic.migration import MigrationContext
+    spec=importlib.util.spec_from_file_location('delivery_migration',Path('backend/alembic/versions/0062_support_delivery_identity.py'))
+    migration=importlib.util.module_from_spec(spec);spec.loader.exec_module(migration)
+    database.add(SupportTicket(id=1,user_id=1,subject='Keep',message='Keep'));await database.flush()
+    database.add(SupportMessage(ticket_id=1,role='admin',body='Keep',idempotency_key='sp:support-main:reply:1'));await database.commit()
+    async with database.bind.begin() as conn:
+        def roundtrip(connection):
+            with Operations.context(MigrationContext.configure(connection)):migration.downgrade();migration.upgrade()
+        await conn.run_sync(roundtrip)
+    database.expire_all();message=await database.scalar(select(SupportMessage));assert message.delivery_key=='sp:support-main:reply:1'
+    message.idempotency_key='moved:hash';await database.commit()
+    with pytest.raises(RuntimeError,match='prevent downgrade'):
+        async with database.bind.begin() as conn:
+            def refuse(connection):
+                with Operations.context(MigrationContext.configure(connection)):migration.downgrade()
+            await conn.run_sync(refuse)

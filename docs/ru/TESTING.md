@@ -1,4 +1,4 @@
-> Актуальная инструкция v21.4.0. Head магазина `0061_menu_hierarchy`, Support Pro `0005`.
+> Актуальная инструкция v21.5.0. Head магазина `0062_support_delivery_identity`, Support Pro `0006`.
 
 # Проверка магазина без платёжных систем
 
@@ -95,7 +95,7 @@ docker compose --env-file .env.test -f docker-compose.test.yml logs --tail 80 ba
 
 ## Alpha.4 и подготовка финального выпуска
 
-Текущие миграции: магазин `0050_account_actions`, Support Pro `0005`. Новые проверки включают конкурентное использование recovery ссылок, сохранение продления конструктора и ожидание позднего оплаченного заказа. [Проверка через Termius и ограничения стенда](FINAL_RELEASE_READINESS.md), [SMTP сценарии](WORKSPACE_ACCOUNT_SECURITY.md). SMTP callback в unit-тесте не доказывает доставку реального письма.
+Текущие миграции: магазин `0050_account_actions`, Support Pro `0006`. Новые проверки включают конкурентное использование recovery ссылок, сохранение продления конструктора и ожидание позднего оплаченного заказа. [Проверка через Termius и ограничения стенда](FINAL_RELEASE_READINESS.md), [SMTP сценарии](WORKSPACE_ACCOUNT_SECURITY.md). SMTP callback в unit-тесте не доказывает доставку реального письма.
 
 ## Опросы alpha.5
 

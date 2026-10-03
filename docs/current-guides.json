@@ -1,6 +1,6 @@
 {
-  "version": "21.4.0",
-  "migration_head": "0061_menu_hierarchy",
+  "version": "21.5.0",
+  "migration_head": "0062_support_delivery_identity",
   "guides": [
     "ADMIN_GUIDE_RU.md",
     "API_REFERENCE_RU.md",
@@ -61,7 +61,7 @@
     "docs/ru/REAL_PAYMENTS_FROM_ZERO.md",
     "docs/ru/REFERRALS_CURRENT.md",
     "docs/ru/RELEASE_21_0_1_STABLE.md",
-    "docs/ru/RELEASE_21_4_0_STABLE.md",
+    "docs/ru/RELEASE_21_5_0_STABLE.md",
     "docs/ru/STAGING_E2E_V2_IMPLEMENTATION.md",
     "docs/ru/SUPPORT_TOPOLOGY_CURRENT.md",
     "docs/ru/TESTING.md",
@@ -91,6 +91,7 @@
     "docs_API.md",
     "support-pro/README.md",
     "support-pro/UPGRADE.md",
-    "docs/ru/MENU_TREE_CURRENT.md"
+    "docs/ru/MENU_TREE_CURRENT.md",
+    "docs/ru/SUPPORT_REMOTE_HISTORY_CURRENT.md"
   ]
 }
