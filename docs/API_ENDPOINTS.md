@@ -1,6 +1,6 @@
-# Каталог API — v21.3.0
+# Каталог API — v21.4.0
 
-Сгенерирован из OpenAPI текущих исходников. Миграция: `0060_promo_audiences`.
+Сгенерирован из OpenAPI текущих исходников. Миграция: `0061_menu_hierarchy`.
 Авторизация, права, CSRF и принадлежность записей проверяются сервером; схема маршрута не заменяет права роли.
 Сценарии: [руководство](ru/WORKSPACE_USER_GUIDE.md), [рефералы](ru/REFERRALS_CURRENT.md), [HTTP API](../API_REFERENCE_RU.md).
 
@@ -126,6 +126,7 @@ production gate остаётся закрытым без полного applicat
 | `PUT` | `/api/admin/miniapp/config` | Admin Miniapp Config |
 | `DELETE` | `/api/admin/miniapp/image` | Admin Miniapp Image Delete |
 | `POST` | `/api/admin/miniapp/image` | Admin Miniapp Image |
+| `PUT` | `/api/admin/miniapp/menu` | Save Mini Tree |
 | `GET` | `/api/admin/mobile/ops` | Admin Mobile Ops |
 | `GET` | `/api/admin/monitoring` | Admin Monitoring |
 | `GET` | `/api/admin/notifications` | Admin Notifications |
@@ -436,6 +437,7 @@ production gate остаётся закрытым без полного applicat
 | `GET` | `/api/public/branding` | Public Branding |
 | `GET` | `/api/public/cabinet-menu` | Public Cabinet Menu |
 | `GET` | `/api/public/config` | Public Config |
+| `GET` | `/api/public/menu-emoji/{emoji_id}` | Menu Emoji |
 | `GET` | `/api/public/pages` | Catalog |
 | `GET` | `/api/public/pages/{slug}` | Public Page |
 | `GET` | `/api/public/servers` | Public Servers |

@@ -229,6 +229,10 @@ class BotMenuItem(Base):
     item_type: Mapped[str] = mapped_column(String(32), default="webapp", nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    parent_id: Mapped[int|None]=mapped_column(ForeignKey('bot_menu_items.id',name='fk_bot_menu_parent',ondelete='RESTRICT'),index=True)
+    style: Mapped[str]=mapped_column(String(16),default='default',nullable=False)
+    icon_custom_emoji_id: Mapped[str|None]=mapped_column(String(32))
+    icon: Mapped[str]=mapped_column(String(16),default='',nullable=False)
 
 class TariffConstructor(Base):
     __tablename__ = "tariff_constructors"

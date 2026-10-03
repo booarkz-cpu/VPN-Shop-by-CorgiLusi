@@ -4,7 +4,7 @@ from datetime import datetime
 from html import escape
 from aiogram import Bot,Dispatcher,Router
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message,InlineKeyboardMarkup,InlineKeyboardButton,WebAppInfo
+from aiogram.types import CallbackQuery,Message,InlineKeyboardMarkup,InlineKeyboardButton,WebAppInfo
 from sqlalchemy import select, text as sql_text
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
@@ -177,6 +177,37 @@ async def broadcast_worker(bot: Bot):
                     logger.exception("broadcast failure status was not saved")
             await asyncio.sleep(5)
 
+async def menu_answer(send,*args,**kwargs):
+    from aiogram.exceptions import TelegramBadRequest
+    from .menu_tree import without_custom_icons
+    try:return await send(*args,**kwargs)
+    except TelegramBadRequest as exc:
+        markup=kwargs.get('reply_markup')
+        if not markup or 'emoji' not in str(exc).lower():raise
+        kwargs['reply_markup']=without_custom_icons(markup)
+        return await send(*args,**kwargs)
+
+
+@router.callback_query(lambda query:bool(query.data and (query.data.startswith('menu:') or query.data.startswith('menu-field:'))))
+async def menu_callback(query:CallbackQuery):
+    if not query.message or query.message.chat.type!='private' or query.message.chat.id!=query.from_user.id:
+        await query.answer();return
+    from .menu_tree import telegram_keyboard,visible_children
+    vals,menu,fields,*_=await get_bot_config()
+    try:item_id=int(query.data.split(':',1)[1])
+    except (ValueError,IndexError):await query.answer();return
+    row=next((r for r in menu if r.id==item_id),None)
+    if query.data.startswith('menu-field:'):
+        if not row or row.item_type!='field' or row not in visible_children(menu,row.parent_id):await query.answer('Кнопка больше не доступна');return
+        field=next((f for f in fields if f.key==row.action and f.enabled),None)
+        if not field:await query.answer('Поле больше не доступно');return
+        await query.answer();await menu_answer(query.message.answer,f'<b>{escape(field.label)}</b>\n{escape(field.value)}',parse_mode='HTML');return
+    if item_id and (not row or row.item_type!='folder' or not visible_children(menu,item_id)):
+        await query.answer('Меню пусто или больше не доступно');return
+    markup=telegram_keyboard(menu,fields,item_id or None)
+    await query.answer();await menu_answer(query.message.answer,escape(row.title) if row else 'Меню',reply_markup=markup,parse_mode='HTML')
+
+
 @router.message(CommandStart())
 async def start(message:Message):
     if getattr(getattr(message,"chat",None),"type","private")!="private":
@@ -229,18 +260,12 @@ async def start(message:Message):
     if len(parts)>1:
         start_arg=parts[1].strip().split()[0]
     gift_code=start_arg.upper() if start_arg.upper().startswith("GIFT_") else ""
-    buttons=[]; field_text=[]
-    for m in menu:
-        if m.item_type=="webapp":
-            url=m.action or settings.mini_app_url
-            if not url.startswith("https://"): continue
-            buttons.append([InlineKeyboardButton(text=m.title,web_app=WebAppInfo(url=url))])
-        elif m.item_type=="url":
-            if not m.action.startswith("https://"): continue
-            buttons.append([InlineKeyboardButton(text=m.title,url=m.action)])
-        elif m.item_type=="field":
+    from .menu_tree import telegram_keyboard,visible_children
+    buttons=telegram_keyboard(menu,fields).inline_keyboard;field_text=[]
+    for m in visible_children(menu):
+        if m.item_type=='field':
             f=next((x for x in fields if x.key==m.action),None)
-            if f: field_text.append(f"<b>{escape(f.label)}</b>\n{escape(f.value)}")
+            if f:field_text.append(f"<b>{escape(f.label)}</b>\n{escape(f.value)}")
     shop_url=settings.mini_app_url
     if gift_code:
         join="&" if "?" in shop_url else "?"
@@ -270,12 +295,12 @@ async def start(message:Message):
     if start_image:
         photo_url=start_image if start_image.startswith("https://") else settings.public_base_url.rstrip("/")+"/"+start_image.lstrip("/")
         try:
-            await message.answer_photo(photo=photo_url,caption=text,reply_markup=markup,parse_mode="HTML")
+            await menu_answer(message.answer_photo,photo=photo_url,caption=text,reply_markup=markup,parse_mode="HTML")
             return
         except Exception:
             # Image delivery must never break the bot's core /start response.
             pass
-    await message.answer(text,reply_markup=markup,parse_mode="HTML")
+    await menu_answer(message.answer,text,reply_markup=markup,parse_mode="HTML")
 
 @router.message(Command("buy"))
 async def buy(message: Message):

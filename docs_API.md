@@ -1,4 +1,4 @@
-# API и эксплуатация — v21.3.0
+# API и эксплуатация — v21.4.0
 
 Актуальная пошаговая инструкция: [API и эксплуатация](API_REFERENCE_RU.md). Общий каталог: [DOCUMENTATION.md](DOCUMENTATION.md).
 

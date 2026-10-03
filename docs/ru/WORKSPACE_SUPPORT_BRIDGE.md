@@ -1,6 +1,6 @@
 # Единая переписка магазина и Support Pro
 
-Доступно с v21.3.0-alpha.3. Магазин хранит клиентскую историю и файлы. Support Pro показывает её операторам, сохраняет назначения, SLA и внутренние заметки, а ответы передаёт через закрытый машинный API. Кабинет и админка магазина видят те же сообщения. Это дополнение к существующему SSO, а не новая система входа.
+Инструкция для v21.4.0. Магазин хранит клиентскую историю и файлы. Support Pro показывает её операторам, сохраняет назначения, SLA и внутренние заметки, а ответы передаёт через закрытый машинный API. Кабинет и админка магазина видят те же сообщения. Это дополнение к существующему SSO, а не новая система входа.
 
 ## Подключение действующей установки через Termius
 
@@ -11,14 +11,14 @@
 ```bash
 cd /opt/vpn-shop
 git fetch origin
-git switch --detach v21.3.0-alpha.5
+git switch --detach v21.4.0
 docker compose stop backend worker support_pro support_worker
 docker compose build backend worker support_migrate support_pro support_worker
 docker compose run --rm backend alembic upgrade head
 docker compose run --rm support_migrate
 ```
 
-Нужны `0048_support_bridge` в магазине и `0005` в Support Pro. Корневой Compose читает существующий `support-pro/.env`. Сохраните его BOT_TOKEN, SESSION_SECRET, имя базы и настройки SSO. Для новой установки общие ключи создаёт установщик.
+После обновления нужны head `0061_menu_hierarchy` в магазине и `0005` в Support Pro. Схема интеграции была добавлена миграцией 0048. Корневой Compose читает существующий `support-pro/.env`. Сохраните его BOT_TOKEN, SESSION_SECRET, имя базы и настройки SSO. Для новой установки общие ключи создаёт установщик.
 
 Настройте обе стороны одной командой, подставив **API-домен** магазина, а не домен кабинета:
 

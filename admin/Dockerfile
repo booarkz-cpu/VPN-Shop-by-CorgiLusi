@@ -9,6 +9,7 @@ RUN if [ -f package-lock.json ]; then npm ci --ignore-scripts --no-audit --no-fu
 COPY admin/ .
 COPY cabinet/src/support-attachments.tsx /src/cabinet/src/support-attachments.tsx
 COPY cabinet/src/public-pages.tsx /src/cabinet/src/public-pages.tsx
+COPY cabinet/src/button-tree.tsx /src/cabinet/src/button-tree.tsx
 RUN npm run build
 FROM ${NGINX_BASE_IMAGE}
 COPY --from=build /src/admin/dist /usr/share/nginx/html

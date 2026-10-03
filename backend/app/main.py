@@ -31,7 +31,7 @@ from .security import (hash_password, verify_password, encrypt_secret, decrypt_s
                        current_admin, require_permission, verify_totp, generate_recovery_codes, set_recovery_codes, consume_recovery_code)
 from .totp import random_base32, provisioning_uri
 
-APP_VERSION = "21.3.0"
+APP_VERSION = "21.4.0"
 # Historical compatibility marker: APP_VERSION = "20.0.8"
 # Historical compatibility marker: APP_VERSION = "20.0.7"
 # Historical compatibility marker: APP_VERSION = "20.0.6"
@@ -127,6 +127,8 @@ app.include_router(content_admin_router)
 app.include_router(content_public_router)
 from .personal_offers import router as personal_offers_router
 app.include_router(personal_offers_router)
+from .menu_tree import emoji_router
+app.include_router(emoji_router)
 
 MAX_REQUEST_BYTES = 12 * 1024 * 1024
 PACKAGE_UPLOAD_BYTES = 80 * 1024 * 1024
@@ -907,7 +909,7 @@ async def public_config(db:AsyncSession=Depends(get_db)):
         payment_providers=await _payment_provider_order(db,None)
     except HTTPException:
         payment_providers=[]
-    return {"default_language": settings.default_language if settings.default_language in {"ru","en"} else "ru","required_channel":settings.required_telegram_channel,"app_name":values.get("app_name","VPN Shop by Corgi Lusi"),"bot_name":values.get("bot_name","VPN Shop by Corgi Lusi"),"bot_start_image":values.get("bot_start_image",""),"menu":[{"title":m.title,"action":m.action,"type":m.item_type} for m in menus],"fields":[{"key":f.key,"label":f.label,"type":f.field_type,"value":f.value} for f in fields],"images":[{"title":i.title,"url":"/media/"+i.filename} for i in images],"yandex_enabled":bool(settings.yandex_client_id and settings.yandex_redirect_uri),"vk_enabled":bool(settings.vk_client_id and settings.vk_redirect_uri),"email_auth_enabled":True,"trial_days":max(1,min(int(settings.trial_max_days or 3),30)),"payments_sandbox":bool(settings.payments_sandbox),"cabinet_url":settings.cabinet_url or settings.mini_app_url,"bot_username":settings.bot_username,"advertisements":[{"title":a.title,"text":a.text,"image_url":a.image_url,"button_text":a.button_text,"button_url":a.button_url} for a in ads],"promotions":[{"id":p.id,"name":p.name,"kind":p.kind,"value":float(p.value),"description":p.description,"plan_ids":p.plan_ids} for p in promos],"miniapp":{"title":values.get("miniapp_title",values.get("app_name","VPN Shop by Corgi Lusi")),"subtitle":values.get("miniapp_subtitle",""),"background_color":values.get("miniapp_background_color","#f5f7fb"),"background_image":values.get("miniapp_background_image",""),"image":values.get("miniapp_image",""),"instructions":values.get("miniapp_instructions",""),"buttons":mini_buttons},"payment_providers":payment_providers}
+    return {"default_language": settings.default_language if settings.default_language in {"ru","en"} else "ru","required_channel":settings.required_telegram_channel,"app_name":values.get("app_name","VPN Shop by Corgi Lusi"),"bot_name":values.get("bot_name","VPN Shop by Corgi Lusi"),"bot_start_image":values.get("bot_start_image",""),"menu":[{"title":m.title,"action":m.action,"type":m.item_type,"id":m.id,"parent_id":m.parent_id,"style":m.style,"icon_custom_emoji_id":m.icon_custom_emoji_id,"icon":m.icon} for m in menus],"fields":[{"key":f.key,"label":f.label,"type":f.field_type,"value":f.value} for f in fields],"images":[{"title":i.title,"url":"/media/"+i.filename} for i in images],"yandex_enabled":bool(settings.yandex_client_id and settings.yandex_redirect_uri),"vk_enabled":bool(settings.vk_client_id and settings.vk_redirect_uri),"email_auth_enabled":True,"trial_days":max(1,min(int(settings.trial_max_days or 3),30)),"payments_sandbox":bool(settings.payments_sandbox),"cabinet_url":settings.cabinet_url or settings.mini_app_url,"bot_username":settings.bot_username,"advertisements":[{"title":a.title,"text":a.text,"image_url":a.image_url,"button_text":a.button_text,"button_url":a.button_url} for a in ads],"promotions":[{"id":p.id,"name":p.name,"kind":p.kind,"value":float(p.value),"description":p.description,"plan_ids":p.plan_ids} for p in promos],"miniapp":{"title":values.get("miniapp_title",values.get("app_name","VPN Shop by Corgi Lusi")),"subtitle":values.get("miniapp_subtitle",""),"background_color":values.get("miniapp_background_color","#f5f7fb"),"background_image":values.get("miniapp_background_image",""),"image":values.get("miniapp_image",""),"instructions":values.get("miniapp_instructions",""),"buttons":mini_buttons},"payment_providers":payment_providers}
 
 @app.get("/api/me")
 async def api_me(request:Request,db:AsyncSession=Depends(get_db)):
@@ -4422,10 +4424,14 @@ def validate_public_url(value: str|None, *, allow_empty: bool=True) -> str|None:
 class SettingIn(BaseModel): value:str=Field(max_length=100000)
 class MenuIn(BaseModel):
     title:str=Field(min_length=1,max_length=255)
-    action:str=Field(min_length=1,max_length=255)
-    item_type:str=Field(default="webapp",pattern="^(webapp|url|field)$")
+    action:str=Field(default="",min_length=0,max_length=255)
+    item_type:str=Field(default="webapp",pattern="^(webapp|url|field|folder)$")
     sort_order:int=Field(default=0,ge=-100000,le=100000)
     enabled:bool=True
+    parent_id:int|None=Field(default=None,gt=0)
+    style:str=Field(default='default',pattern='^(default|primary|success|danger)$')
+    icon_custom_emoji_id:str|None=Field(default=None,pattern=r'^[0-9]{5,32}$')
+    icon:str=Field(default='',max_length=16)
 class FieldIn(BaseModel): key:str=Field(min_length=1,max_length=100,pattern=r"^[A-Za-z0-9_.-]+$"); label:str=Field(min_length=1,max_length=255); field_type:str=Field(default="text",pattern="^(text|url|number)$"); value:str=Field(default="",max_length=10000); enabled:bool=True; sort_order:int=Field(default=0,ge=-100000,le=100000)
 
 BRANDING_KEYS = {"app_name", "app_logo", "app_favicon", "theme_default"}
@@ -4453,11 +4459,12 @@ async def admin_content(db:AsyncSession=Depends(get_db),admin=Depends(require_pe
     secret_keys={"yookassa_shop_id","yookassa_secret_key","platega_merchant_id","platega_secret","rollypay_api_key","rollypay_signing_secret","backup_password","staging_e2e.config"}
     ss=(await db.execute(select(AppSetting).where(AppSetting.key.in_(safe_keys|secret_keys)))).scalars().all()
     setting_values={x.key:x.value for x in ss if x.key in safe_keys}
+    mini_buttons_fingerprint=hashlib.sha256(setting_values.get("miniapp_buttons","[]").encode()).hexdigest()
     try: setting_values["miniapp_buttons"]=json.loads(setting_values.get("miniapp_buttons","[]"))
     except Exception: setting_values["miniapp_buttons"]=[]
     secret_status={x.key:bool(x.value) for x in ss if x.key in secret_keys}
     mm=(await db.execute(select(BotMenuItem).order_by(BotMenuItem.sort_order,BotMenuItem.id))).scalars().all(); ff=(await db.execute(select(CustomField).order_by(CustomField.sort_order,CustomField.id))).scalars().all(); ii=(await db.execute(select(MenuImage).order_by(MenuImage.sort_order,MenuImage.id))).scalars().all()
-    return {"settings":setting_values,"secret_status":secret_status,"menu":[{"id":x.id,"title":x.title,"action":x.action,"item_type":x.item_type,"sort_order":x.sort_order,"enabled":x.enabled} for x in mm],"fields":[{"id":x.id,"key":x.key,"label":x.label,"field_type":x.field_type,"value":x.value,"enabled":x.enabled,"sort_order":x.sort_order} for x in ff],"images":[{"id":x.id,"title":x.title,"url":"/media/"+x.filename,"sort_order":x.sort_order,"enabled":x.enabled} for x in ii]}
+    return {"miniapp_buttons_fingerprint":mini_buttons_fingerprint,"settings":setting_values,"secret_status":secret_status,"menu":[{"id":x.id,"title":x.title,"action":x.action,"item_type":x.item_type,"sort_order":x.sort_order,"enabled":x.enabled,"parent_id":x.parent_id,"style":x.style,"icon_custom_emoji_id":x.icon_custom_emoji_id,"icon":x.icon} for x in mm],"fields":[{"id":x.id,"key":x.key,"label":x.label,"field_type":x.field_type,"value":x.value,"enabled":x.enabled,"sort_order":x.sort_order} for x in ff],"images":[{"id":x.id,"title":x.title,"url":"/media/"+x.filename,"sort_order":x.sort_order,"enabled":x.enabled} for x in ii]}
 
 @app.put("/api/admin/settings/{key}")
 async def admin_setting(key:str,payload:SettingIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
@@ -4575,6 +4582,8 @@ class MiniAppConfigIn(BaseModel):
 
 @app.put("/api/admin/miniapp/config")
 async def admin_miniapp_config(payload:MiniAppConfigIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    from .menu_tree import lock_menu
+    await lock_menu(db)
     import re
     if payload.background_color and not re.fullmatch(r"#[0-9a-fA-F]{6}",payload.background_color):
         raise HTTPException(400,"background_color must be #RRGGBB")
@@ -4582,13 +4591,9 @@ async def admin_miniapp_config(payload:MiniAppConfigIn,db:AsyncSession=Depends(g
         raise HTTPException(400,"Можно настроить не более 30 кнопок")
     field_rows=(await db.execute(select(CustomField.key).where(CustomField.enabled.is_(True)))).scalars().all()
     field_keys=set(field_rows)
-    for b in payload.buttons:
-        if not isinstance(b,dict) or not b.get("title") or len(str(b.get("title")))>100 or b.get("type") not in {"url","plans","promo","field"}:
-            raise HTTPException(400,"Каждая кнопка требует название до 100 символов и тип url/plans/promo/field")
-        if b.get("type")=="url": validate_public_url(b.get("url"),allow_empty=False)
-        if b.get("type")=="promo" and (not b.get("code") or len(str(b.get("code")))>64): raise HTTPException(400,"Для кнопки промокода нужен корректный код")
-        if b.get("type")=="field" and b.get("field_key") not in field_keys: raise HTTPException(400,"Кнопка field ссылается на неизвестное или отключённое поле")
-    values={"miniapp_title":payload.title,"miniapp_subtitle":payload.subtitle,"miniapp_background_color":payload.background_color,"miniapp_instructions":payload.instructions,"miniapp_buttons":json.dumps(payload.buttons,ensure_ascii=False)}
+    from .menu_tree import normalize_mini_buttons
+    buttons=normalize_mini_buttons(payload.buttons,field_keys)
+    values={"miniapp_title":payload.title,"miniapp_subtitle":payload.subtitle,"miniapp_background_color":payload.background_color,"miniapp_instructions":payload.instructions,"miniapp_buttons":json.dumps(buttons,ensure_ascii=False)}
     for key,value in values.items():
         row=await db.get(AppSetting,key)
         if row: row.value=value
@@ -4659,7 +4664,9 @@ async def admin_miniapp_background_delete(db:AsyncSession=Depends(get_db),admin=
 
 @app.post("/api/admin/menu",response_model=dict)
 async def admin_menu(payload:MenuIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
-    if payload.item_type not in {"webapp","url","field"}: raise HTTPException(400,"Недопустимый тип кнопки")
+    from .menu_tree import lock_menu,validate_bot_tree
+    await lock_menu(db);await validate_bot_tree(db,payload)
+    if payload.item_type not in {"webapp","url","field","folder"}: raise HTTPException(400,"Недопустимый тип кнопки")
     if payload.item_type=="url": validate_public_url(payload.action,allow_empty=False)
     if payload.item_type=="webapp": validate_public_url(payload.action or settings.mini_app_url,allow_empty=False)
     if payload.item_type=="field":
@@ -4672,9 +4679,11 @@ async def admin_menu(payload:MenuIn,db:AsyncSession=Depends(get_db),admin=Depend
 
 @app.put("/api/admin/menu/{item_id}")
 async def admin_menu_update(item_id:int,payload:MenuIn,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    from .menu_tree import lock_menu,validate_bot_tree
+    await lock_menu(db);await validate_bot_tree(db,payload,item_id)
     x=await db.get(BotMenuItem,item_id);
     if not x: raise HTTPException(404,"Menu item not found")
-    if payload.item_type not in {"webapp","url","field"}: raise HTTPException(400,"Недопустимый тип кнопки")
+    if payload.item_type not in {"webapp","url","field","folder"}: raise HTTPException(400,"Недопустимый тип кнопки")
     if payload.item_type=="url": validate_public_url(payload.action,allow_empty=False)
     if payload.item_type=="webapp": validate_public_url(payload.action or settings.mini_app_url,allow_empty=False)
     if payload.item_type=="field":
@@ -4686,6 +4695,9 @@ async def admin_menu_update(item_id:int,payload:MenuIn,db:AsyncSession=Depends(g
 
 @app.delete("/api/admin/menu/{item_id}")
 async def admin_menu_delete(item_id:int,db:AsyncSession=Depends(get_db),admin=Depends(require_permission("manage_content"))):
+    from .menu_tree import lock_menu
+    await lock_menu(db)
+    if await db.scalar(select(BotMenuItem.id).where(BotMenuItem.parent_id==item_id).limit(1)):raise HTTPException(409,"Сначала перенесите или удалите дочерние кнопки")
     x=await db.get(BotMenuItem,item_id)
     if not x: raise HTTPException(404,"Menu item not found")
     await db.delete(x)

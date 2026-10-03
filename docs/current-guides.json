@@ -1,6 +1,6 @@
 {
-  "version": "21.3.0",
-  "migration_head": "0060_promo_audiences",
+  "version": "21.4.0",
+  "migration_head": "0061_menu_hierarchy",
   "guides": [
     "ADMIN_GUIDE_RU.md",
     "API_REFERENCE_RU.md",
@@ -61,7 +61,7 @@
     "docs/ru/REAL_PAYMENTS_FROM_ZERO.md",
     "docs/ru/REFERRALS_CURRENT.md",
     "docs/ru/RELEASE_21_0_1_STABLE.md",
-    "docs/ru/RELEASE_21_3_0_STABLE.md",
+    "docs/ru/RELEASE_21_4_0_STABLE.md",
     "docs/ru/STAGING_E2E_V2_IMPLEMENTATION.md",
     "docs/ru/SUPPORT_TOPOLOGY_CURRENT.md",
     "docs/ru/TESTING.md",
@@ -90,6 +90,7 @@
     "docs/uk/TESTING.md",
     "docs_API.md",
     "support-pro/README.md",
-    "support-pro/UPGRADE.md"
+    "support-pro/UPGRADE.md",
+    "docs/ru/MENU_TREE_CURRENT.md"
   ]
 }
